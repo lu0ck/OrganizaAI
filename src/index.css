@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(2%, 5%) scale(1.05); }
+    66% { transform: translate(-3%, -2%) scale(0.95); }
+  }
+  @keyframes blob {
+    0% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -50px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0px, 0px) scale(1); }
+  }
+}
+
+.animate-float {
+  animation: float 20s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 25s ease-in-out infinite reverse;
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+.glass {
+  @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-slate-800/50;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Default Red Theme */
+    --brand-50: #fff1f2;
+    --brand-100: #ffe4e6;
+    --brand-200: #fecdd3;
+    --brand-300: #fda4af;
+    --brand-400: #fb7185;
+    --brand-500: #f43f5e;
+    --brand-600: #e11d48;
+    --brand-700: #be123c;
+    --brand-800: #9f1239;
+    --brand-900: #881337;
+    --brand-950: #4c0519;
+  }
+
+  [data-theme='yellow'] {
+    --brand-50: #fefce8;
+    --brand-100: #fef9c3;
+    --brand-200: #fef08a;
+    --brand-300: #fde047;
+    --brand-400: #facc15;
+    --brand-500: #eab308;
+    --brand-600: #ca8a04;
+    --brand-700: #a16207;
+    --brand-800: #854d0e;
+    --brand-900: #713f12;
+    --brand-950: #422006;
+  }
+
+  [data-theme='orange'] {
+    --brand-50: #fff7ed;
+    --brand-100: #ffedd5;
+    --brand-200: #fed7aa;
+    --brand-300: #fdba74;
+    --brand-400: #fb923c;
+    --brand-500: #f97316;
+    --brand-600: #ea580c;
+    --brand-700: #c2410c;
+    --brand-800: #9a3412;
+    --brand-900: #7c2d12;
+    --brand-950: #431407;
+  }
+
+  [data-theme='green'] {
+    --brand-50: #f0fdf4;
+    --brand-100: #dcfce7;
+    --brand-200: #bbf7d0;
+    --brand-300: #86efac;
+    --brand-400: #4ade80;
+    --brand-500: #22c55e;
+    --brand-600: #16a34a;
+    --brand-700: #15803d;
+    --brand-800: #166534;
+    --brand-900: #14532d;
+    --brand-950: #052e16;
+  }
+
+  [data-theme='blue'] {
+    --brand-50: #eff6ff;
+    --brand-100: #dbeafe;
+    --brand-200: #bfdbfe;
+    --brand-300: #93c5fd;
+    --brand-400: #60a5fa;
+    --brand-500: #3b82f6;
+    --brand-600: #2563eb;
+    --brand-700: #1d4ed8;
+    --brand-800: #1e40af;
+    --brand-900: #1e3a8a;
+    --brand-950: #172554;
+  }
+
+  [data-theme='purple'] {
+    --brand-50: #faf5ff;
+    --brand-100: #f3e8ff;
+    --brand-200: #e9d5ff;
+    --brand-300: #d8b4fe;
+    --brand-400: #c084fc;
+    --brand-500: #a855f7;
+    --brand-600: #9333ea;
+    --brand-700: #7e22ce;
+    --brand-800: #6b21a8;
+    --brand-900: #581c87;
+    --brand-950: #3b0764;
+  }
+
+  [data-theme='black'] {
+    --brand-50: #f8fafc;
+    --brand-100: #f1f5f9;
+    --brand-200: #e2e8f0;
+    --brand-300: #cbd5e1;
+    --brand-400: #94a3b8;
+    --brand-500: #64748b;
+    --brand-600: #475569;
+    --brand-700: #334155;
+    --brand-800: #1e293b;
+    --brand-900: #0f172a;
+    --brand-950: #020617;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --brand-50: #4c0519;
+    --brand-100: #881337;
+    --brand-200: #9f1239;
+    --brand-300: #be123c;
+    --brand-400: #e11d48;
+    --brand-500: #f43f5e;
+    --brand-600: #fb7185;
+    --brand-700: #fda4af;
+    --brand-800: #fecdd3;
+    --brand-900: #ffe4e6;
+    --brand-950: #fff1f2;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 transition-colors duration-200;
+  }
+  
+  .dark body {
+    @apply bg-slate-950 text-slate-50;
+  }
+}
+
