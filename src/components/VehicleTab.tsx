@@ -3,6 +3,9 @@ import { Bike, Settings, Fuel, AlertCircle, TrendingUp, MapPin, Calendar, Clock,
 import { RideEntry, Expense, MaintenanceItem, UserProfile, MaintenanceHistory } from '../types';
 import { cn } from '../lib/utils';
 import { format, parseISO, differenceInDays, addDays } from 'date-fns';
+import { calculateFuelConsumption } from '../lib/fuelCalculation';
+import FuelConsumptionHistory from './FuelConsumptionHistory';
+import InfoTooltip from './Tooltip';
 
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -12,9 +15,11 @@ interface MotorcycleTabProps {
   maintenance: MaintenanceItem[];
   profile: UserProfile;
   onUpdateMaintenance: (items: MaintenanceItem[]) => void;
+  sidebarCollapsed?: boolean;
+  showToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-export default function MotorcycleTab({ rides, expenses, maintenance, profile, onUpdateMaintenance }: MotorcycleTabProps) {
+export default function MotorcycleTab({ rides, expenses, maintenance, profile, onUpdateMaintenance, sidebarCollapsed, showToast }: MotorcycleTabProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
@@ -43,38 +48,35 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
     const fuelExpenses = expenses.filter(e => e.type === 'combustivel');
     const totalFuelValue = fuelExpenses.reduce((acc, e) => acc + e.value, 0);
     const totalLiters = fuelExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
-    
+
     const maintenanceExpenses = expenses.filter(e => e.type === 'manutencao');
     const totalMaintenance = maintenanceExpenses.reduce((acc, e) => acc + e.value, 0);
 
-    // Calculate real consumption from full tank fill-ups if available
-    const fullTankExpenses = fuelExpenses.filter(e => e.isFullTank && e.liters);
-    let realKmPerLiter = profile.kmPerLiter || 0;
-    
-    if (fullTankExpenses.length >= 2) {
-      // This is a simplification, ideally we'd track KM at each fillup
-      // For now, we use the profile value or fallback to simple average
-      realKmPerLiter = totalLiters > 0 ? totalKm / totalLiters : realKmPerLiter;
-    } else if (totalLiters > 0) {
-      realKmPerLiter = totalKm / totalLiters;
-    }
+    const consumptionResult = calculateFuelConsumption(expenses, profile.kmPerLiter || 0);
+    const kmPerLiter = consumptionResult.hasEnoughData
+      ? consumptionResult.averageKmPerLiter
+      : (profile.kmPerLiter || (totalLiters > 0 ? totalKm / totalLiters : 0));
 
     const costPerKm = totalKm > 0 ? (totalFuelValue + totalMaintenance) / totalKm : 0;
 
-    // Calculate average KM per day
     const firstRide = rides.length > 0 ? parseISO(rides[rides.length - 1].date) : new Date();
     const daysDiff = Math.max(differenceInDays(new Date(), firstRide), 1);
     const avgKmPerDay = totalKm / daysDiff;
 
+    // Use vehicle odometer if available, otherwise use totalKm from rides
+    const currentOdometerKm = profile.vehicleOdometerKm || totalKm;
+
     return {
       totalKm,
+      currentOdometerKm,
       totalFuelValue,
       totalLiters,
       totalMaintenance,
-      kmPerLiter: realKmPerLiter,
+      kmPerLiter,
       costPerKm,
       avgKmPerDay,
-      maintenanceCount: maintenanceExpenses.length
+      maintenanceCount: maintenanceExpenses.length,
+      consumptionResult
     };
   }, [rides, expenses, profile]);
 
@@ -85,58 +87,113 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
   };
 
   const handleSave = () => {
-    if (editingId) {
-      onUpdateMaintenance(maintenance.map(m => m.id === editingId ? { ...m, ...formData } as MaintenanceItem : m));
-      setEditingId(null);
-    } else {
-      const newItem: MaintenanceItem = {
-        id: crypto.randomUUID(),
-        name: formData.name || 'Nova Manutenção',
-        intervalKm: Number(formData.intervalKm) || 1000,
-        intervalDays: Number(formData.intervalDays) || 0,
-        lastChangeKm: Number(formData.lastChangeKm) || 0,
-        lastChangeDate: formData.lastChangeDate || format(new Date(), 'yyyy-MM-dd'),
-        estimatedCost: Number(formData.estimatedCost) || 0,
-        position: formData.position
-      };
-      onUpdateMaintenance([...maintenance, newItem]);
-      setIsAdding(false);
+    // Validation
+    if (!formData.name || formData.name.trim() === '') {
+      showToast?.('Por favor, insira um nome para o item.', 'error');
+      return;
     }
-    setFormData({ name: '', intervalKm: 1000, intervalDays: 0, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 0, position: undefined });
+
+    if (!formData.intervalKm || formData.intervalKm <= 0) {
+      showToast?.('O intervalo em KM deve ser maior que zero.', 'error');
+      return;
+    }
+
+    if (formData.intervalDays && formData.intervalDays < 0) {
+      showToast?.('O intervalo em dias não pode ser negativo.', 'error');
+      return;
+    }
+
+    if (formData.lastChangeKm < 0) {
+      showToast?.('O KM da última troca não pode ser negativo.', 'error');
+      return;
+    }
+
+    if (formData.estimatedCost < 0) {
+      showToast?.('O custo estimado não pode ser negativo.', 'error');
+      return;
+    }
+
+    try {
+      if (editingId) {
+        onUpdateMaintenance(maintenance.map(m => m.id === editingId ? { ...m, ...formData } as MaintenanceItem : m));
+        setEditingId(null);
+        showToast?.('Item atualizado com sucesso!', 'success');
+      } else {
+        const newItem: MaintenanceItem = {
+          id: crypto.randomUUID(),
+          name: formData.name.trim(),
+          intervalKm: Number(formData.intervalKm) || 1000,
+          intervalDays: Number(formData.intervalDays) || 0,
+          lastChangeKm: Number(formData.lastChangeKm) || 0,
+          lastChangeDate: formData.lastChangeDate || format(new Date(), 'yyyy-MM-dd'),
+          estimatedCost: Number(formData.estimatedCost) || 0,
+          position: formData.position
+        };
+        onUpdateMaintenance([...maintenance, newItem]);
+        setIsAdding(false);
+        showToast?.('Item adicionado com sucesso!', 'success');
+      }
+      setFormData({ name: '', intervalKm: 1000, intervalDays: 0, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 0, position: undefined });
+    } catch (error) {
+      showToast?.('Erro ao salvar o item. Tente novamente.', 'error');
+      console.error('Erro ao salvar manutenção:', error);
+    }
   };
 
   const handleDelete = (id: string) => {
-    onUpdateMaintenance(maintenance.filter(m => m.id !== id));
+    try {
+      onUpdateMaintenance(maintenance.filter(m => m.id !== id));
+      showToast?.('Item removido com sucesso!', 'success');
+    } catch (error) {
+      showToast?.('Erro ao remover item. Tente novamente.', 'error');
+      console.error('Erro ao deletar manutenção:', error);
+    }
   };
 
   const handleAddHistory = (itemId: string) => {
-    const newHistory: MaintenanceHistory = {
-      id: crypto.randomUUID(),
-      date: historyFormData.date || format(new Date(), 'yyyy-MM-dd'),
-      km: Number(historyFormData.km) || 0,
-      cost: Number(historyFormData.cost) || 0,
-      description: historyFormData.description
-    };
+    // Validation
+    if (!historyFormData.km || historyFormData.km <= 0) {
+      showToast?.('Por favor, insira o KM da manutenção.', 'error');
+      return;
+    }
 
-    const updatedMaintenance = maintenance.map(m => {
-      if (m.id === itemId) {
-        const history = [...(m.history || []), newHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        // Update last change based on the most recent history entry
-        const latest = history[0];
-        return {
-          ...m,
-          history,
-          lastChangeKm: latest.km,
-          lastChangeDate: latest.date,
-          estimatedCost: latest.cost
-        };
-      }
-      return m;
-    });
+    if (!historyFormData.cost || historyFormData.cost < 0) {
+      showToast?.('Por favor, insira o custo da manutenção.', 'error');
+      return;
+    }
 
-    onUpdateMaintenance(updatedMaintenance);
-    setIsAddingHistory(null);
-    setHistoryFormData({ date: format(new Date(), 'yyyy-MM-dd'), km: 0, cost: 0, description: '' });
+    try {
+      const newHistory: MaintenanceHistory = {
+        id: crypto.randomUUID(),
+        date: historyFormData.date || format(new Date(), 'yyyy-MM-dd'),
+        km: Number(historyFormData.km) || 0,
+        cost: Number(historyFormData.cost) || 0,
+        description: historyFormData.description
+      };
+
+      const updatedMaintenance = maintenance.map(m => {
+        if (m.id === itemId) {
+          const history = [...(m.history || []), newHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          const latest = history[0];
+          return {
+            ...m,
+            history,
+            lastChangeKm: latest.km,
+            lastChangeDate: latest.date,
+            estimatedCost: latest.cost
+          };
+        }
+        return m;
+      });
+
+      onUpdateMaintenance(updatedMaintenance);
+      setIsAddingHistory(null);
+      setHistoryFormData({ date: format(new Date(), 'yyyy-MM-dd'), km: 0, cost: 0, description: '' });
+      showToast?.('Histórico adicionado com sucesso!', 'success');
+    } catch (error) {
+      showToast?.('Erro ao adicionar histórico. Tente novamente.', 'error');
+      console.error('Erro ao adicionar histórico:', error);
+    }
   };
 
   const handleDeleteHistory = (itemId: string, historyId: string) => {
@@ -158,52 +215,70 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
 
   const handleRestoreDefaults = () => {
     if (confirm('Deseja restaurar os itens de manutenção padrão? Isso substituirá sua lista atual.')) {
-      const defaults: MaintenanceItem[] = [
-        { id: '1', name: 'Troca de Óleo', intervalKm: 1000, lastChangeKm: motoStats.totalKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 50 },
-        { id: '2', name: 'Kit Relação', intervalKm: 15000, lastChangeKm: motoStats.totalKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 250 },
-        { id: '3', name: 'Pneu Dianteiro', intervalKm: 12000, lastChangeKm: motoStats.totalKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 400, position: 'dianteiro' },
-        { id: '4', name: 'Pneu Traseiro', intervalKm: 12000, lastChangeKm: motoStats.totalKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 450, position: 'traseiro' },
-        { id: '5', name: 'Pastilhas de Freio dianteira', intervalKm: 5000, lastChangeKm: motoStats.totalKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 40, position: 'dianteiro' },
-        { id: '6', name: 'Pastilhas de Freio traseira', intervalKm: 5000, lastChangeKm: motoStats.totalKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 40, position: 'traseiro' },
-      ];
-      onUpdateMaintenance(defaults);
+      try {
+        const defaults: MaintenanceItem[] = [
+          { id: '1', name: 'Troca de Óleo', intervalKm: 1000, lastChangeKm: motoStats.currentOdometerKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 50 },
+          { id: '2', name: 'Kit Relação', intervalKm: 15000, lastChangeKm: motoStats.currentOdometerKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 250 },
+          { id: '3', name: 'Pneu Dianteiro', intervalKm: 12000, lastChangeKm: motoStats.currentOdometerKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 400, position: 'dianteiro' },
+          { id: '4', name: 'Pneu Traseiro', intervalKm: 12000, lastChangeKm: motoStats.currentOdometerKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 450, position: 'traseiro' },
+          { id: '5', name: 'Pastilhas de Freio dianteira', intervalKm: 5000, lastChangeKm: motoStats.currentOdometerKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 40, position: 'dianteiro' },
+          { id: '6', name: 'Pastilhas de Freio traseira', intervalKm: 5000, lastChangeKm: motoStats.currentOdometerKm, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 40, position: 'traseiro' },
+        ];
+        onUpdateMaintenance(defaults);
+        showToast?.('Itens padrão restaurados com sucesso!', 'success');
+      } catch (error) {
+        showToast?.('Erro ao restaurar padrões. Tente novamente.', 'error');
+        console.error('Erro ao restaurar padrões:', error);
+      }
     }
   };
 
   const handleResetAll = () => {
     if (confirm('Deseja reiniciar o contador de todas as manutenções para a quilometragem atual? Isso não criará registros no histórico.')) {
-      const updated = maintenance.map(m => ({
-        ...m,
-        lastChangeKm: motoStats.totalKm,
-        lastChangeDate: format(new Date(), 'yyyy-MM-dd')
-      }));
-      onUpdateMaintenance(updated);
+      try {
+        const updated = maintenance.map(m => ({
+          ...m,
+          lastChangeKm: motoStats.currentOdometerKm,
+          lastChangeDate: format(new Date(), 'yyyy-MM-dd')
+        }));
+        onUpdateMaintenance(updated);
+        showToast?.('Contadores reiniciados com sucesso!', 'success');
+      } catch (error) {
+        showToast?.('Erro ao reiniciar contadores. Tente novamente.', 'error');
+        console.error('Erro ao resetar manutenções:', error);
+      }
     }
   };
 
   const handleQuickChange = (item: MaintenanceItem) => {
-    const newHistory: MaintenanceHistory = {
-      id: crypto.randomUUID(),
-      date: format(new Date(), 'yyyy-MM-dd'),
-      km: motoStats.totalKm,
-      cost: item.estimatedCost,
-      description: 'Troca rápida realizada'
-    };
+    try {
+      const newHistory: MaintenanceHistory = {
+        id: crypto.randomUUID(),
+        date: format(new Date(), 'yyyy-MM-dd'),
+        km: motoStats.currentOdometerKm,
+        cost: item.estimatedCost,
+        description: 'Troca rápida realizada'
+      };
 
-    const updatedMaintenance = maintenance.map(m => {
-      if (m.id === item.id) {
-        const history = [...(m.history || []), newHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        return {
-          ...m,
-          history,
-          lastChangeKm: motoStats.totalKm,
-          lastChangeDate: newHistory.date
-        };
-      }
-      return m;
-    });
+      const updatedMaintenance = maintenance.map(m => {
+        if (m.id === item.id) {
+          const history = [...(m.history || []), newHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          return {
+            ...m,
+            history,
+            lastChangeKm: motoStats.currentOdometerKm,
+            lastChangeDate: newHistory.date
+          };
+        }
+        return m;
+      });
 
-    onUpdateMaintenance(updatedMaintenance);
+      onUpdateMaintenance(updatedMaintenance);
+      showToast?.(`${item.name} marcado como trocado!`, 'success');
+    } catch (error) {
+      showToast?.('Erro ao registrar troca. Tente novamente.', 'error');
+      console.error('Erro na troca rápida:', error);
+    }
   };
 
   const positions = profile.vehicleType === 'moto' 
@@ -222,7 +297,11 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
 
   const enhancedMaintenance = useMemo(() => {
     return maintenance.map(item => {
-      const kmSinceChange = motoStats.totalKm - item.lastChangeKm;
+      // Use vehicle odometer if available, otherwise use totalKm from rides
+      const currentKm = profile.vehicleOdometerKm || motoStats.totalKm;
+
+      // Calculate km since last change (never negative)
+      const kmSinceChange = Math.max(0, currentKm - item.lastChangeKm);
       const kmProgress = Math.min((kmSinceChange / item.intervalKm) * 100, 100);
       const kmRemaining = Math.max(item.intervalKm - kmSinceChange, 0);
       const daysRemainingByKm = motoStats.avgKmPerDay > 0 ? Math.floor(kmRemaining / motoStats.avgKmPerDay) : Infinity;
@@ -312,22 +391,63 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <p className="text-sm text-slate-500 mb-1">Consumo Médio</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">{motoStats.kmPerLiter.toFixed(1)} <span className="text-sm font-normal text-slate-400">KM/L</span></p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {!profile.vehicleOdometerKm && (
+          <div className="col-span-2 sm:col-span-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 flex items-center gap-3">
+            <AlertCircle size={20} className="text-amber-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Configure o KM do Odômetro</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Vá em <strong>Perfil</strong> e adicione o KM atual do seu veículo para um controle de manutenção mais preciso.
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative group">
+          <InfoTooltip 
+            content="Cálculo baseado em abastecimentos completos: (KM atual - KM anterior) ÷ Litros abastecidos." 
+            className="absolute top-3 right-3"
+          />
+          <p className="text-xs sm:text-sm text-slate-500 mb-1">Consumo Médio</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+            <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
+              {motoStats.kmPerLiter.toFixed(1)}
+              <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1">KM/L</span>
+            </p>
+            {motoStats.consumptionResult.hasEnoughData ? (
+              <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+                Real
+              </span>
+            ) : (
+              <span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+                Est.
+              </span>
+            )}
+          </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <p className="text-sm text-slate-500 mb-1">Custo por KM</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">R$ {motoStats.costPerKm.toFixed(2)}</p>
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative">
+          <InfoTooltip 
+            content="Fórmula: (Gastos com combustível + Manutenção) ÷ KM rodados." 
+            className="absolute top-3 right-3"
+          />
+          <p className="text-xs sm:text-sm text-slate-500 mb-1">Custo por KM</p>
+          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">R$ {motoStats.costPerKm.toFixed(2)}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <p className="text-sm text-slate-500 mb-1">KM Total Rodado</p>
-          <p className="text-2xl font-bold text-brand-600">{motoStats.totalKm.toLocaleString()} KM</p>
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative">
+          <InfoTooltip 
+            content="Total de quilômetros registrados nas corridas do app." 
+            className="absolute top-3 right-3"
+          />
+          <p className="text-xs sm:text-sm text-slate-500 mb-1">KM Total</p>
+          <p className="text-xl sm:text-2xl font-bold text-brand-600 truncate">{motoStats.totalKm.toLocaleString()}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <p className="text-sm text-slate-500 mb-1">Média Diária</p>
-          <p className="text-2xl font-bold text-blue-600">{motoStats.avgKmPerDay.toFixed(1)} KM</p>
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative">
+          <InfoTooltip 
+            content="Média de quilômetros percorridos por dia, baseada no seu histórico de corridas." 
+            className="absolute top-3 right-3"
+          />
+          <p className="text-xs sm:text-sm text-slate-500 mb-1">Média Diária</p>
+          <p className="text-xl sm:text-2xl font-bold text-blue-600 truncate">{motoStats.avgKmPerDay.toFixed(1)} km</p>
         </div>
       </div>
 
@@ -393,43 +513,47 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
                 placeholder="Ex: Troca de Óleo"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Intervalo (KM)</label>
-              <input
-                type="number"
-                value={formData.intervalKm}
-                onChange={(e) => setFormData({ ...formData, intervalKm: Number(e.target.value) })}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Intervalo (Dias - Opcional)</label>
-              <input
-                type="number"
-                value={formData.intervalDays || ''}
-                onChange={(e) => setFormData({ ...formData, intervalDays: Number(e.target.value) })}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-                placeholder="Ex: 180"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Custo Estimado (R$)</label>
-              <input
-                type="number"
-                value={formData.estimatedCost}
-                onChange={(e) => setFormData({ ...formData, estimatedCost: Number(e.target.value) })}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">KM da Última Troca</label>
-              <input
-                type="number"
-                value={formData.lastChangeKm}
-                onChange={(e) => setFormData({ ...formData, lastChangeKm: Number(e.target.value) })}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-              />
-            </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Intervalo (KM)</label>
+          <input
+            type="number"
+            value={formData.intervalKm?.toString() || '1000'}
+            onChange={(e) => setFormData({ ...formData, intervalKm: Number(e.target.value) })}
+            className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+            placeholder="Ex: 1000"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Intervalo (Dias - Opcional)</label>
+          <input
+            type="number"
+            value={formData.intervalDays?.toString() || ''}
+            onChange={(e) => setFormData({ ...formData, intervalDays: Number(e.target.value) })}
+            className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+            placeholder="Ex: 180"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Custo Estimado (R$)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.estimatedCost?.toString() || '0'}
+            onChange={(e) => setFormData({ ...formData, estimatedCost: Number(e.target.value) })}
+            className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+            placeholder="Ex: 50.00"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">KM da Última Troca</label>
+          <input
+            type="number"
+            value={formData.lastChangeKm?.toString() || '0'}
+            onChange={(e) => setFormData({ ...formData, lastChangeKm: Number(e.target.value) })}
+            className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+            placeholder="Ex: 63500"
+          />
+        </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Data da Última Troca</label>
               <input
@@ -439,40 +563,54 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
                 className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Posição (Opcional)</label>
-              <select
-                value={formData.position || ''}
-                onChange={(e) => setFormData({ ...formData, position: (e.target.value as any) || undefined })}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-              >
-                <option value="">Nenhuma</option>
-                {positions.map(p => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <button
-              onClick={handleSave}
-              className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Save size={20} /> Salvar
-            </button>
-            <button
-              onClick={() => { setIsAdding(false); setEditingId(null); }}
-              className="px-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-xl hover:bg-slate-200 transition-all"
-            >
-              Cancelar
-            </button>
-          </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Posição (Opcional)</label>
+          <select
+            value={formData.position || ''}
+            onChange={(e) => setFormData({ ...formData, position: (e.target.value as any) || undefined })}
+            className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+          >
+            <option value="">Nenhuma</option>
+            {positions.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="flex items-center justify-end gap-3 pt-4">
+        <button
+          type="button"
+          onClick={() => {
+            setIsAdding(false);
+            setEditingId(null);
+            setFormData({ name: '', intervalKm: 1000, intervalDays: 0, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 0, position: undefined });
+          }}
+          className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          className="px-6 py-2.5 bg-brand-600 text-white font-semibold rounded-xl hover:bg-brand-700 transition-all shadow-lg shadow-brand-200 dark:shadow-none flex items-center gap-2"
+        >
+          <Save size={18} />
+          {editingId ? 'Salvar Alterações' : 'Adicionar Item'}
+        </button>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+<div className={cn(
+  "grid grid-cols-1 lg:grid-cols-3 gap-8",
+  sidebarCollapsed && "lg:grid-cols-4"
+)}>
+      <div className={cn(
+        "lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm",
+        sidebarCollapsed && "lg:col-span-3"
+      )}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <h3 className="text-lg font-bold dark:text-white">Previsão de Manutenção</h3>
             
@@ -686,33 +824,38 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-bold mb-6 dark:text-white">Dicas de Economia</h3>
-          <div className="space-y-4">
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex gap-4">
-              <TrendingUp className="text-emerald-600 shrink-0" size={24} />
-              <div>
-                <p className="font-bold text-emerald-800 dark:text-emerald-300">Calibragem dos Pneus</p>
-                <p className="text-sm text-emerald-700 dark:text-emerald-400">Mantenha os pneus calibrados semanalmente para economizar até 5% de combustível.</p>
-              </div>
+      <div className={cn(
+        "bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-[240px]",
+        sidebarCollapsed && "lg:min-w-[280px]"
+      )}>
+        <h3 className="text-base font-bold mb-4 dark:text-white">Dicas de Economia</h3>
+        <div className="space-y-3">
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex gap-3">
+            <TrendingUp className="text-emerald-600 shrink-0" size={20} />
+            <div>
+              <p className="font-bold text-sm text-emerald-800 dark:text-emerald-300">Calibragem dos Pneus</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400">Mantenha calibrados para economizar até 5% de combustível.</p>
             </div>
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex gap-4">
-              <Settings className="text-blue-600 shrink-0" size={24} />
-              <div>
-                <p className="font-bold text-blue-800 dark:text-blue-300">Lubrificação da Corrente</p>
-                <p className="text-sm text-blue-700 dark:text-blue-400">Lubrifique a cada 500km ou após chuvas para aumentar a vida útil do kit relação.</p>
-              </div>
+          </div>
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex gap-3">
+            <Settings className="text-blue-600 shrink-0" size={20} />
+            <div>
+              <p className="font-bold text-sm text-blue-800 dark:text-blue-300">Lubrificação da Corrente</p>
+              <p className="text-xs text-blue-700 dark:text-blue-400">A cada 500km para aumentar a vida útil do kit.</p>
             </div>
-            <div className="p-4 bg-brand-50 dark:bg-brand-950/20 rounded-2xl border border-brand-100 dark:border-brand-900/30 flex gap-4">
-              <AlertCircle className="text-brand-600 shrink-0" size={24} />
-              <div>
-                <p className="font-bold text-brand-800 dark:text-brand-300">Filtro de Ar</p>
-                <p className="text-sm text-brand-700 dark:text-brand-400">Um filtro de ar limpo garante a mistura correta de ar/combustível e evita perda de potência.</p>
-              </div>
+          </div>
+          <div className="p-3 bg-brand-50 dark:bg-brand-950/20 rounded-2xl border border-brand-100 dark:border-brand-900/30 flex gap-3">
+            <AlertCircle className="text-brand-600 shrink-0" size={20} />
+            <div>
+              <p className="font-bold text-sm text-brand-800 dark:text-brand-300">Filtro de Ar</p>
+              <p className="text-xs text-brand-700 dark:text-brand-400">Garante mistura correta e evita perda de potência.</p>
             </div>
           </div>
         </div>
       </div>
-    </motion.div>
-  );
+    </div>
+
+  <FuelConsumptionHistory expenses={expenses} profileKmPerLiter={profile.kmPerLiter || 0} />
+</motion.div>
+);
 }

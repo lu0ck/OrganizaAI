@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator } from 'lucide-react';
+import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator, Gauge, Info } from 'lucide-react';
 import { Expense, UserProfile } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
 import FuelCalculator from './FuelCalculator';
+import { validateOdometerInput, getLastFullTankOdometer } from '../lib/fuelCalculation';
 
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -30,7 +31,8 @@ export default function ExpensesForm({ onAdd, onDelete, expenses, profile }: Exp
     fuelType: 'gasolina' as Expense['fuelType'],
     enteredReserve: false,
     kmOnReserve: '',
-    isFullTank: false
+    isFullTank: false,
+    odometerKm: ''
   });
 
   const expenseTypes = [
@@ -47,11 +49,13 @@ export default function ExpensesForm({ onAdd, onDelete, expenses, profile }: Exp
   const filteredExpenses = useMemo(() => {
     return expenses.filter(exp => {
       const matchesType = filterType === 'all' || exp.type === filterType;
-      const matchesSearch = exp.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           (exp.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (exp.location || '').toLowerCase().includes(searchTerm.toLowerCase());
       return matchesType && matchesSearch;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses, filterType, searchTerm]);
+
+  const lastOdometerKm = getLastFullTankOdometer(expenses);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +71,8 @@ export default function ExpensesForm({ onAdd, onDelete, expenses, profile }: Exp
       fuelType: formData.type === 'combustivel' ? formData.fuelType : undefined,
       enteredReserve: formData.enteredReserve,
       kmOnReserve: formData.kmOnReserve ? Number(formData.kmOnReserve) : undefined,
-      isFullTank: formData.isFullTank
+      isFullTank: formData.isFullTank,
+      odometerKm: formData.type === 'combustivel' && formData.odometerKm ? Number(formData.odometerKm) : undefined
     };
     onAdd(newExpense);
     setIsAdding(false);
@@ -82,7 +87,8 @@ export default function ExpensesForm({ onAdd, onDelete, expenses, profile }: Exp
       fuelType: 'gasolina',
       enteredReserve: false,
       kmOnReserve: '',
-      isFullTank: false
+      isFullTank: false,
+      odometerKm: ''
     });
   };
 
@@ -121,7 +127,7 @@ export default function ExpensesForm({ onAdd, onDelete, expenses, profile }: Exp
             exit={{ opacity: 0, height: 0, y: -20 }}
             className="overflow-hidden"
           >
-            <FuelCalculator profile={profile} />
+            <FuelCalculator profile={profile} expenses={expenses} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -255,52 +261,95 @@ export default function ExpensesForm({ onAdd, onDelete, expenses, profile }: Exp
                       placeholder="Ex: 45.500"
                     />
                   </div>
-                </div>
+      </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-orange-100 dark:border-orange-900/30">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="enteredReserve"
-                      checked={formData.enteredReserve}
-                      onChange={(e) => setFormData({ ...formData, enteredReserve: e.target.checked })}
-                      className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
-                    />
-                    <label htmlFor="enteredReserve" className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                      Entrou na reserva?
-                    </label>
-                  </div>
-
-                  {formData.enteredReserve && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                        KM rodados na reserva
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.kmOnReserve}
-                        onChange={(e) => setFormData({ ...formData, kmOnReserve: e.target.value })}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
-                        placeholder="Ex: 15"
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="isFullTank"
-                      checked={formData.isFullTank}
-                      onChange={(e) => setFormData({ ...formData, isFullTank: e.target.checked })}
-                      className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
-                    />
-                    <label htmlFor="isFullTank" className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-1">
-                      Encheu o tanque? <CheckCircle2 size={14} />
-                    </label>
-                  </div>
-                </div>
-              </div>
+      <div className="space-y-4 pt-4 border-t border-orange-100 dark:border-orange-900/30">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
+              <Gauge size={16} /> KM do Hodômetro
+              {formData.isFullTank && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="number"
+              value={formData.odometerKm}
+              onChange={(e) => setFormData({ ...formData, odometerKm: e.target.value })}
+              className={cn(
+                "w-full px-4 py-2 bg-white dark:bg-slate-800 border rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white",
+                formData.isFullTank && !formData.odometerKm
+                  ? "border-red-300 dark:border-red-700"
+                  : "border-orange-200 dark:border-orange-900/30"
+              )}
+              placeholder={lastOdometerKm ? `Último: ${lastOdometerKm.toLocaleString()} km` : "Ex: 45230"}
+            />
+            {formData.isFullTank && !formData.odometerKm && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle size={12} /> Obrigatório para calcular consumo
+              </p>
             )}
+            {lastOdometerKm && formData.odometerKm && Number(formData.odometerKm) <= lastOdometerKm && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <AlertCircle size={12} /> Deve ser maior que {lastOdometerKm.toLocaleString()} km
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 py-2">
+            <input
+              type="checkbox"
+              id="isFullTank"
+              checked={formData.isFullTank}
+              onChange={(e) => setFormData({ ...formData, isFullTank: e.target.checked })}
+              className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+            />
+            <label htmlFor="isFullTank" className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-1 cursor-pointer">
+              <CheckCircle2 size={14} /> Encheu o tanque?
+            </label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="enteredReserve"
+              checked={formData.enteredReserve}
+              onChange={(e) => setFormData({ ...formData, enteredReserve: e.target.checked })}
+              className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+            />
+            <label htmlFor="enteredReserve" className="text-sm font-medium text-orange-800 dark:text-orange-300 cursor-pointer">
+              Entrou na reserva?
+            </label>
+          </div>
+
+          {formData.enteredReserve && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                KM rodados na reserva
+              </label>
+              <input
+                type="number"
+                value={formData.kmOnReserve}
+                onChange={(e) => setFormData({ ...formData, kmOnReserve: e.target.value })}
+                className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
+                placeholder="Ex: 15"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {formData.isFullTank && (
+        <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+          <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            <strong>Importante:</strong> Preencha o KM do hodômetro corretamente.
+            Isso permite calcular seu consumo real de combustível entre abastecimentos.
+          </p>
+        </div>
+      )}
+    </div>
+  )}
           </div>
 
           <button

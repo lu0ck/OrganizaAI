@@ -16,6 +16,11 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
   const [isSaved, setIsSaved] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
+  // Sync formData when profile prop changes
+  useEffect(() => {
+    setFormData({ ...profile });
+  }, [profile]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdate(formData);
@@ -105,17 +110,34 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Modelo do Veículo</label>
-                <input
-                  type="text"
-                  value={formData.vehicleModel}
-                  onChange={(e) => setFormData({ ...formData, vehicleModel: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Modelo do Veículo</label>
+              <input
+                type="text"
+                value={formData.vehicleModel}
+                onChange={(e) => setFormData({ ...formData, vehicleModel: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+              />
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                KM Atual do Odômetro
+                <span className="block text-[10px] text-slate-400 font-normal">Quilometragem total do veículo (usado para controle de manutenção)</span>
+              </label>
+              <input
+                type="number"
+                value={formData.vehicleOdometerKm || ''}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  setFormData({ ...formData, vehicleOdometerKm: value > 0 ? value : undefined });
+                }}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                placeholder="Ex: 65000"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">KM por Litro</label>
                   <input

@@ -32,6 +32,7 @@ export interface Expense {
   kmOnReserve?: number;
   isFullTank?: boolean;
   fuelType?: 'gasolina' | 'alcool' | 'gnv';
+  odometerKm?: number;
 }
 
 export interface Goal {
@@ -77,6 +78,7 @@ export interface UserProfile {
   name: string;
   vehicleType: 'carro' | 'moto';
   vehicleModel: string;
+  vehicleOdometerKm?: number; // KM total atual do odômetro do veículo
   kmPerLiter?: number;
   totalTankSize?: number; // Capacidade total incluindo a reserva
   reserveSize?: number; // Capacidade da reserva (parte do totalTankSize)

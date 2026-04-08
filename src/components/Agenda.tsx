@@ -4,15 +4,17 @@ import { format, parseISO } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import InfoTooltip from './Tooltip';
 
 interface AgendaProps {
   rides: RideEntry[];
   expenses: Expense[];
   profile: UserProfile | null;
   onUpdateProfile: (profile: UserProfile) => void;
+  sidebarCollapsed?: boolean;
 }
 
-export default function Agenda({ rides, expenses, profile, onUpdateProfile }: AgendaProps) {
+export default function Agenda({ rides, expenses, profile, onUpdateProfile, sidebarCollapsed }: AgendaProps) {
   const [simulation, setSimulation] = useState({
     avgPerHour: 0,
     schedule: profile?.workSchedule || [
@@ -246,8 +248,14 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile }: Ag
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+<div className={cn(
+  "grid grid-cols-1 lg:grid-cols-4 gap-8",
+  sidebarCollapsed && "lg:grid-cols-5"
+)}>
+      <div className={cn(
+        "lg:col-span-3 space-y-8",
+        sidebarCollapsed && "lg:col-span-4"
+      )}>
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
             <h3 className="text-lg font-bold mb-6 dark:text-white flex items-center gap-2">
               <Calculator size={20} className="text-brand-600" /> Simulador de Ganhos e Gastos
@@ -471,45 +479,54 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile }: Ag
           </div>
         </div>
 
-        <div className="space-y-8">
+        <div className={cn(
+          "space-y-8",
+          sidebarCollapsed && "lg:min-w-[280px]"
+        )}>
           {insights && (
-            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 text-brand-600">
-                <Sparkles size={20} />
-                <h4 className="font-bold text-lg">Insights Reais</h4>
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-[240px] relative">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-brand-600">
+                  <Sparkles size={20} />
+                  <h4 className="font-bold text-base">Insights Reais</h4>
+                </div>
+                <InfoTooltip content="Análise baseada em seus dados reais. Identifica o dia da semana com melhor faturamento e mais corridas." />
               </div>
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Melhor dia para faturamento</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">{insights.bestMoneyDay}</p>
-                  <p className="text-xs text-emerald-600">Média de R$ {insights.maxAvgMoney.toFixed(2)}/dia</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Dia com mais solicitações</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">{insights.bestRidesDay}</p>
-                  <p className="text-xs text-blue-600">Média de {insights.maxAvgRides.toFixed(1)} corridas/dia</p>
-                </div>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Melhor dia para faturamento</p>
+                <p className="text-base font-bold text-slate-900 dark:text-white">{insights.bestMoneyDay}</p>
+                <p className="text-xs text-emerald-600 font-medium">Média de R$ {insights.maxAvgMoney.toFixed(2)}/dia</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Dia com mais solicitações</p>
+                <p className="text-base font-bold text-slate-900 dark:text-white">{insights.bestRidesDay}</p>
+                <p className="text-xs text-blue-600 font-medium">Média de {insights.maxAvgRides.toFixed(1)} corridas/dia</p>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-            <h3 className="text-lg font-bold mb-6 dark:text-white">Suas Médias Reais</h3>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 flex items-center justify-center">
-                    <TrendingUp size={20} />
-                  </div>
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Por Hora</span>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-[240px] relative">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold dark:text-white">Suas Médias Reais</h3>
+            <InfoTooltip content="Médias calculadas com base em todo o seu histórico de corridas e despesas no app." />
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 flex items-center justify-center">
+                  <TrendingUp size={18} />
                 </div>
-                <span className="font-bold dark:text-white">R$ {averages.perHour.toFixed(2)}</span>
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Por Hora</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 flex items-center justify-center">
-                    <Calendar size={20} />
-                  </div>
+              <span className="font-bold dark:text-white">R$ {averages.perHour.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 flex items-center justify-center">
+                  <Calendar size={18} />
+                </div>
                   <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Por Dia</span>
                 </div>
                 <span className="font-bold dark:text-white">R$ {averages.perDay.toFixed(2)}</span>

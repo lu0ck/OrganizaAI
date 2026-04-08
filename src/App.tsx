@@ -1,27 +1,16 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  PlusCircle, 
-  Receipt, 
-  Target, 
-  Bike, 
-  Calendar, 
-  Settings, 
-  Moon, 
-  Sun,
-  LogOut,
-  User,
-  Car,
-  Palette,
-  FileText
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  Bike, Car, Download, AlertCircle, X as CloseIcon,
+  LayoutDashboard, PlusCircle, Receipt, Target, Calendar, FileText, User
+} from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { AppState, RideEntry, Expense, Goal, UserProfile, ColorTheme, MaintenanceItem } from './types';
+import { useSidebar } from './hooks/useSidebar';
+import { useToast } from './hooks/useToast';
+import { AppState, ColorTheme, MaintenanceItem } from './types';
+import { format, subDays } from 'date-fns';
 import { cn } from './lib/utils';
-import { format, startOfDay, endOfDay, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, addDays, setHours, setMinutes } from 'date-fns';
 
-// Components
 import Dashboard from './components/Dashboard';
 import EntryForm from './components/EntryForm';
 import ExpensesForm from './components/ExpensesForm';
@@ -32,7 +21,19 @@ import ProfileSetup from './components/ProfileSetup';
 import ProfileTab from './components/ProfileTab';
 import ReportsTab from './components/ReportsTab';
 import Footer from './components/Footer';
-import { Download, AlertCircle, X as CloseIcon } from 'lucide-react';
+import Sidebar from './components/Sidebar';
+import ToastContainer from './components/Toast';
+
+const mobileNavItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'rides', label: '', icon: PlusCircle },
+  { id: 'expenses', label: '', icon: Receipt },
+  { id: 'goals', label: '', icon: Target },
+  { id: 'motorcycle', label: '', icon: Bike },
+  { id: 'agenda', label: '', icon: Calendar },
+  { id: 'reports', label: '', icon: FileText },
+  { id: 'profile', label: '', icon: User },
+];
 
 const initialMaintenance: MaintenanceItem[] = [
   { id: '1', name: 'Troca de Óleo', intervalKm: 1000, intervalDays: 30, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 50 },
@@ -56,8 +57,9 @@ const initialState: AppState = {
 export default function App() {
   const [state, setState] = useLocalStorage<AppState>('organizaai_data_v2', initialState);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
+  const { width, collapsed, isResizing, toggle, startResizing, stopResizing, handleResize } = useSidebar();
+  const { toasts, showToast, removeToast } = useToast();
 
   // Migration for Brake Pads
   useEffect(() => {
@@ -119,7 +121,6 @@ export default function App() {
 
   const setColorTheme = (color: ColorTheme) => {
     setState(prev => ({ ...prev, colorTheme: color }));
-    setShowColorPicker(false);
   };
 
   useEffect(() => {
@@ -131,6 +132,11 @@ export default function App() {
     }
     root.setAttribute('data-theme', state.colorTheme);
   }, [state.theme, state.colorTheme]);
+
+  useEffect(() => {
+    const sidebarWidth = collapsed ? '72px' : `${width}px`;
+    document.documentElement.style.setProperty('--sidebar-width', sidebarWidth);
+  }, [width, collapsed]);
 
   // Weekly backup logic
   useEffect(() => {
@@ -179,27 +185,6 @@ export default function App() {
     );
   }
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'rides', label: 'Lançamentos', icon: PlusCircle },
-    { id: 'expenses', label: 'Despesas', icon: Receipt },
-    { id: 'goals', label: 'Metas', icon: Target },
-    { id: 'motorcycle', label: 'Manutenção', icon: Bike },
-    { id: 'agenda', label: 'Agenda', icon: Calendar },
-    { id: 'reports', label: 'Relatórios', icon: FileText },
-    { id: 'profile', label: 'Perfil', icon: User },
-  ];
-
-  const themes: { id: ColorTheme, color: string }[] = [
-    { id: 'red', color: 'bg-red-500' },
-    { id: 'yellow', color: 'bg-yellow-500' },
-    { id: 'orange', color: 'bg-orange-500' },
-    { id: 'green', color: 'bg-green-500' },
-    { id: 'blue', color: 'bg-blue-500' },
-    { id: 'purple', color: 'bg-purple-500' },
-    { id: 'black', color: 'bg-slate-900' },
-  ];
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative overflow-x-hidden">
       {/* Animated Background Blobs */}
@@ -210,86 +195,53 @@ export default function App() {
       </div>
 
       <div className="flex flex-col md:flex-row relative z-10">
-        {/* Sidebar */}
-        <aside className="w-full md:w-64 glass border-r border-slate-200/50 dark:border-slate-800/50 flex flex-col z-20 sticky top-0 h-auto md:h-screen">
-          <div className="p-6 flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-200 dark:shadow-none">
-              {state.profile.vehicleType === 'moto' ? <Bike size={24} /> : <Car size={24} />}
+        {/* Mobile Header */}
+        <header className="md:hidden glass border-b border-slate-200/50 dark:border-slate-800/50 sticky top-0 z-30 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white">
+                {state.profile.vehicleType === 'moto' ? <Bike size={18} /> : <Car size={18} />}
+              </div>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white">OrganizaAi</h1>
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">OrganizaAi</h1>
           </div>
-
-          <nav className="flex-1 px-4 space-y-1">
-            {navItems.map((item) => (
+          <nav className="flex items-center gap-1 mt-3 overflow-x-auto pb-1 -mx-1 px-1">
+            {mobileNavItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all border-2",
+                  "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
                   activeTab === item.id
-                    ? "bg-brand-50 dark:bg-brand-950/30 text-brand-600 dark:text-brand-400 border-brand-100 dark:border-brand-900/30"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 border-transparent"
+                    ? "bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                 )}
               >
-                <item.icon size={20} />
+                <item.icon size={16} />
                 {item.label}
               </button>
             ))}
           </nav>
+        </header>
 
-          <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
-            <div className="relative">
-              <button
-                onClick={() => setShowColorPicker(!showColorPicker)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                <Palette size={20} />
-                Tema de Cor
-              </button>
-              <AnimatePresence>
-                {showColorPicker && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    className="absolute bottom-full left-0 mb-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 grid grid-cols-4 gap-2 z-50"
-                  >
-                    {themes.map(t => (
-                      <button
-                        key={t.id}
-                        onClick={() => setColorTheme(t.id)}
-                        className={cn(
-                          "w-8 h-8 rounded-full border-2 transition-all",
-                          t.color,
-                          state.colorTheme === t.id ? "border-slate-900 dark:border-white scale-110" : "border-transparent"
-                        )}
-                      />
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <button
-              onClick={toggleTheme}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              {state.theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-              {state.theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
-            </button>
-            <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center">
-                <User size={16} className="text-brand-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate dark:text-white">{state.profile.name}</p>
-                <p className="text-xs text-slate-500 truncate">{state.profile.vehicleModel}</p>
-              </div>
-            </div>
-          </div>
-        </aside>
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          profile={state.profile}
+          onToggleTheme={toggleTheme}
+          theme={state.theme}
+          colorTheme={state.colorTheme}
+          setColorTheme={setColorTheme}
+          width={width}
+          collapsed={collapsed}
+          isResizing={isResizing}
+          onToggle={toggle}
+          onStartResize={startResizing}
+          onStopResize={stopResizing}
+          onResize={handleResize}
+        />
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 z-10">
+        <main className="flex-1 overflow-y-auto p-4 md:py-6 md:pl-6 md:pr-4 z-10 transition-all duration-300 md:ml-[var(--sidebar-width)]">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -297,7 +249,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="max-w-6xl mx-auto"
+              className="w-full"
             >
               {activeTab === 'dashboard' && (
                 <Dashboard 
@@ -331,23 +283,26 @@ export default function App() {
                   onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }))}
                 />
               )}
-              {activeTab === 'motorcycle' && (
-                <MotorcycleTab 
-                  rides={state.rides}
-                  expenses={state.expenses}
-                  maintenance={state.maintenance}
-                  profile={state.profile}
-                  onUpdateMaintenance={(m) => setState(prev => ({ ...prev, maintenance: m }))}
-                />
-              )}
-              {activeTab === 'agenda' && (
-                <Agenda 
-                  rides={state.rides}
-                  expenses={state.expenses}
-                  profile={state.profile}
-                  onUpdateProfile={(profile) => setState(prev => ({ ...prev, profile }))}
-                />
-              )}
+        {activeTab === 'motorcycle' && (
+          <MotorcycleTab
+            rides={state.rides}
+            expenses={state.expenses}
+            maintenance={state.maintenance}
+            profile={state.profile}
+            onUpdateMaintenance={(m) => setState(prev => ({ ...prev, maintenance: m }))}
+            sidebarCollapsed={collapsed}
+            showToast={showToast}
+          />
+        )}
+        {activeTab === 'agenda' && (
+          <Agenda
+            rides={state.rides}
+            expenses={state.expenses}
+            profile={state.profile}
+            onUpdateProfile={(profile) => setState(prev => ({ ...prev, profile }))}
+            sidebarCollapsed={collapsed}
+          />
+        )}
               {activeTab === 'reports' && (
                 <ReportsTab 
                   rides={state.rides}
@@ -364,13 +319,15 @@ export default function App() {
                 />
               )}
             </motion.div>
-          </AnimatePresence>
+    </AnimatePresence>
 
-          <Footer />
-        </main>
-      </div>
+    <Footer />
+    </main>
+    </div>
 
-      {/* Backup Notification */}
+    <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+    {/* Backup Notification */}
       <AnimatePresence>
         {showBackupPrompt && (
           <motion.div

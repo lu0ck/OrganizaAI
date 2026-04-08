@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  MapPin, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  MapPin,
   Calendar,
   Filter,
   ChevronRight,
@@ -11,13 +11,13 @@ import {
   ArrowDownRight,
   Clock
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   AreaChart,
   Area,
@@ -28,8 +28,10 @@ import {
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, isSameDay } from 'date-fns';
 import { RideEntry, Expense, Goal, UserProfile } from '../types';
 import { cn } from '../lib/utils';
+import { calculateFuelConsumption } from '../lib/fuelCalculation';
 
 import { motion } from 'motion/react';
+import InfoTooltip from './Tooltip';
 
 interface DashboardProps {
   rides: RideEntry[];
@@ -90,43 +92,38 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
     const fuelExpenses = filteredData.expenses.filter(e => e.type === 'combustivel').reduce((acc, e) => acc + e.value, 0);
     const foodExpenses = filteredData.expenses.filter(e => e.type === 'alimentacao').reduce((acc, e) => acc + e.value, 0);
     const maintenanceExpenses = filteredData.expenses.filter(e => e.type === 'manutencao').reduce((acc, e) => acc + e.value, 0);
-    
+
     const totalKm = filteredData.rides.reduce((acc, r) => acc + r.kmDriven, 0);
     const totalRides = filteredData.rides.reduce((acc, r) => acc + r.numRides, 0);
-    
+
     const totalHours = filteredData.rides.reduce((acc, r) => {
       if (!r.startTime || !r.endTime) return acc;
       const [sH, sM] = r.startTime.split(':').map(Number);
       const [eH, eM] = r.endTime.split(':').map(Number);
       if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return acc;
-      
+
       let diff = (eH * 60 + eM) - (sH * 60 + sM);
       if (diff < 0) diff += 24 * 60;
       return acc + (diff / 60);
     }, 0);
 
-    // Net profit: Earnings - All Expenses - Fixed Costs (IPVA, Licensing, Insurance)
     const allExpenses = filteredData.expenses.reduce((acc, e) => acc + e.value, 0);
-    
-    // Daily fixed costs
+
     const ipvaDaily = (profile?.ipvaValue || 0) / 365;
     const licensingDaily = (profile?.licensingValue || 0) / 365;
-    const insuranceDaily = (profile?.insuranceValue || 0) / 30; // Monthly insurance to daily
+    const insuranceDaily = (profile?.insuranceValue || 0) / 30;
 
-    // Calculate days in period to apply fixed costs
     const daysInPeriod = Math.max(Math.ceil((filteredData.end.getTime() - filteredData.start.getTime()) / (1000 * 60 * 60 * 24)), 1);
     const totalFixedCosts = (ipvaDaily + licensingDaily + insuranceDaily) * daysInPeriod;
 
     const netProfit = totalEarnings - allExpenses - totalFixedCosts;
-    
-    // Average fuel per day (last 30 days)
+
     const last30DaysStart = startOfDay(subDays(new Date(), 30));
     const last30DaysFuel = expenses
       .filter(e => e.type === 'combustivel' && isWithinInterval(parseISO(e.date), { start: last30DaysStart, end: new Date() }))
       .reduce((acc, e) => acc + e.value, 0);
     const fuelDaily = last30DaysFuel / 30;
 
-    // Average maintenance per day (last 30 days)
     const lastMonthMaintenance = expenses
       .filter(e => e.type === 'manutencao' && isWithinInterval(parseISO(e.date), { start: last30DaysStart, end: new Date() }))
       .reduce((acc, e) => acc + e.value, 0);
@@ -134,21 +131,25 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
 
     const totalDailyCost = ipvaDaily + licensingDaily + insuranceDaily + fuelDaily + maintenanceDaily;
 
-    // Cost per KM (based on last month's total KM and total costs)
     const lastMonthStart = startOfMonth(subDays(new Date(), 30));
-    const lastMonthEnd = endOfDay(subDays(lastMonthStart, -30)); // Approximate
+    const lastMonthEnd = endOfDay(subDays(lastMonthStart, -30));
     const lastMonthInterval = { start: lastMonthStart, end: lastMonthEnd };
-    
+
     const lastMonthKm = rides
       .filter(r => isWithinInterval(parseISO(r.date), lastMonthInterval))
       .reduce((acc, r) => acc + r.kmDriven, 0);
-    
+
     const lastMonthTotalCost = expenses
       .filter(e => isWithinInterval(parseISO(e.date), lastMonthInterval))
       .reduce((acc, e) => acc + e.value, 0) + (ipvaDaily + licensingDaily + insuranceDaily) * 30;
 
     const costPerKm = lastMonthKm > 0 ? lastMonthTotalCost / lastMonthKm : 0;
-    
+
+    const consumptionResult = calculateFuelConsumption(expenses, profile?.kmPerLiter || 0);
+    const kmPerLiter = consumptionResult.hasEnoughData 
+      ? consumptionResult.averageKmPerLiter 
+      : (profile?.kmPerLiter || 0);
+
     return {
       earnings: totalEarnings,
       expenses: totalExpenses,
@@ -170,7 +171,9 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
         maintenance: maintenanceDaily,
         total: totalDailyCost
       },
-      costPerKm
+      costPerKm,
+      kmPerLiter,
+      consumptionResult
     };
   }, [filteredData, profile, rides, expenses]);
 
@@ -337,33 +340,37 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
         transition={{ staggerChildren: 0.1 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
       >
-        <StatCard 
-          title="Ganhos Brutos" 
-          value={stats.earnings} 
-          icon={TrendingUp} 
-          color="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" 
-          isCurrency 
-        />
-        <StatCard 
-          title="Despesas Totais" 
-          value={stats.expenses} 
-          icon={TrendingDown} 
-          color="text-rose-600 bg-rose-50 dark:bg-rose-950/30" 
-          isCurrency 
-        />
-        <StatCard 
-          title="Ganho Líquido" 
-          value={stats.profit} 
-          icon={DollarSign} 
-          color="text-brand-600 bg-brand-50 dark:bg-brand-950/30" 
-          isCurrency 
-        />
-        <StatCard 
-          title="KM Rodados" 
-          value={stats.km} 
-          icon={MapPin} 
-          color="text-blue-600 bg-blue-50 dark:bg-blue-950/30" 
-        />
+      <StatCard
+        title="Ganhos Brutos"
+        value={stats.earnings}
+        icon={TrendingUp}
+        color="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30"
+        isCurrency
+        tooltip="Soma de todos os valores recebidos nas corridas do período selecionado."
+      />
+      <StatCard
+        title="Despesas Totais"
+        value={stats.expenses}
+        icon={TrendingDown}
+        color="text-rose-600 bg-rose-50 dark:bg-rose-950/30"
+        isCurrency
+        tooltip="Soma de todas as despesas variáveis registradas (combustível, alimentação, manutenção, etc.)."
+      />
+      <StatCard
+        title="Ganho Líquido"
+        value={stats.profit}
+        icon={DollarSign}
+        color="text-brand-600 bg-brand-50 dark:bg-brand-950/30"
+        isCurrency
+        tooltip="Fórmula: Ganhos Brutos - Despesas Variáveis - Custos Fixos. Os custos fixos são calculados proporcionalmente: (IPVA + Licenciamento) ÷ 365 dias + Seguro ÷ 30 dias, multiplicado pelos dias do período."
+      />
+      <StatCard
+        title="KM Rodados"
+        value={stats.km}
+        icon={MapPin}
+        color="text-blue-600 bg-blue-50 dark:bg-blue-950/30"
+        tooltip="Total de quilômetros percorridos no período selecionado."
+      />
       </motion.div>
 
       {/* Detailed Expenses Breakdown */}
@@ -702,9 +709,9 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
   );
 }
 
-function StatCard({ title, value, icon: Icon, color, isCurrency = false }: any) {
+function StatCard({ title, value, icon: Icon, color, isCurrency = false, tooltip }: any) {
   return (
-    <motion.div 
+    <motion.div
       variants={item}
       whileHover={{ y: -5 }}
       className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow"
@@ -713,6 +720,7 @@ function StatCard({ title, value, icon: Icon, color, isCurrency = false }: any) 
         <div className={cn("p-3 rounded-2xl", color)}>
           <Icon size={24} />
         </div>
+        {tooltip && <InfoTooltip content={tooltip} />}
       </div>
       <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
       <p className="text-2xl font-bold text-slate-900 dark:text-white">

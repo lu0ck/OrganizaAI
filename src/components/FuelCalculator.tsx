@@ -1,16 +1,26 @@
 import React, { useState, useMemo } from 'react';
-import { Droplets, TrendingUp, AlertCircle, Info } from 'lucide-react';
-import { UserProfile } from '../types';
+import { Droplets, TrendingUp, AlertCircle, Info, Gauge } from 'lucide-react';
+import { UserProfile, Expense } from '../types';
 import { motion } from 'motion/react';
+import { calculateFuelConsumption } from '../lib/fuelCalculation';
 
 interface FuelCalculatorProps {
   profile: UserProfile;
+  expenses?: Expense[];
 }
 
-export default function FuelCalculator({ profile }: FuelCalculatorProps) {
+export default function FuelCalculator({ profile, expenses = [] }: FuelCalculatorProps) {
+  const consumptionResult = useMemo(() => {
+    return calculateFuelConsumption(expenses, profile.kmPerLiter || 10);
+  }, [expenses, profile.kmPerLiter]);
+
+  const defaultConsumption = consumptionResult.hasEnoughData 
+    ? consumptionResult.averageKmPerLiter.toFixed(1) 
+    : (profile.kmPerLiter?.toString() || '10');
+
   const [gasPrice, setGasPrice] = useState<string>('');
   const [alcoholPrice, setAlcoholPrice] = useState<string>('');
-  const [gasConsumption, setGasConsumption] = useState<string>(profile.kmPerLiter?.toString() || '10');
+  const [gasConsumption, setGasConsumption] = useState<string>(defaultConsumption);
   const [alcoholConsumption, setAlcoholConsumption] = useState<string>('');
 
   const result = useMemo(() => {
@@ -47,11 +57,20 @@ export default function FuelCalculator({ profile }: FuelCalculatorProps) {
         <div className="p-2 bg-orange-100 dark:bg-orange-950/30 text-orange-600 rounded-xl">
           <Droplets size={20} />
         </div>
-        <h3 className="text-lg font-bold dark:text-white">Calculadora Gasolina vs. Álcool</h3>
+        <div>
+          <h3 className="text-lg font-bold dark:text-white">Calculadora Gasolina vs. Álcool</h3>
+          {consumptionResult.hasEnoughData ? (
+            <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+              <Gauge size={12} /> Consumo real: {consumptionResult.averageKmPerLiter.toFixed(1)} km/L ({consumptionResult.totalRecords} registros)
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500">Usando estimativa do perfil</p>
+          )}
+        </div>
       </div>
 
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Descubra qual combustível compensa mais com base no consumo real do seu veículo.
+        Descubra qual combustível compensa mais com base no consumo do seu veículo.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

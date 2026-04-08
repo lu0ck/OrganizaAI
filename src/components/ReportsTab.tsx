@@ -43,10 +43,15 @@ export default function ReportsTab({ rides, expenses, profile }: ReportsTabProps
     const foodExpenses = filteredExpenses.filter(e => e.type === 'alimentacao').reduce((acc, e) => acc + e.value, 0);
     const maintenanceExpenses = filteredExpenses.filter(e => e.type === 'manutencao').reduce((acc, e) => acc + e.value, 0);
 
-    // Fixed costs proportional to month
-    const fixedCosts = ((profile.ipvaValue || 0) / 12) + 
-                       ((profile.licensingValue || 0) / 12) + 
-                       (profile.insuranceValue || 0);
+    // Calculate days in selected month
+    const daysInMonth = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Fixed costs proportional to days in month (same logic as Dashboard)
+    const ipvaDaily = (profile.ipvaValue || 0) / 365;
+    const licensingDaily = (profile.licensingValue || 0) / 365;
+    const insuranceDaily = (profile.insuranceValue || 0) / 30;
+    
+    const fixedCosts = (ipvaDaily + licensingDaily + insuranceDaily) * daysInMonth;
 
     const netProfit = totalEarnings - totalExpenses - fixedCosts;
 

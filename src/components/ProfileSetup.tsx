@@ -12,6 +12,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
   const [name, setName] = useState('');
   const [vehicleType, setVehicleType] = useState<'carro' | 'moto'>('carro');
   const [vehicleModel, setVehicleModel] = useState('');
+  const [vehicleOdometerKm, setVehicleOdometerKm] = useState('');
   const [kmPerLiter, setKmPerLiter] = useState('');
   const [totalTankSize, setTotalTankSize] = useState('');
   const [reserveSize, setReserveSize] = useState('');
@@ -22,10 +23,11 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name && vehicleModel) {
-      onComplete({ 
-        name, 
-        vehicleType, 
+      onComplete({
+        name,
+        vehicleType,
         vehicleModel,
+        vehicleOdometerKm: Number(vehicleOdometerKm) || undefined,
         kmPerLiter: Number(kmPerLiter) || undefined,
         totalTankSize: Number(totalTankSize) || undefined,
         reserveSize: Number(reserveSize) || undefined,
@@ -100,22 +102,36 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
               <span className="font-semibold">Moto</span>
             </button>
           </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Modelo do Veículo</label>
+          <input
+            type="text"
+            required
+            value={vehicleModel}
+            onChange={(e) => setVehicleModel(e.target.value)}
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all dark:text-white"
+            placeholder="Ex: Honda Civic 2020"
+          />
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Modelo do Veículo</label>
-            <input
-              type="text"
-              required
-              value={vehicleModel}
-              onChange={(e) => setVehicleModel(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all dark:text-white"
-              placeholder="Ex: Honda Civic 2020"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            KM Atual do Odômetro
+            <span className="block text-[10px] text-slate-400 font-normal">Quilometragem total do veículo (opcional, mas recomendado)</span>
+          </label>
+          <input
+            type="number"
+            value={vehicleOdometerKm}
+            onChange={(e) => setVehicleOdometerKm(e.target.value)}
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all dark:text-white"
+            placeholder="Ex: 65000"
+          />
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">KM por Litro</label>
               <input
