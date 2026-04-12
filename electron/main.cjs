@@ -10,6 +10,7 @@ function createWindow() {
       contextIsolation: false,
     },
     title: 'OrganizaAi - Gestão para Motoristas',
+    icon: path.join(__dirname, '../assets/icone.png'),
   });
 
   if (!app.isPackaged) {
