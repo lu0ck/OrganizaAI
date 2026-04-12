@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Droplets, TrendingUp, AlertCircle, Info, Gauge } from 'lucide-react';
 import { UserProfile, Expense } from '../types';
 import { motion } from 'motion/react';
-import { calculateFuelConsumption } from '../lib/fuelCalculation';
+import { calculateGlobalConsumption } from '../lib/fuelCalculation';
 
 interface FuelCalculatorProps {
   profile: UserProfile;
@@ -10,12 +10,12 @@ interface FuelCalculatorProps {
 }
 
 export default function FuelCalculator({ profile, expenses = [] }: FuelCalculatorProps) {
-  const consumptionResult = useMemo(() => {
-    return calculateFuelConsumption(expenses, profile.kmPerLiter || 10);
-  }, [expenses, profile.kmPerLiter]);
+  const globalConsumption = useMemo(() => {
+    return calculateGlobalConsumption(expenses);
+  }, [expenses]);
 
-  const defaultConsumption = consumptionResult.hasEnoughData 
-    ? consumptionResult.averageKmPerLiter.toFixed(1) 
+  const defaultConsumption = globalConsumption.status === 'valid' 
+    ? globalConsumption.globalAverage.toFixed(1) 
     : (profile.kmPerLiter?.toString() || '10');
 
   const [gasPrice, setGasPrice] = useState<string>('');
@@ -59,9 +59,9 @@ export default function FuelCalculator({ profile, expenses = [] }: FuelCalculato
         </div>
         <div>
           <h3 className="text-lg font-bold dark:text-white">Calculadora Gasolina vs. Álcool</h3>
-          {consumptionResult.hasEnoughData ? (
+          {globalConsumption.status === 'valid' ? (
             <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-              <Gauge size={12} /> Consumo real: {consumptionResult.averageKmPerLiter.toFixed(1)} km/L ({consumptionResult.totalRecords} registros)
+              <Gauge size={12} /> Consumo real: {globalConsumption.globalAverage.toFixed(1)} km/L ({globalConsumption.validSegments} trechos)
             </p>
           ) : (
             <p className="text-xs text-slate-500">Usando estimativa do perfil</p>

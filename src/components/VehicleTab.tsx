@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Bike, Settings, Fuel, AlertCircle, TrendingUp, MapPin, Calendar, Clock, Plus, Trash2, Save, X, DollarSign, Car, Filter, Search, History, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bike, Settings, Fuel, AlertCircle, TrendingUp, MapPin, Calendar, Clock, Plus, Trash2, Save, X, DollarSign, Car, Filter, Search, History, ChevronDown, ChevronUp, Droplets, Activity } from 'lucide-react';
 import { RideEntry, Expense, MaintenanceItem, UserProfile, MaintenanceHistory } from '../types';
 import { cn } from '../lib/utils';
 import { format, parseISO, differenceInDays, addDays } from 'date-fns';
-import { calculateFuelConsumption } from '../lib/fuelCalculation';
+import { calculateGlobalConsumption, getLastFuelExpense, calculateAutonomy } from '../lib/fuelCalculation';
 import FuelConsumptionHistory from './FuelConsumptionHistory';
 import InfoTooltip from './Tooltip';
 
@@ -52,19 +52,23 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
     const maintenanceExpenses = expenses.filter(e => e.type === 'manutencao');
     const totalMaintenance = maintenanceExpenses.reduce((acc, e) => acc + e.value, 0);
 
-    const consumptionResult = calculateFuelConsumption(expenses, profile.kmPerLiter || 0);
-    const kmPerLiter = consumptionResult.hasEnoughData
-      ? consumptionResult.averageKmPerLiter
-      : (profile.kmPerLiter || (totalLiters > 0 ? totalKm / totalLiters : 0));
-
     const costPerKm = totalKm > 0 ? (totalFuelValue + totalMaintenance) / totalKm : 0;
 
     const firstRide = rides.length > 0 ? parseISO(rides[rides.length - 1].date) : new Date();
     const daysDiff = Math.max(differenceInDays(new Date(), firstRide), 1);
     const avgKmPerDay = totalKm / daysDiff;
 
-    // Use vehicle odometer if available, otherwise use totalKm from rides
     const currentOdometerKm = profile.vehicleOdometerKm || totalKm;
+
+    const globalConsumption = calculateGlobalConsumption(expenses);
+    const kmPerLiter = globalConsumption.status === 'valid'
+      ? globalConsumption.globalAverage
+      : (profile.kmPerLiter || (totalLiters > 0 ? totalKm / totalLiters : 0));
+
+    const lastFuelExpense = getLastFuelExpense(expenses);
+    const autonomy = lastFuelExpense && globalConsumption.status === 'valid'
+      ? calculateAutonomy(lastFuelExpense.saldoAfterFueling || 0, globalConsumption.globalAverage)
+      : null;
 
     return {
       totalKm,
@@ -76,7 +80,9 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
       costPerKm,
       avgKmPerDay,
       maintenanceCount: maintenanceExpenses.length,
-      consumptionResult
+      globalConsumption,
+      lastFuelExpense,
+      autonomy
     };
   }, [rides, expenses, profile]);
 
@@ -414,7 +420,7 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
               {motoStats.kmPerLiter.toFixed(1)}
               <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1">KM/L</span>
             </p>
-            {motoStats.consumptionResult.hasEnoughData ? (
+            {motoStats.globalConsumption.status === 'valid' ? (
               <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
                 Real
               </span>
@@ -850,10 +856,126 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
               <p className="font-bold text-sm text-brand-800 dark:text-brand-300">Filtro de Ar</p>
               <p className="text-xs text-brand-700 dark:text-brand-400">Garante mistura correta e evita perda de potência.</p>
             </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Cards de Combustível - Método da Reserva */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {/* Saldo Atual no Tanque */}
+    {motoStats.lastFuelExpense && (
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950/30 flex items-center justify-center text-brand-600">
+              <Droplets size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold dark:text-white">Saldo no Tanque</p>
+              <p className="text-xs text-slate-500">
+                {format(parseISO(motoStats.lastFuelExpense.date), 'dd/MM/yyyy')}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-end gap-2">
+          <p className="text-3xl font-bold text-brand-600">
+            {motoStats.lastFuelExpense.saldoAfterFueling?.toFixed(1) || '0'}
+          </p>
+          <p className="text-lg text-slate-400 mb-1">litros</p>
+        </div>
+        {profile.totalTankSize && (
+          <div className="mt-3">
+            <div className="flex justify-between text-xs text-slate-500 mb-1">
+              <span>0L</span>
+              <span>{profile.totalTankSize}L</span>
+            </div>
+            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-brand-500 rounded-full transition-all"
+                style={{
+                  width: `${((motoStats.lastFuelExpense.saldoAfterFueling || 0) / profile.totalTankSize) * 100}%`
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Consumo do Último Trecho */}
+    {motoStats.lastFuelExpense?.segmentConsumption && (
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center text-orange-600">
+              <Activity size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold dark:text-white">Consumo do Trecho</p>
+              <p className="text-xs text-slate-500">{motoStats.lastFuelExpense.tripTotal} km</p>
+            </div>
+          </div>
+          {motoStats.lastFuelExpense.isCalibrated ? (
+            <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-full">
+              Calibrado
+            </span>
+          ) : (
+            <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-full">
+              Estimado
+            </span>
+          )}
+        </div>
+        <div className="flex items-end gap-2">
+          <p className="text-3xl font-bold text-orange-600">
+            {motoStats.lastFuelExpense.segmentConsumption.toFixed(1)}
+          </p>
+          <p className="text-lg text-slate-400 mb-1">km/l</p>
+        </div>
+      </div>
+    )}
+
+    {/* Média Global Real */}
+    {motoStats.globalConsumption.status === 'valid' && (
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
+              <TrendingUp size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold dark:text-white">Média Global Real</p>
+              <p className="text-xs text-slate-500">{motoStats.globalConsumption.validSegments} trechos calibrados</p>
+            </div>
+          </div>
+          <InfoTooltip content="Média real considerando saldo no tanque. Fórmula: Total KM ÷ (Litros abastecidos - Saldo atual)." />
+        </div>
+        <div className="flex items-end gap-2 mb-4">
+          <p className="text-3xl font-bold text-emerald-600">
+            {motoStats.globalConsumption.globalAverage.toFixed(1)}
+          </p>
+          <p className="text-lg text-slate-400 mb-1">km/l</p>
+        </div>
+        <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">KM Total</p>
+            <p className="text-sm font-bold dark:text-white">{motoStats.globalConsumption.totalKm.toFixed(0)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Queimados</p>
+            <p className="text-sm font-bold dark:text-white">{motoStats.globalConsumption.litersBurned.toFixed(1)}L</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Autonomia</p>
+            <p className="text-sm font-bold dark:text-white">
+              {motoStats.autonomy ? `${motoStats.autonomy.kmAutonomy.toFixed(0)} km` : '-'}
+            </p>
           </div>
         </div>
       </div>
-    </div>
+  )}
+  </div>
+  </div>
 
   <FuelConsumptionHistory expenses={expenses} profileKmPerLiter={profile.kmPerLiter || 0} />
 </motion.div>

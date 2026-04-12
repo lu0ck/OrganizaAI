@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle } from 'lucide-react';
+import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle, TrendingUp } from 'lucide-react';
 import { UserProfile, AppState } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -137,27 +137,56 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">KM por Litro</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.kmPerLiter || ''}
-                    onChange={(e) => setFormData({ ...formData, kmPerLiter: Number(e.target.value) })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      KM por Litro
+                      <span className="block text-[10px] text-slate-400 font-normal">Estimativa inicial (editável)</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.kmPerLiter || ''}
+                      onChange={(e) => setFormData({ ...formData, kmPerLiter: Number(e.target.value) })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                    />
+                    {profile.currentKmPerLiter && profile.currentKmPerLiter > 0 && (
+                      <p className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
+                        <TrendingUp size={12} />
+                        Consumo real: <strong>{profile.currentKmPerLiter} km/l</strong>
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Tanque Total (L)
+                      <span className="block text-[10px] text-slate-400 font-normal">Capacidade total incluindo reserva</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.totalTankSize || ''}
+                      onChange={(e) => setFormData({ ...formData, totalTankSize: Number(e.target.value) })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Tanque Total (L)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.totalTankSize || ''}
-                    onChange={(e) => setFormData({ ...formData, totalTankSize: Number(e.target.value) })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-                  />
-                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Reserva (L)
+                      <span className="block text-[10px] text-slate-400 font-normal">Litros quando a luz acende</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.reserveSize || ''}
+                      onChange={(e) => setFormData({ ...formData, reserveSize: Number(e.target.value) })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                      placeholder="Ex: 5"
+                    />
+                  </div>
               </div>
             </div>
           </div>

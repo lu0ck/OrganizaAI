@@ -1,7 +1,19 @@
 import React from 'react';
-import { Github, Linkedin, ExternalLink, Heart } from 'lucide-react';
+import { Github, Linkedin, ExternalLink, Heart, Bug, Mail } from 'lucide-react';
 
 export default function Footer() {
+  const handleReportIssue = () => {
+    const subject = encodeURIComponent('[OrganizaAi-Bug] - Reportar problema');
+    const body = encodeURIComponent(`Prezado desenvolvedor,\n\nEncontrei um problema no aplicativo OrganizaAi:\n\nDescrição do problema:\n[Descreva aqui o problema]\n\nPasso a passo para reproduzir:\n1. \n2. \n3. \n\nInformações adicionais:\n- Navegador/Sistema: \n- Data: ${new Date().toLocaleDateString('pt-BR')}\n\nAtt,`);
+    window.location.href = `mailto:bugsandchanges@gmail.com?subject=${subject}&body=${body}`;
+  };
+
+  const handleSuggestFeature = () => {
+    const subject = encodeURIComponent('[OrganizaAi-Sugestão] - Sugerir funcionalidade');
+    const body = encodeURIComponent(`Prezado desenvolvedor,\n\nGostaria de sugerir uma nova funcionalidade para o OrganizaAi:\n\nNome da funcionalidade:\n[Descreva o nome]\n\nDescrição detalhada:\n[Descreva como deveria funcionar e por que seria útil]\n\nAtt,`);
+    window.location.href = `mailto:bugsandchanges@gmail.com?subject=${subject}&body=${body}`;
+  };
+
   return (
     <footer className="mt-20 pb-10 border-t border-slate-200 dark:border-slate-800 pt-10">
       <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -14,7 +26,23 @@ export default function Footer() {
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleReportIssue}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-rose-500 hover:text-white dark:hover:bg-rose-600 transition-all shadow-sm text-sm font-medium"
+            title="Reportar Bug"
+          >
+            <Bug size={18} />
+            <span className="hidden sm:inline">Bug</span>
+          </button>
+          <button 
+            onClick={handleSuggestFeature}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-600 transition-all shadow-sm text-sm font-medium"
+            title="Sugerir Funcionalidade"
+          >
+            <Mail size={18} />
+            <span className="hidden sm:inline">Sugestão</span>
+          </button>
           <a 
             href="https://github.com/lu0ck" 
             target="_blank" 

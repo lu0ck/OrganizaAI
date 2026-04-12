@@ -28,11 +28,16 @@ export interface Expense {
   location?: string;
   liters?: number;
   pricePerLiter?: number;
-  enteredReserve?: boolean;
-  kmOnReserve?: number;
-  isFullTank?: boolean;
   fuelType?: 'gasolina' | 'alcool' | 'gnv';
-  odometerKm?: number;
+  // Método da Reserva - campos de entrada
+  tripTotal?: number; // KM desde último abastecimento (obrigatório)
+  tripOnReserve?: number; // KM rodados na reserva (0 se não entrou)
+  enteredReserve?: boolean; // Se entrou na reserva
+  // Campos calculados automaticamente
+  saldoBeforeFueling?: number; // Litros no tanque antes de abastecer
+  saldoAfterFueling?: number; // Litros no tanque após abastecer
+  segmentConsumption?: number; // km/l deste trecho
+  isCalibrated?: boolean; // Se usou reserva como calibração física
 }
 
 export interface Goal {
@@ -78,8 +83,9 @@ export interface UserProfile {
   name: string;
   vehicleType: 'carro' | 'moto';
   vehicleModel: string;
-  vehicleOdometerKm?: number; // KM total atual do odômetro do veículo
-  kmPerLiter?: number;
+  vehicleOdometerKm?: number; // KM total atual do odômetro do veículo (atualizado automaticamente)
+  kmPerLiter?: number; // Estimativa inicial de consumo (preenchido pelo usuário)
+  currentKmPerLiter?: number; // Consumo real calculado pelo sistema
   totalTankSize?: number; // Capacidade total incluindo a reserva
   reserveSize?: number; // Capacidade da reserva (parte do totalTankSize)
   // Annual costs

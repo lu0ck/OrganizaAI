@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Clock, MapPin, Navigation, Package, User, Save, X, Calendar } from 'lucide-react';
+import { Plus, Trash2, Clock, MapPin, Navigation, Package, User, Save, X, Calendar, Pencil } from 'lucide-react';
 import { RideEntry, AppModality } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -9,11 +9,13 @@ import { motion, AnimatePresence } from 'motion/react';
 interface EntryFormProps {
   onAdd: (ride: RideEntry) => void;
   onDelete: (id: string) => void;
+  onEdit: (ride: RideEntry) => void;
   rides: RideEntry[];
 }
 
-export default function EntryForm({ onAdd, onDelete, rides }: EntryFormProps) {
+export default function EntryForm({ onAdd, onDelete, onEdit, rides }: EntryFormProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '00:00',
@@ -30,7 +32,7 @@ export default function EntryForm({ onAdd, onDelete, rides }: EntryFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newRide: RideEntry = {
-      id: crypto.randomUUID(),
+      id: editingId || crypto.randomUUID(),
       date: formData.date,
       startTime: formData.startTime,
       endTime: formData.endTime,
@@ -40,8 +42,16 @@ export default function EntryForm({ onAdd, onDelete, rides }: EntryFormProps) {
       region: formData.region,
       appRides: formData.appRides.map(r => ({ ...r, count: Number(r.count), value: Number(r.value) }))
     };
-    onAdd(newRide);
+    
+    if (editingId) {
+      onEdit(newRide);
+      setEditingId(null);
+    } else {
+      onAdd(newRide);
+    }
+    
     setIsAdding(false);
+    setEditingId(null);
     // Reset form
     setFormData({
       date: format(new Date(), 'yyyy-MM-dd'),
@@ -287,6 +297,32 @@ export default function EntryForm({ onAdd, onDelete, rides }: EntryFormProps) {
                       <p className="text-xs text-slate-500">Corridas</p>
                       <p className="font-bold text-slate-900 dark:text-white">{ride.numRides}</p>
                     </div>
+                    <button
+                      onClick={() => {
+                        setEditingId(ride.id);
+                        setIsAdding(true);
+                        setFormData({
+                          date: ride.date,
+                          startTime: ride.startTime,
+                          endTime: ride.endTime,
+                          kmDriven: String(ride.kmDriven),
+                          totalValue: String(ride.totalValue),
+                          region: ride.region,
+                          appRides: ride.appRides.length > 0 ? ride.appRides.map(r => ({
+                            appName: r.appName,
+                            modality: r.modality,
+                            count: String(r.count),
+                            value: String(r.value)
+                          })) : [
+                            { appName: 'Uber', modality: 'passageiro', count: '0', value: '0' },
+                            { appName: 'iFood', modality: 'entrega', count: '0', value: '0' }
+                          ]
+                        });
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
+                    >
+                      <Pencil size={18} />
+                    </button>
                     <button
                       onClick={() => onDelete(ride.id)}
                       className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-2 rounded-lg transition-all"

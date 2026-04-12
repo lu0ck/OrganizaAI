@@ -7,6 +7,7 @@ import {
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSidebar } from './hooks/useSidebar';
 import { useToast } from './hooks/useToast';
+import { recalculateFuelExpensesChain, calculateGlobalConsumption } from './lib/fuelCalculation';
 import { AppState, ColorTheme, MaintenanceItem } from './types';
 import { format, subDays } from 'date-fns';
 import { cn } from './lib/utils';
@@ -50,7 +51,7 @@ const initialState: AppState = {
   expenses: [],
   goals: [],
   maintenance: [],
-  theme: 'light',
+  theme: 'dark',
   colorTheme: 'red'
 };
 
@@ -115,12 +116,132 @@ export default function App() {
     }
   }, [state.maintenance, setState]);
 
+  // Recalcular abastecimentos em cascata ao iniciar
+  useEffect(() => {
+    if (!state.profile || state.expenses.length === 0) return;
+    
+    const hasFuelExpenses = state.expenses.some(e => e.type === 'combustivel' && e.tripTotal);
+    if (!hasFuelExpenses) return;
+    
+    try {
+      const recalculatedExpenses = recalculateFuelExpensesChain(state.expenses, state.profile);
+      const hasChanges = recalculatedExpenses.some((e, i) => 
+        e.saldoAfterFueling !== state.expenses[i]?.saldoAfterFueling
+      );
+      
+      if (hasChanges) {
+        setState(prev => ({ ...prev, expenses: recalculatedExpenses }));
+      }
+    } catch (error) {
+      console.error('Error recalculating fuel expenses:', error);
+    }
+  }, [state.expenses, state.profile]);
+
+  // Atualizar consumo atual no perfil
+  useEffect(() => {
+    if (!state.profile) return;
+    
+    try {
+      const globalConsumption = calculateGlobalConsumption(state.expenses);
+      
+      if (globalConsumption.status === 'valid' && globalConsumption.globalAverage > 0) {
+        const currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
+        if (state.profile.currentKmPerLiter !== currentKmPerLiter) {
+          setState(prev => ({
+            ...prev,
+            profile: { ...prev.profile!, currentKmPerLiter }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error updating consumption:', error);
+    }
+  }, [state.expenses, state.profile]);
+
   const toggleTheme = () => {
     setState(prev => ({ ...prev, theme: prev.theme === 'light' ? 'dark' : 'light' }));
   };
 
   const setColorTheme = (color: ColorTheme) => {
     setState(prev => ({ ...prev, colorTheme: color }));
+  };
+
+  // Handler para adicionar ride e atualizar odômetro
+  const handleAddRide = (ride: typeof state.rides[0]) => {
+    setState(prev => {
+      const newOdometerKm = prev.profile?.vehicleOdometerKm 
+        ? prev.profile.vehicleOdometerKm + ride.kmDriven 
+        : ride.kmDriven;
+      
+      return {
+        ...prev,
+        rides: [ride, ...prev.rides],
+        profile: prev.profile 
+          ? { ...prev.profile, vehicleOdometerKm: newOdometerKm }
+          : prev.profile
+      };
+    });
+  };
+
+  // Handler para adicionar expense e atualizar odômetro (se for combustível)
+  const handleAddExpense = (expense: typeof state.expenses[0]) => {
+    setState(prev => {
+      let newProfile = prev.profile;
+      
+      // Se for combustível com tripTotal, atualizar odômetro
+      if (expense.type === 'combustivel' && expense.tripTotal && prev.profile) {
+        const newOdometerKm = prev.profile.vehicleOdometerKm 
+          ? prev.profile.vehicleOdometerKm + expense.tripTotal 
+          : expense.tripTotal;
+        
+        newProfile = { ...prev.profile, vehicleOdometerKm: newOdometerKm };
+        
+        // Recalcular em cascata após adicionar
+        const allExpenses = [expense, ...prev.expenses];
+        const recalculatedExpenses = recalculateFuelExpensesChain(allExpenses, newProfile);
+        
+        return {
+          ...prev,
+          expenses: recalculatedExpenses,
+          profile: newProfile
+        };
+      }
+      
+      return {
+        ...prev,
+        expenses: [expense, ...prev.expenses]
+      };
+    });
+  };
+
+  // Handler para deletar expense e recalcular
+  const handleDeleteExpense = (id: string) => {
+    setState(prev => {
+      const newExpenses = prev.expenses.filter(e => e.id !== id);
+      
+      if (prev.profile) {
+        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, prev.profile);
+        return { ...prev, expenses: recalculatedExpenses };
+      }
+      
+      return { ...prev, expenses: newExpenses };
+    });
+  };
+
+  // Handler para editar expense
+  const handleEditExpense = (updatedExpense: Expense) => {
+    setState(prev => {
+      const newExpenses = prev.expenses.map(e => 
+        e.id === updatedExpense.id ? updatedExpense : e
+      );
+      
+      if (prev.profile) {
+        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, prev.profile);
+        return { ...prev, expenses: recalculatedExpenses };
+      }
+      
+      return { ...prev, expenses: newExpenses };
+    });
   };
 
   useEffect(() => {
@@ -228,7 +349,6 @@ export default function App() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           profile={state.profile}
-          onToggleTheme={toggleTheme}
           theme={state.theme}
           colorTheme={state.colorTheme}
           setColorTheme={setColorTheme}
@@ -259,21 +379,23 @@ export default function App() {
                   profile={state.profile}
                 />
               )}
-              {activeTab === 'rides' && (
-                <EntryForm 
-                  onAdd={(ride) => setState(prev => ({ ...prev, rides: [ride, ...prev.rides] }))} 
-                  onDelete={(id) => setState(prev => ({ ...prev, rides: prev.rides.filter(r => r.id !== id) }))}
-                  rides={state.rides}
-                />
-              )}
-              {activeTab === 'expenses' && (
-                <ExpensesForm 
-                  onAdd={(expense) => setState(prev => ({ ...prev, expenses: [expense, ...prev.expenses] }))}
-                  onDelete={(id) => setState(prev => ({ ...prev, expenses: prev.expenses.filter(e => e.id !== id) }))}
-                  expenses={state.expenses}
-                  profile={state.profile}
-                />
-              )}
+        {activeTab === 'rides' && (
+          <EntryForm
+            onAdd={handleAddRide}
+            onDelete={(id) => setState(prev => ({ ...prev, rides: prev.rides.filter(r => r.id !== id) }))}
+            onEdit={(ride) => setState(prev => ({ ...prev, rides: prev.rides.map(r => r.id === ride.id ? ride : r) }))}
+            rides={state.rides}
+          />
+        )}
+        {activeTab === 'expenses' && (
+          <ExpensesForm
+            onAdd={handleAddExpense}
+            onDelete={handleDeleteExpense}
+            onEdit={handleEditExpense}
+            expenses={state.expenses}
+            profile={state.profile}
+          />
+        )}
               {activeTab === 'goals' && (
                 <Goals 
                   goals={state.goals}

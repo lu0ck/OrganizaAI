@@ -190,8 +190,8 @@ export default function Sidebar({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 className={cn(
-                  "absolute p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 grid grid-cols-4 gap-2 z-50",
-                  isCompact ? "bottom-full left-full ml-2 mb-2" : "bottom-full left-4 mb-2"
+                  "absolute p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 grid grid-cols-4 gap-2 z-50 min-w-[140px]",
+                  isCompact ? "bottom-full left-full ml-2 mb-2 origin-bottom-left" : "bottom-full left-4 mb-2"
                 )}
               >
                 {themes.map((t) => (
@@ -216,28 +216,6 @@ export default function Sidebar({
         </div>
 
         {/* Theme Toggle */}
-        <button
-          onClick={onToggleTheme}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-            isCompact ? "justify-center" : ""
-          )}
-        >
-          {theme === 'light' ? <Moon size={20} className="shrink-0" /> : <Sun size={20} className="shrink-0" />}
-          <AnimatePresence>
-            {!isCompact && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                className="whitespace-nowrap overflow-hidden"
-              >
-                {theme === 'light' ? 'Escuro' : 'Claro'}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
-
         {/* User Profile */}
         <div
           className={cn(

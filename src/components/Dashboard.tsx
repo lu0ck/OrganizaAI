@@ -28,7 +28,7 @@ import {
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, isSameDay } from 'date-fns';
 import { RideEntry, Expense, Goal, UserProfile } from '../types';
 import { cn } from '../lib/utils';
-import { calculateFuelConsumption } from '../lib/fuelCalculation';
+import { calculateGlobalConsumption } from '../lib/fuelCalculation';
 
 import { motion } from 'motion/react';
 import InfoTooltip from './Tooltip';
@@ -145,9 +145,9 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
 
     const costPerKm = lastMonthKm > 0 ? lastMonthTotalCost / lastMonthKm : 0;
 
-    const consumptionResult = calculateFuelConsumption(expenses, profile?.kmPerLiter || 0);
-    const kmPerLiter = consumptionResult.hasEnoughData 
-      ? consumptionResult.averageKmPerLiter 
+    const globalConsumption = calculateGlobalConsumption(expenses);
+    const kmPerLiter = globalConsumption.status === 'valid' 
+      ? globalConsumption.globalAverage 
       : (profile?.kmPerLiter || 0);
 
     return {
@@ -172,8 +172,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
         total: totalDailyCost
       },
       costPerKm,
-      kmPerLiter,
-      consumptionResult
+      kmPerLiter
     };
   }, [filteredData, profile, rides, expenses]);
 
