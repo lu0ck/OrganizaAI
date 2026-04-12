@@ -1,5 +1,9 @@
 # OrganizaAi 🚀
 
+<div align="center">
+  <img src="assets/icone.png" alt="OrganizaAi Logo" width="200">
+</div>
+
 **OrganizaAi** é o companheiro definitivo para motoristas de aplicativo e entregadores que buscam profissionalizar sua gestão financeira e operacional. Desenvolvido com foco em usabilidade e eficiência, o app permite o controle total de ganhos, despesas, metas e manutenção do veículo.
 
 ---
@@ -32,28 +36,58 @@
 
 ---
 
-## 📖 Tutorial Completo de Uso
+## 📐 Documentação de Fórmulas
 
-1.  **Configuração Inicial:** Ao abrir o app pela primeira vez, preencha seu perfil com o nome, modelo do veículo e consumo médio.
-2.  **Lançando Ganhos:** Após cada turno, vá em **"Lançamentos"** e insira o valor total, KM rodado e a divisão por aplicativos (Uber, iFood, etc).
-3.  **Registrando Gastos:** Insira todos os seus custos (combustível, lanches, taxas) em **"Despesas"**.
-4.  **Monitorando Metas:** Defina uma meta diária ou semanal em **"Metas"** e acompanhe a barra de progresso no Dashboard.
-5.  **Manutenção:** Sempre que trocar uma peça, clique em **"Trocar Agora"** no menu de Manutenção para reiniciar o contador de KM daquela peça.
+O OrganizaAi utiliza diversas fórmulas matemáticas para calcular consumo de combustível, métricas financeiras, previsões de manutenção e simulações de ganhos.
+
+📚 **Consulte a documentação completa:** [Documentação de Fórmulas](assets/FORMULAS.md)
+
+### Resumo das Fórmulas:
+
+| Categoria | Principais Fórmulas |
+|-----------|---------------------|
+| **Combustível** | Método da Reserva, Consumo Real, Média Global, Autonomia |
+| **Financeiras** | Lucro Líquido, Ganho por Hora/KM/Corrida, Custos Fixos |
+| **Manutenção** | Progresso por KM/Dias, Dias Restantes, Previsão de Troca |
+| **Simulação** | Projeção de Ganhos, Ratio de Despesas, Lucro Projetado |
 
 ---
 
-## 🛠️ Tutorial de Instalação
+## 📖 Tutorial Completo de Uso
+
+1. **Configuração Inicial:** Ao abrir o app pela primeira vez, preencha seu perfil com o nome, modelo do veículo e consumo médio.
+2. **Lançando Ganhos:** Após cada turno, vá em **"Lançamentos"** e insira o valor total, KM rodado e a divisão por aplicativos (Uber, iFood, etc).
+3. **Registrando Gastos:** Insira todos os seus custos (combustível, lanches, taxas) em **"Despesas"**.
+4. **Monitorando Metas:** Defina uma meta diária ou semanal em **"Metas"** e acompanhe a barra de progresso no Dashboard.
+5. **Manutenção:** Sempre que trocar uma peça, clique em **"Trocar Agora"** no menu de Manutenção para reiniciar o contador de KM daquela peça.
+
+---
+
+## 🛠️ Instalação
 
 ### 🪟 Windows (.exe)
-1.  Baixe o arquivo `OrganizaAi-Setup.exe` da seção de releases.
-2.  Execute o instalador e siga as instruções na tela.
-3.  O atalho será criado na sua área de trabalho.
+1. Baixe o arquivo `OrganizaAi-Setup.exe` da seção de releases.
+2. Execute o instalador e siga as instruções na tela.
+3. O atalho será criado na sua área de trabalho.
 
 ### 🐧 Linux (.AppImage)
-1.  Baixe o arquivo `OrganizaAi.AppImage`.
-2.  Clique com o botão direito no arquivo e vá em **Propriedades > Permissões**.
-3.  Marque a opção **"Permitir execução do arquivo como programa"**.
-4.  Dê um duplo clique para abrir.
+1. Baixe o arquivo `OrganizaAi.AppImage`.
+2. Clique com o botão direito no arquivo e vá em **Propriedades > Permissões**.
+3. Marque a opção **"Permitir execução do arquivo como programa"**.
+4. Dê um duplo clique para abrir.
+
+---
+
+## 🔧 Tecnologias Utilizadas
+
+- **Frontend:** React 19 + TypeScript
+- **Build:** Vite 6
+- **Styling:** Tailwind CSS 4
+- **Desktop:** Electron
+- **Gráficos:** Recharts
+- **PDF:** jsPDF + jsPDF-AutoTable
+- **Ícones:** Lucide React
+- **Animações:** Motion
 
 ---
 
@@ -67,4 +101,6 @@ Feito com ❤️ por **Lucas**.
 
 ---
 
-*OrganizaAi - O seu lucro, sob controle.*
+<div align="center">
+  <i>OrganizaAi - O seu lucro, sob controle.</i>
+</div>
