@@ -1,8 +1,8 @@
-# OrganizaAi 🚀
-
 <div align="center">
-  <img src="assets/icone.png" alt="OrganizaAi Logo" width="200">
+  <img src="assets/readmelogo.png" alt="OrganizaAi Logo" width="400">
 </div>
+
+# OrganizaAi
 
 **OrganizaAi** é o companheiro definitivo para motoristas de aplicativo e entregadores que buscam profissionalizar sua gestão financeira e operacional. Desenvolvido com foco em usabilidade e eficiência, o app permite o controle total de ganhos, despesas, metas e manutenção do veículo.
 
@@ -93,7 +93,7 @@ O OrganizaAi utiliza diversas fórmulas matemáticas para calcular consumo de co
 
 ## 👨‍💻 Desenvolvedor
 
-Feito com ❤️ por **Lucas**.
+Feito com 🤖 por **Lucas**.
 
 - **GitHub:** [lu0ck](https://github.com/lu0ck)
 - **LinkedIn:** [Lucas Paixão](https://www.linkedin.com/in/lucaspaixao-dev)

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator, Gauge, Info, Pencil } from 'lucide-react';
+import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator, Gauge, Info, Pencil, Navigation } from 'lucide-react';
 import { Expense, UserProfile } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -14,9 +14,10 @@ interface ExpensesFormProps {
   onEdit: (expense: Expense) => void;
   expenses: Expense[];
   profile: UserProfile;
+  avgPerKm: number;
 }
 
-export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profile }: ExpensesFormProps) {
+export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profile, avgPerKm }: ExpensesFormProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -422,88 +423,100 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
             <p className="text-slate-500">Nenhuma despesa encontrada com os filtros atuais.</p>
           </div>
         ) : (
-          <div className="grid gap-4">
-            {filteredExpenses.map((expense) => {
-              const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
-              return (
-                <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", typeInfo.color)}>
-                        <typeInfo.icon size={24} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
-                        <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-4 items-center">
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">Valor</p>
-                        <p className="font-bold text-rose-600">R$ {expense.value.toFixed(2)}</p>
-                      </div>
-                      {expense.liters && (
-                        <div className="text-right">
-                          <p className="text-xs text-slate-500">Litros</p>
-                          <p className="font-bold text-slate-900 dark:text-white">
-                            {expense.liters.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}L
-                          </p>
-                          {expense.fuelType && (
-                            <span className="text-[10px] font-bold text-orange-500 uppercase">{expense.fuelType}</span>
-                          )}
-                        </div>
-                      )}
-                      {expense.tripTotal && (
-                        <div className="text-right">
-                          <p className="text-xs text-slate-500">Trip</p>
-                          <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
-                          {expense.isCalibrated && (
-                            <span className="text-[10px] font-bold text-emerald-500 uppercase">Calibrado</span>
-                          )}
-                        </div>
-                      )}
-                      <button
-                        onClick={() => {
-                          setEditingId(expense.id);
-                          setIsAdding(true);
-                          setFormData({
-                            date: expense.date,
-                            type: expense.type,
-                            value: String(expense.value),
-                            description: expense.description || '',
-                            location: expense.location || '',
-                            liters: expense.liters ? String(expense.liters) : '',
-                            pricePerLiter: expense.pricePerLiter ? String(expense.pricePerLiter) : '',
-                            fuelType: expense.fuelType || 'gasolina',
-                            tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
-                            enteredReserve: expense.enteredReserve || false,
-                            tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : ''
-                          });
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => onDelete(expense.id)}
-                        className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-2 rounded-lg transition-all"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {expense.description && (
-                    <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                      {expense.description}
-                      {expense.location && <span className="block mt-1 text-xs font-semibold text-slate-500 italic flex items-center gap-1"><MapPin size={10} /> {expense.location}</span>}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+<div className="grid gap-4">
+  {filteredExpenses.map((expense) => {
+    const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
+    const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
+    return (
+    <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", typeInfo.color)}>
+            <typeInfo.icon size={24} />
           </div>
+          <div>
+            <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
+            <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Valor</p>
+            <p className="font-bold text-rose-600">R$ {expense.value.toFixed(2)}</p>
+          </div>
+          {expense.liters && (
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Litros</p>
+              <p className="font-bold text-slate-900 dark:text-white">
+                {expense.liters.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}L
+              </p>
+              {expense.fuelType && (
+                <span className="text-[10px] font-bold text-orange-500 uppercase">{expense.fuelType}</span>
+              )}
+            </div>
+          )}
+          {expense.tripTotal && (
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Trip</p>
+              <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
+              {expense.isCalibrated && (
+                <span className="text-[10px] font-bold text-emerald-500 uppercase">Calibrado</span>
+              )}
+            </div>
+          )}
+          <button
+            onClick={() => {
+              setEditingId(expense.id);
+              setIsAdding(true);
+              setFormData({
+                date: expense.date,
+                type: expense.type,
+                value: String(expense.value),
+                description: expense.description || '',
+                location: expense.location || '',
+                liters: expense.liters ? String(expense.liters) : '',
+                pricePerLiter: expense.pricePerLiter ? String(expense.pricePerLiter) : '',
+                fuelType: expense.fuelType || 'gasolina',
+                tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
+                enteredReserve: expense.enteredReserve || false,
+                tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : ''
+              });
+            }}
+            className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
+          >
+            <Pencil size={18} />
+          </button>
+          <button
+            onClick={() => onDelete(expense.id)}
+            className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-2 rounded-lg transition-all"
+          >
+            <Trash2 size={20} />
+          </button>
+        </div>
+      </div>
+
+      {expense.description && (
+        <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+          {expense.description}
+          {expense.location && <span className="block mt-1 text-xs font-semibold text-slate-500 italic flex items-center gap-1"><MapPin size={10} /> {expense.location}</span>}
+        </p>
+      )}
+
+      {kmToPay !== null && (
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg w-fit">
+            <Navigation size={14} className="text-emerald-600" />
+            <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+              {kmToPay.toLocaleString()} km para pagar esta despesa
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  })}
+</div>
         )}
       </div>
     </div>

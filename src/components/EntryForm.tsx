@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Clock, MapPin, Navigation, Package, User, Save, X, Calendar, Pencil } from 'lucide-react';
-import { RideEntry, AppModality } from '../types';
+import { Plus, Trash2, Clock, MapPin, Navigation, Package, User, Save, X, Calendar, Pencil, Fuel } from 'lucide-react';
+import { RideEntry, AppModality, UserProfile, Expense } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
 
@@ -11,9 +11,11 @@ interface EntryFormProps {
   onDelete: (id: string) => void;
   onEdit: (ride: RideEntry) => void;
   rides: RideEntry[];
+  profile: UserProfile;
+  expenses: Expense[];
 }
 
-export default function EntryForm({ onAdd, onDelete, onEdit, rides }: EntryFormProps) {
+export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, expenses }: EntryFormProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -86,6 +88,29 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides }: EntryFormP
       ...prev,
       appRides: prev.appRides.map((r, i) => i === index ? { ...r, [field]: value } : r)
     }));
+  };
+
+  const calculateHours = (startTime: string, endTime: string): number => {
+    const [sH, sM] = startTime.split(':').map(Number);
+    const [eH, eM] = endTime.split(':').map(Number);
+    let diff = (eH * 60 + eM) - (sH * 60 + sM);
+    if (diff < 0) diff += 24 * 60;
+    return diff / 60;
+  };
+
+  const getLastFuelExpense = (expenses: Expense[]): Expense | undefined => {
+    return expenses
+      .filter(e => e.type === 'combustivel' && e.pricePerLiter)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  };
+
+  const estimateFuelCost = (km: number): number | null => {
+    const lastFuel = getLastFuelExpense(expenses);
+    if (!lastFuel?.pricePerLiter) return null;
+    const kmPerLiter = profile.currentKmPerLiter || profile.kmPerLiter || 0;
+    if (kmPerLiter === 0) return null;
+    const litersNeeded = km / kmPerLiter;
+    return litersNeeded * lastFuel.pricePerLiter;
   };
 
   return (
@@ -267,82 +292,100 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides }: EntryFormP
             <p className="text-slate-500">Nenhum lançamento encontrado. Comece agora!</p>
           </div>
         ) : (
-          <div className="grid gap-4">
-            {rides.map((ride) => (
-              <div key={ride.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-950/30 flex items-center justify-center text-brand-600">
-                      <Calendar size={24} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{format(parseISO(ride.date), 'dd/MM/yyyy')}</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span className="flex items-center gap-1"><Clock size={12} /> {ride.startTime} - {ride.endTime}</span>
-                        <span className="flex items-center gap-1"><MapPin size={12} /> {ride.region}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-4 items-center">
-                    <div className="text-right">
-                      <p className="text-xs text-slate-500">Ganhos</p>
-                      <p className="font-bold text-emerald-600">R$ {ride.totalValue.toFixed(2)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-500">Distância</p>
-                      <p className="font-bold text-slate-900 dark:text-white">{ride.kmDriven} KM</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-500">Corridas</p>
-                      <p className="font-bold text-slate-900 dark:text-white">{ride.numRides}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setEditingId(ride.id);
-                        setIsAdding(true);
-                        setFormData({
-                          date: ride.date,
-                          startTime: ride.startTime,
-                          endTime: ride.endTime,
-                          kmDriven: String(ride.kmDriven),
-                          totalValue: String(ride.totalValue),
-                          region: ride.region,
-                          appRides: ride.appRides.length > 0 ? ride.appRides.map(r => ({
-                            appName: r.appName,
-                            modality: r.modality,
-                            count: String(r.count),
-                            value: String(r.value)
-                          })) : [
-                            { appName: 'Uber', modality: 'passageiro', count: '0', value: '0' },
-                            { appName: 'iFood', modality: 'entrega', count: '0', value: '0' }
-                          ]
-                        });
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
-                    >
-                      <Pencil size={18} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(ride.id)}
-                      className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-2 rounded-lg transition-all"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800 flex flex-wrap gap-2">
-                  {ride.appRides.map((app, i) => (
-                    <span key={i} className="px-3 py-1 bg-slate-50 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                      {app.modality === 'passageiro' ? <User size={12} /> : <Package size={12} />}
-                      {app.appName}: {app.count} ({app.modality})
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+<div className="grid gap-4">
+  {rides.map((ride) => {
+    const hours = calculateHours(ride.startTime, ride.endTime);
+    const fuelCost = estimateFuelCost(ride.kmDriven);
+    return (
+    <div key={ride.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-950/30 flex items-center justify-center text-brand-600">
+            <Calendar size={24} />
           </div>
+          <div>
+            <p className="font-bold text-slate-900 dark:text-white">{format(parseISO(ride.date), 'dd/MM/yyyy')}</p>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1"><Clock size={12} /> {ride.startTime} - {ride.endTime}</span>
+              <span className="flex items-center gap-1"><MapPin size={12} /> {ride.region}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Ganhos</p>
+            <p className="font-bold text-emerald-600">R$ {ride.totalValue.toFixed(2)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Distância</p>
+            <p className="font-bold text-slate-900 dark:text-white">{ride.kmDriven} KM</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Corridas</p>
+            <p className="font-bold text-slate-900 dark:text-white">{ride.numRides}</p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingId(ride.id);
+              setIsAdding(true);
+              setFormData({
+                date: ride.date,
+                startTime: ride.startTime,
+                endTime: ride.endTime,
+                kmDriven: String(ride.kmDriven),
+                totalValue: String(ride.totalValue),
+                region: ride.region,
+                appRides: ride.appRides.length > 0 ? ride.appRides.map(r => ({
+                  appName: r.appName,
+                  modality: r.modality,
+                  count: String(r.count),
+                  value: String(r.value)
+                })) : [
+                  { appName: 'Uber', modality: 'passageiro', count: '0', value: '0' },
+                  { appName: 'iFood', modality: 'entrega', count: '0', value: '0' }
+                ]
+              });
+            }}
+            className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
+          >
+            <Pencil size={18} />
+          </button>
+          <button
+            onClick={() => onDelete(ride.id)}
+            className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-2 rounded-lg transition-all"
+          >
+            <Trash2 size={20} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800 flex flex-wrap gap-3">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+          <Clock size={14} className="text-blue-600" />
+          <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+            {hours.toFixed(1)}h trabalhadas
+          </span>
+        </div>
+        {fuelCost !== null && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+            <Fuel size={14} className="text-orange-600" />
+            <span className="text-sm font-bold text-orange-700 dark:text-orange-300">
+              Custo comb. est.: R$ {fuelCost.toFixed(2)}
+            </span>
+          </div>
+        )}
+        {ride.appRides.map((app, i) => (
+          <span key={i} className="px-3 py-1 bg-slate-50 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">
+            {app.modality === 'passageiro' ? <User size={12} /> : <Package size={12} />}
+            {app.appName}: {app.count}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+  })}
+</div>
         )}
       </div>
     </div>

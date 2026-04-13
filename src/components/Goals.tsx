@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Target, Plus, Trash2, TrendingUp, Calendar, CheckCircle2, Save, X, XCircle, ChevronLeft, ChevronRight, Info } from 'lucide-react';
-import { Goal, RideEntry, Expense } from '../types';
-import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, isSameDay, subMonths, addMonths } from 'date-fns';
+import { Target, Plus, Trash2, TrendingUp, Calendar, CheckCircle2, Save, X, XCircle, ChevronLeft, ChevronRight, Info, Edit3 } from 'lucide-react';
+import { Goal, RideEntry, Expense, UserProfile, WorkDay } from '../types';
+import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, isSameDay, subMonths, addMonths, differenceInDays, isBefore, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '../lib/utils';
 
@@ -11,16 +11,61 @@ interface GoalsProps {
   goals: Goal[];
   rides: RideEntry[];
   expenses: Expense[];
+  profile?: UserProfile | null;
   onAddGoal: (goal: Goal) => void;
   onDeleteGoal: (id: string) => void;
+  onUpdateGoal?: (goal: Goal) => void;
 }
 
-export default function Goals({ goals, rides, expenses, onAddGoal, onDeleteGoal }: GoalsProps) {
+function countExpectedWorkDays(
+  workSchedule: WorkDay[],
+  startDate: Date,
+  endDate: Date
+): number {
+  const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  let count = 0;
+  
+  const current = new Date(startDate);
+  current.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  
+  while (isBefore(current, end) || isSameDay(current, end)) {
+    const dayName = dayNames[current.getDay()];
+    const scheduleDay = workSchedule.find(d => d.day === dayName);
+    if (scheduleDay?.active) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return count;
+}
+
+function countWorkedDays(rides: RideEntry[], startDate: Date, endDate: Date): number {
+  const uniqueDays = new Set<string>();
+  const start = startOfDay(startDate);
+  const end = endOfDay(endDate);
+  
+  rides.forEach(ride => {
+    const rideDate = parseISO(ride.date);
+    if (isWithinInterval(rideDate, { start, end })) {
+      uniqueDays.add(ride.date.split('T')[0]);
+    }
+  });
+  
+  return uniqueDays.size;
+}
+
+export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDeleteGoal, onUpdateGoal }: GoalsProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [formData, setFormData] = useState<Partial<Goal>>({
     type: 'diaria',
-    targetValue: 0
+    targetValue: 0,
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    connectedToSchedule: true
   });
 
   const estimates = useMemo(() => {
@@ -121,12 +166,20 @@ export default function Goals({ goals, rides, expenses, onAddGoal, onDeleteGoal 
       id: crypto.randomUUID(),
       type: formData.type as any,
       targetValue: Number(formData.targetValue) || 0,
-      startDate: new Date().toISOString(),
-      createdAt: new Date().toISOString()
+      startDate: formData.startDate || new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      connectedToSchedule: formData.connectedToSchedule ?? true
     };
     onAddGoal(newGoal);
     setIsAdding(false);
-    setFormData({ type: 'diaria', targetValue: 0 });
+    setFormData({ type: 'diaria', targetValue: 0, startDate: format(new Date(), 'yyyy-MM-dd'), connectedToSchedule: true });
+  };
+
+  const handleEdit = (goal: Goal) => {
+    if (onUpdateGoal) {
+      onUpdateGoal(goal);
+    }
+    setEditingGoalId(null);
   };
 
   return (
@@ -186,6 +239,33 @@ export default function Goals({ goals, rides, expenses, onAddGoal, onDeleteGoal 
                 />
               </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Data de Início</label>
+                <input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.connectedToSchedule ?? true}
+                    onChange={(e) => setFormData({ ...formData, connectedToSchedule: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  Conectar à agenda de trabalho
+                </label>
+                {formData.connectedToSchedule && profile?.workSchedule && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Dias configurados: {profile.workSchedule.filter(d => d.active).map(d => d.day).join(', ')}
+                  </p>
+                )}
+              </div>
+            </div>
             <div className="flex gap-4">
               <button
                 onClick={handleAdd}
@@ -204,22 +284,89 @@ export default function Goals({ goals, rides, expenses, onAddGoal, onDeleteGoal 
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Estimativas de Ganhos</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-xs text-slate-500">Semanal (Estimado)</p>
-              <p className="text-xl font-bold text-emerald-600">R$ {estimates.weeklyEstimate.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <p className="text-[10px] text-slate-400">Realizado: <span className="font-bold text-slate-600 dark:text-slate-300">R$ {actuals.weekEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Estimativas de Ganhos</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500">Semanal (Estimado)</p>
+                <p className="text-xl font-bold text-emerald-600">R$ {estimates.weeklyEstimate.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-slate-400">Realizado: <span className="font-bold text-slate-600 dark:text-slate-300">R$ {actuals.weekEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500">Mensal (Estimado)</p>
+                <p className="text-xl font-bold text-emerald-600">R$ {estimates.monthlyEstimate.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-slate-400">Realizado: <span className="font-bold text-slate-600 dark:text-slate-300">R$ {actuals.monthEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-slate-500">Mensal (Estimado)</p>
-              <p className="text-xl font-bold text-emerald-600">R$ {estimates.monthlyEstimate.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <p className="text-[10px] text-slate-400">Realizado: <span className="font-bold text-slate-600 dark:text-slate-300">R$ {actuals.monthEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
-            </div>
+
+            {/* Status da Meta no Mês Atual */}
+            {goals.length > 0 && profile?.workSchedule && (
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                {(() => {
+                  const now = new Date();
+                  const monthStart = startOfMonth(now);
+                  const dailyGoal = goals.find(g => g.type === 'diaria' && g.connectedToSchedule);
+                  
+                  if (!dailyGoal) return null;
+                  
+                  const expectedDaysThisMonth = countExpectedWorkDays(profile.workSchedule!, monthStart, now);
+                  const expectedValueThisMonth = expectedDaysThisMonth * dailyGoal.targetValue;
+                  const earnedThisMonth = rides
+                    .filter(r => {
+                      const rideDate = parseISO(r.date);
+                      return !isBefore(rideDate, monthStart) && !isAfter(rideDate, now);
+                    })
+                    .reduce((acc, r) => acc + r.totalValue, 0);
+                  const differenceThisMonth = earnedThisMonth - expectedValueThisMonth;
+                  const workedDaysThisMonth = countWorkedDays(rides, monthStart, now);
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Target size={14} className="text-brand-600" />
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Meta do Mês Atual</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-400">Esperado até hoje</p>
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                            R$ {expectedValueThisMonth.toFixed(2)}
+                          </p>
+                          <p className="text-[9px] text-slate-400">({expectedDaysThisMonth} dias de trabalho)</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-400">Realizado</p>
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                            R$ {earnedThisMonth.toFixed(2)}
+                          </p>
+                          <p className="text-[9px] text-slate-400">({workedDaysThisMonth} dias trabalhados)</p>
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "mt-2 p-2 rounded-lg",
+                        differenceThisMonth >= 0 
+                          ? "bg-emerald-50 dark:bg-emerald-950/30" 
+                          : "bg-rose-50 dark:bg-rose-950/30"
+                      )}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                            {differenceThisMonth >= 0 ? 'Acima da meta' : 'Atrasado'}
+                          </span>
+                          <span className={cn(
+                            "text-sm font-bold",
+                            differenceThisMonth >= 0 ? "text-emerald-600" : "text-rose-600"
+                          )}>
+                            {differenceThisMonth >= 0 ? '+' : ''}R$ {Math.abs(differenceThisMonth).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
-        </div>
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Estimativas de Custos</h3>
@@ -348,7 +495,7 @@ export default function Goals({ goals, rides, expenses, onAddGoal, onDeleteGoal 
           </div>
         </div>
 
-        <div className="space-y-6">
+<div className="space-y-6">
           <h3 className="text-lg font-bold dark:text-white">Suas Metas Ativas</h3>
           {goals.length === 0 ? (
             <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 text-center">
@@ -358,56 +505,211 @@ export default function Goals({ goals, rides, expenses, onAddGoal, onDeleteGoal 
           ) : (
             goals.map((goal) => {
               const now = new Date();
-              let start: Date, end: Date;
+              const goalStartDate = parseISO(goal.startDate);
+              const effectiveStart = isBefore(goalStartDate, now) ? goalStartDate : now;
               
-              if (goal.type === 'diaria') {
-                start = startOfDay(now);
-                end = endOfDay(now);
-              } else if (goal.type === 'semanal') {
-                start = startOfWeek(now);
-                end = endOfWeek(now);
+              // Calcular dias esperados de trabalho e valor esperado
+              let expectedDays = 0;
+              let expectedValue = 0;
+              let workedDays = 0;
+              let earned = 0;
+              let periodLabel = '';
+              
+              if (goal.connectedToSchedule && profile?.workSchedule) {
+                // Meta conectada à agenda - calcular desde o início da meta até hoje
+                expectedDays = countExpectedWorkDays(profile.workSchedule, effectiveStart, now);
+                expectedValue = expectedDays * goal.targetValue;
+                workedDays = countWorkedDays(rides, effectiveStart, now);
+                
+                // Ganho real no período
+                earned = rides
+                  .filter(r => {
+                    const rideDate = parseISO(r.date);
+                    return !isBefore(rideDate, effectiveStart) && !isAfter(rideDate, now);
+                  })
+                  .reduce((acc, r) => acc + r.totalValue, 0);
+                
+                const daysDiff = differenceInDays(now, effectiveStart) + 1;
+                periodLabel = `${expectedDays} dias de trabalho em ${daysDiff} dias`;
               } else {
-                start = startOfMonth(now);
-                end = endOfMonth(now);
+                // Meta tradicional por período
+                let start: Date, end: Date;
+                
+                if (goal.type === 'diaria') {
+                  start = startOfDay(now);
+                  end = endOfDay(now);
+                  periodLabel = 'Hoje';
+                } else if (goal.type === 'semanal') {
+                  start = startOfWeek(now);
+                  end = endOfWeek(now);
+                  periodLabel = 'Esta semana';
+                } else {
+                  start = startOfMonth(now);
+                  end = endOfMonth(now);
+                  periodLabel = 'Este mês';
+                }
+                
+                expectedDays = 1;
+                expectedValue = goal.targetValue;
+                earned = rides
+                  .filter(r => isWithinInterval(parseISO(r.date), { start, end }))
+                  .reduce((acc, r) => acc + r.totalValue, 0);
+                workedDays = rides.filter(r => isWithinInterval(parseISO(r.date), { start, end })).length;
               }
-
-              const earned = rides
-                .filter(r => isWithinInterval(parseISO(r.date), { start, end }))
-                .reduce((acc, r) => acc + r.totalValue, 0);
               
-              const progress = Math.min((earned / goal.targetValue) * 100, 100);
-
+              const difference = earned - expectedValue;
+              const progress = expectedValue > 0 ? Math.min((earned / expectedValue) * 100, 100) : 0;
+              const isEditing = editingGoalId === goal.id;
+              
               return (
                 <div key={goal.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative group">
-                  <button
-                    onClick={() => onDeleteGoal(goal.id)}
-                    className="absolute top-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  
+                  <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                      onClick={() => {
+                        setEditingGoalId(isEditing ? null : goal.id);
+                        setFormData({
+                          type: goal.type,
+                          targetValue: goal.targetValue,
+                          startDate: goal.startDate,
+                          connectedToSchedule: goal.connectedToSchedule ?? true
+                        });
+                      }}
+                      className="p-2 text-slate-300 hover:text-brand-500 transition-all"
+                    >
+                      <Edit3 size={18} />
+                    </button>
+                    <button
+                      onClick={() => onDeleteGoal(goal.id)}
+                      className="p-2 text-slate-300 hover:text-rose-500 transition-all"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-950/30 flex items-center justify-center text-brand-600">
                       <TrendingUp size={20} />
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{goal.type}</span>
-                      <h4 className="font-bold dark:text-white">Alvo: R$ {goal.targetValue.toFixed(2)}</h4>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        {goal.type} {goal.connectedToSchedule ? '• Conectada à agenda' : ''}
+                      </span>
+                      <h4 className="font-bold dark:text-white">
+                        Alvo: R$ {goal.targetValue.toFixed(2)}/dia
+                      </h4>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm font-bold">
-                      <span className="text-slate-600 dark:text-slate-400">R$ {earned.toFixed(2)}</span>
-                      <span className="text-brand-600">{progress.toFixed(0)}%</span>
+                  {isEditing ? (
+                    <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Valor (R$/dia)</label>
+                          <input
+                            type="number"
+                            value={formData.targetValue}
+                            onChange={(e) => setFormData({ ...formData, targetValue: Number(e.target.value) })}
+                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 dark:text-white text-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Data de Início</label>
+                          <input
+                            type="date"
+                            value={formData.startDate}
+                            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 dark:text-white text-sm"
+                          />
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                        <input
+                          type="checkbox"
+                          checked={formData.connectedToSchedule ?? true}
+                          onChange={(e) => setFormData({ ...formData, connectedToSchedule: e.target.checked })}
+                          className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        Conectar à agenda de trabalho
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (onUpdateGoal) {
+                              onUpdateGoal({
+                                ...goal,
+                                targetValue: formData.targetValue || goal.targetValue,
+                                startDate: formData.startDate || goal.startDate,
+                                connectedToSchedule: formData.connectedToSchedule ?? true
+                              });
+                            }
+                            setEditingGoalId(null);
+                          }}
+                          className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold py-2 rounded-lg transition-all"
+                        >
+                          Salvar
+                        </button>
+                        <button
+                          onClick={() => setEditingGoalId(null)}
+                          className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold py-2 rounded-lg hover:bg-slate-200 transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     </div>
-                    <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-brand-600 transition-all duration-1000 ease-out rounded-full"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between text-sm font-bold">
+                          <span className="text-slate-600 dark:text-slate-400">R$ {earned.toFixed(2)}</span>
+                          <span className="text-brand-600">{progress.toFixed(0)}%</span>
+                        </div>
+                        <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full transition-all duration-1000 ease-out rounded-full",
+                              difference >= 0 ? "bg-emerald-600" : "bg-brand-600"
+                            )}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-slate-500">Meta esperada ({periodLabel})</span>
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                            R$ {expectedValue.toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-slate-500">
+                            {difference >= 0 ? 'Acima da meta' : 'Atrasado'}
+                          </span>
+                          <span className={cn(
+                            "text-sm font-bold",
+                            difference >= 0 ? "text-emerald-600" : "text-rose-600"
+                          )}>
+                            {difference >= 0 ? '+' : ''}R$ {Math.abs(difference).toFixed(2)}
+                          </span>
+                        </div>
+
+                        {goal.connectedToSchedule && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-400">Dias trabalhados</span>
+                            <span className="text-slate-600 dark:text-slate-400 font-medium">
+                              {workedDays} de {expectedDays} esperados
+                              {workedDays < expectedDays && (
+                                <span className="text-rose-500 ml-1">
+                                  ({expectedDays - workedDays} faltando)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })

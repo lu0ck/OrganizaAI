@@ -46,6 +46,7 @@ export interface Goal {
   targetValue: number;
   startDate: string;
   createdAt?: string;
+  connectedToSchedule?: boolean;
 }
 
 export interface MaintenanceHistory {
@@ -93,6 +94,8 @@ export interface UserProfile {
   licensingValue?: number;
   // Monthly costs
   insuranceValue?: number;
+  vehicleInstallmentValue?: number; // Valor da parcela mensal do veículo
+  vehicleInstallmentsRemaining?: number; // Parcelas restantes para quitar
   // Work schedule
   workSchedule?: WorkDay[];
 }

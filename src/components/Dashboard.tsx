@@ -112,9 +112,10 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
     const ipvaDaily = (profile?.ipvaValue || 0) / 365;
     const licensingDaily = (profile?.licensingValue || 0) / 365;
     const insuranceDaily = (profile?.insuranceValue || 0) / 30;
+    const installmentDaily = (profile?.vehicleInstallmentValue || 0) / 30;
 
     const daysInPeriod = Math.max(Math.ceil((filteredData.end.getTime() - filteredData.start.getTime()) / (1000 * 60 * 60 * 24)), 1);
-    const totalFixedCosts = (ipvaDaily + licensingDaily + insuranceDaily) * daysInPeriod;
+    const totalFixedCosts = (ipvaDaily + licensingDaily + insuranceDaily + installmentDaily) * daysInPeriod;
 
     const netProfit = totalEarnings - allExpenses - totalFixedCosts;
 
@@ -129,7 +130,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
       .reduce((acc, e) => acc + e.value, 0);
     const maintenanceDaily = lastMonthMaintenance / 30;
 
-    const totalDailyCost = ipvaDaily + licensingDaily + insuranceDaily + fuelDaily + maintenanceDaily;
+    const totalDailyCost = ipvaDaily + licensingDaily + insuranceDaily + installmentDaily + fuelDaily + maintenanceDaily;
 
     const lastMonthStart = startOfMonth(subDays(new Date(), 30));
     const lastMonthEnd = endOfDay(subDays(lastMonthStart, -30));
@@ -141,14 +142,23 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
 
     const lastMonthTotalCost = expenses
       .filter(e => isWithinInterval(parseISO(e.date), lastMonthInterval))
-      .reduce((acc, e) => acc + e.value, 0) + (ipvaDaily + licensingDaily + insuranceDaily) * 30;
+      .reduce((acc, e) => acc + e.value, 0) + (ipvaDaily + licensingDaily + insuranceDaily + installmentDaily) * 30;
 
     const costPerKm = lastMonthKm > 0 ? lastMonthTotalCost / lastMonthKm : 0;
 
-    const globalConsumption = calculateGlobalConsumption(expenses);
-    const kmPerLiter = globalConsumption.status === 'valid' 
-      ? globalConsumption.globalAverage 
+const globalConsumption = calculateGlobalConsumption(expenses);
+    const kmPerLiter = globalConsumption.status === 'valid'
+      ? globalConsumption.globalAverage
       : (profile?.kmPerLiter || 0);
+
+    // Cálculo do custo fixo mensal
+    const ipvaMonthly = (profile?.ipvaValue || 0) / 12;
+    const licensingMonthly = (profile?.licensingValue || 0) / 12;
+    const insuranceMonthly = profile?.insuranceValue || 0;
+    const installmentMonthly = profile?.vehicleInstallmentValue || 0;
+    const monthlyFixedCosts = ipvaMonthly + licensingMonthly + insuranceMonthly + installmentMonthly;
+    const installmentsRemaining = profile?.vehicleInstallmentsRemaining || 0;
+    const totalInstallmentDebt = installmentMonthly * installmentsRemaining;
 
     return {
       earnings: totalEarnings,
@@ -163,18 +173,23 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
       fuelExpenses,
       foodExpenses,
       maintenanceExpenses,
-      dailyCosts: {
-        ipva: ipvaDaily,
-        licensing: licensingDaily,
-        insurance: insuranceDaily,
-        fuel: fuelDaily,
-        maintenance: maintenanceDaily,
-        total: totalDailyCost
-      },
-      costPerKm,
-      kmPerLiter
-    };
-  }, [filteredData, profile, rides, expenses]);
+dailyCosts: {
+      ipva: ipvaDaily,
+      licensing: licensingDaily,
+      insurance: insuranceDaily,
+      installment: installmentDaily,
+      fuel: fuelDaily,
+      maintenance: maintenanceDaily,
+      total: totalDailyCost
+    },
+    costPerKm,
+    kmPerLiter,
+    monthlyFixedCosts,
+    installmentsRemaining,
+    totalInstallmentDebt,
+    installmentMonthly
+  };
+}, [filteredData, profile, rides, expenses]);
 
   const chartData = useMemo(() => {
     const days: Record<string, { date: string, ganhos: number, gastos: number, timestamp: number }> = {};
@@ -498,39 +513,89 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
             </div>
           </motion.div>
 
-          {/* Daily Costs Breakdown */}
-          <motion.div 
-            variants={item}
-            className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
-          >
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Custos Diários Estimados</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">IPVA + Licenc.</p>
-                <p className="text-sm font-bold dark:text-white">R$ {(stats.dailyCosts.ipva + stats.dailyCosts.licensing).toFixed(2)}</p>
+{/* Daily Costs Breakdown */}
+            <motion.div
+              variants={item}
+              className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
+            >
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Custos Diários Estimados</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">IPVA + Licenc.</p>
+                  <p className="text-sm font-bold dark:text-white">R$ {(stats.dailyCosts.ipva + stats.dailyCosts.licensing).toFixed(2)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Combustível</p>
+                  <p className="text-sm font-bold dark:text-white">R$ {stats.dailyCosts.fuel.toFixed(2)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Manutenção</p>
+                  <p className="text-sm font-bold dark:text-white">R$ {stats.dailyCosts.maintenance.toFixed(2)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Seguro</p>
+                  <p className="text-sm font-bold dark:text-white">R$ {stats.dailyCosts.insurance.toFixed(2)}</p>
+                </div>
+                {stats.installmentMonthly > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Parcela Veículo</p>
+                    <p className="text-sm font-bold dark:text-white">R$ {stats.dailyCosts.installment.toFixed(2)}</p>
+                  </div>
+                )}
+                <div className="space-y-1 bg-brand-50 dark:bg-brand-950/20 p-2 rounded-lg">
+                  <p className="text-[10px] text-brand-600 font-bold uppercase">Total Diário</p>
+                  <p className="text-sm font-bold text-brand-700 dark:text-brand-400">R$ {stats.dailyCosts.total.toFixed(2)}</p>
+                </div>
+                <div className="space-y-1 bg-blue-50 dark:bg-blue-950/20 p-2 rounded-lg">
+                  <p className="text-[10px] text-blue-600 font-bold uppercase">Custo por KM</p>
+                  <p className="text-sm font-bold text-blue-700 dark:text-blue-400">R$ {stats.costPerKm.toFixed(2)}</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Combustível</p>
-                <p className="text-sm font-bold dark:text-white">R$ {stats.dailyCosts.fuel.toFixed(2)}</p>
+            </motion.div>
+
+            {/* Monthly Fixed Costs */}
+            <motion.div
+              variants={item}
+              className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
+            >
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Custo Fixo Mensal do Veículo</h4>
+              <div className="flex items-end gap-2 mb-4">
+                <p className="text-3xl font-bold text-brand-600">
+                  R$ {stats.monthlyFixedCosts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <span className="text-sm text-slate-400">/mês</span>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Manutenção</p>
-                <p className="text-sm font-bold dark:text-white">R$ {stats.dailyCosts.maintenance.toFixed(2)}</p>
+              <div className="space-y-2 text-xs text-slate-500">
+                <div className="flex justify-between">
+                  <span>IPVA (1/12)</span>
+                  <span className="font-medium">R$ {((profile?.ipvaValue || 0) / 12).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Licenciamento (1/12)</span>
+                  <span className="font-medium">R$ {((profile?.licensingValue || 0) / 12).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Seguro</span>
+                  <span className="font-medium">R$ {(profile?.insuranceValue || 0).toFixed(2)}</span>
+                </div>
+                {stats.installmentMonthly > 0 && (
+                  <div className="flex justify-between">
+                    <span>Parcela Veículo</span>
+                    <span className="font-medium">R$ {stats.installmentMonthly.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Seguro</p>
-                <p className="text-sm font-bold dark:text-white">R$ {stats.dailyCosts.insurance.toFixed(2)}</p>
-              </div>
-              <div className="space-y-1 bg-brand-50 dark:bg-brand-950/20 p-2 rounded-lg">
-                <p className="text-[10px] text-brand-600 font-bold uppercase">Total Diário</p>
-                <p className="text-sm font-bold text-brand-700 dark:text-brand-400">R$ {stats.dailyCosts.total.toFixed(2)}</p>
-              </div>
-              <div className="space-y-1 bg-blue-50 dark:bg-blue-950/20 p-2 rounded-lg">
-                <p className="text-[10px] text-blue-600 font-bold uppercase">Custo por KM</p>
-                <p className="text-sm font-bold text-blue-700 dark:text-blue-400">R$ {stats.costPerKm.toFixed(2)}</p>
-              </div>
-            </div>
-          </motion.div>
+              {stats.installmentsRemaining > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-xs text-slate-500">
+                    <span className="font-bold text-brand-600">{stats.installmentsRemaining}</span> parcelas restantes
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Total a pagar: R$ {stats.totalInstallmentDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
+            </motion.div>
         </motion.div>
 
         <motion.div 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle, TrendingUp } from 'lucide-react';
+import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle, TrendingUp, CreditCard } from 'lucide-react';
 import { UserProfile, AppState } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -237,6 +237,33 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                   placeholder="R$ 0,00"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                    <CreditCard size={16} className="text-slate-400" /> Parcela do Veículo (mensal)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.vehicleInstallmentValue || ''}
+                    onChange={(e) => setFormData({ ...formData, vehicleInstallmentValue: Number(e.target.value) })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Parcelas Restantes
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.vehicleInstallmentsRemaining || ''}
+                    onChange={(e) => setFormData({ ...formData, vehicleInstallmentsRemaining: Number(e.target.value) })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                    placeholder="Ex: 24"
+                  />
+                </div>
               </div>
 
               <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-2xl border border-blue-100 dark:border-blue-900/30">

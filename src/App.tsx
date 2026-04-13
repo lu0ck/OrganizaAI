@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bike, Car, Download, AlertCircle, X as CloseIcon,
@@ -8,7 +8,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSidebar } from './hooks/useSidebar';
 import { useToast } from './hooks/useToast';
 import { recalculateFuelExpensesChain, calculateGlobalConsumption } from './lib/fuelCalculation';
-import { AppState, ColorTheme, MaintenanceItem } from './types';
+import { AppState, ColorTheme, MaintenanceItem, Expense } from './types';
 import { format, subDays } from 'date-fns';
 import { cn } from './lib/utils';
 
@@ -228,21 +228,28 @@ export default function App() {
     });
   };
 
-  // Handler para editar expense
+// Handler para editar expense
   const handleEditExpense = (updatedExpense: Expense) => {
     setState(prev => {
-      const newExpenses = prev.expenses.map(e => 
+      const newExpenses = prev.expenses.map(e =>
         e.id === updatedExpense.id ? updatedExpense : e
       );
-      
+
       if (prev.profile) {
         const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, prev.profile);
         return { ...prev, expenses: recalculatedExpenses };
       }
-      
+
       return { ...prev, expenses: newExpenses };
     });
   };
+
+  // Calcular média de ganho por KM
+  const avgPerKm = useMemo(() => {
+    const totalEarnings = state.rides.reduce((acc, r) => acc + r.totalValue, 0);
+    const totalKm = state.rides.reduce((acc, r) => acc + r.kmDriven, 0);
+    return totalKm > 0 ? totalEarnings / totalKm : 0;
+  }, [state.rides]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -379,32 +386,37 @@ export default function App() {
                   profile={state.profile}
                 />
               )}
-        {activeTab === 'rides' && (
-          <EntryForm
-            onAdd={handleAddRide}
-            onDelete={(id) => setState(prev => ({ ...prev, rides: prev.rides.filter(r => r.id !== id) }))}
-            onEdit={(ride) => setState(prev => ({ ...prev, rides: prev.rides.map(r => r.id === ride.id ? ride : r) }))}
-            rides={state.rides}
-          />
-        )}
-        {activeTab === 'expenses' && (
-          <ExpensesForm
-            onAdd={handleAddExpense}
-            onDelete={handleDeleteExpense}
-            onEdit={handleEditExpense}
-            expenses={state.expenses}
-            profile={state.profile}
-          />
-        )}
-              {activeTab === 'goals' && (
-                <Goals 
-                  goals={state.goals}
-                  rides={state.rides}
-                  expenses={state.expenses}
-                  onAddGoal={(goal) => setState(prev => ({ ...prev, goals: [goal, ...prev.goals] }))}
-                  onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }))}
-                />
-              )}
+{activeTab === 'rides' && (
+            <EntryForm
+              onAdd={handleAddRide}
+              onDelete={(id) => setState(prev => ({ ...prev, rides: prev.rides.filter(r => r.id !== id) }))}
+              onEdit={(ride) => setState(prev => ({ ...prev, rides: prev.rides.map(r => r.id === ride.id ? ride : r) }))}
+              rides={state.rides}
+              profile={state.profile}
+              expenses={state.expenses}
+            />
+          )}
+          {activeTab === 'expenses' && (
+            <ExpensesForm
+              onAdd={handleAddExpense}
+              onDelete={handleDeleteExpense}
+              onEdit={handleEditExpense}
+              expenses={state.expenses}
+              profile={state.profile}
+              avgPerKm={avgPerKm}
+            />
+          )}
+{activeTab === 'goals' && (
+            <Goals
+              goals={state.goals}
+              rides={state.rides}
+              expenses={state.expenses}
+              profile={state.profile}
+              onAddGoal={(goal) => setState(prev => ({ ...prev, goals: [goal, ...prev.goals] }))}
+              onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }))}
+              onUpdateGoal={(goal) => setState(prev => ({ ...prev, goals: prev.goals.map(g => g.id === goal.id ? goal : g) }))}
+            />
+          )}
         {activeTab === 'motorcycle' && (
           <MotorcycleTab
             rides={state.rides}
