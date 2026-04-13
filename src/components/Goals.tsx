@@ -300,26 +300,37 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               </div>
             </div>
 
-            {/* Status da Meta no Mês Atual */}
-            {goals.length > 0 && profile?.workSchedule && (
-              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                {(() => {
-                  const now = new Date();
-                  const monthStart = startOfMonth(now);
-                  const dailyGoal = goals.find(g => g.type === 'diaria' && g.connectedToSchedule);
-                  
-                  if (!dailyGoal) return null;
-                  
-                  const expectedDaysThisMonth = countExpectedWorkDays(profile.workSchedule!, monthStart, now);
-                  const expectedValueThisMonth = expectedDaysThisMonth * dailyGoal.targetValue;
-                  const earnedThisMonth = rides
-                    .filter(r => {
-                      const rideDate = parseISO(r.date);
-                      return !isBefore(rideDate, monthStart) && !isAfter(rideDate, now);
-                    })
-                    .reduce((acc, r) => acc + r.totalValue, 0);
-                  const differenceThisMonth = earnedThisMonth - expectedValueThisMonth;
-                  const workedDaysThisMonth = countWorkedDays(rides, monthStart, now);
+{/* Status da Meta no Mês Atual */}
+          {profile?.workSchedule && profile.workSchedule.some(d => d.active) && (
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              {(() => {
+                const now = new Date();
+                const monthStart = startOfMonth(now);
+                const dailyGoal = goals.find(g => g.type === 'diaria' && g.connectedToSchedule);
+
+                if (!dailyGoal) {
+                  return (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-slate-500 mb-2">
+                        Configure uma meta diária para acompanhar seu progresso
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        Clique em "Nova Meta" acima para criar
+                      </p>
+                    </div>
+                  );
+                }
+
+                const expectedDaysThisMonth = countExpectedWorkDays(profile.workSchedule, monthStart, now);
+                const expectedValueThisMonth = expectedDaysThisMonth * dailyGoal.targetValue;
+                const earnedThisMonth = rides
+                  .filter(r => {
+                    const rideDate = parseISO(r.date);
+                    return !isBefore(rideDate, monthStart) && !isAfter(rideDate, now);
+                  })
+                  .reduce((acc, r) => acc + r.totalValue, 0);
+                const differenceThisMonth = earnedThisMonth - expectedValueThisMonth;
+                const workedDaysThisMonth = countWorkedDays(rides, monthStart, now);
                   
                   return (
                     <div className="space-y-2">

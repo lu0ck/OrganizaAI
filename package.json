@@ -33,7 +33,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "assets/icone"
+      "icon": "assets/icone.png"
     },
     "linux": {
       "target": "AppImage",
