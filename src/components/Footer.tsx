@@ -1,5 +1,5 @@
 import React from 'react';
-import { Github, Linkedin, ExternalLink, Heart, Bug, Mail } from 'lucide-react';
+import { Github, Linkedin, ExternalLink, Bot, Bug, Mail } from 'lucide-react';
 
 export default function Footer() {
   const handleReportIssue = () => {
@@ -19,7 +19,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex flex-col items-center md:items-start gap-2">
           <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2 font-medium">
-            Feito com <Heart size={16} className="text-brand-500 fill-brand-500" /> por <span className="text-slate-900 dark:text-white font-bold">Lucas</span>
+            Feito com <Bot size={16} className="text-brand-500" /> por <span className="text-slate-900 dark:text-white font-bold">Lucas</span>
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
             © {new Date().getFullYear()} OrganizaAi - Gestão para Motoristas e Entregadores
