@@ -12,11 +12,31 @@
 
 ### 📊 Dashboard Inteligente
 - **O que é:** Central de controle com visão geral do seu negócio.
-- **Como usar:** Visualize seu lucro líquido real, desempenho por hora e por KM. Os gráficos mostram a evolução dos seus ganhos e despesas ao longo do tempo.
+- **Como usar:** Visualize seu lucro líquido real, desempenho por hora e por KM.
+- **Novo:** Exibe o **Custo Fixo Mensal do Veículo** incluindo IPVA, licenciamento, seguro e parcela do veículo (se financiado).
 
 ### 📅 Agenda e Simulação
 - **O que é:** Ferramenta de planejamento semanal.
 - **Como usar:** Defina seus horários de trabalho e simule ganhos baseados no seu histórico. Ideal para saber quanto tempo você precisa trabalhar para bater sua meta.
+
+### 📝 Lançamentos Diários
+- **O que é:** Registro de ganhos diários.
+- **Novo:** Cada lançamento agora exibe:
+  - **Horas trabalhadas** no período
+  - **Custo estimado de combustível** (baseado no preço do último abastecimento)
+
+### 💰 Gestão de Despesas
+- **O que é:** Controle de todos os gastos operacionais.
+- **Novo:** Cada despesa mostra quantos **KM precisam ser rodados para pagar** aquela despesa (baseado na sua média de ganho por KM).
+
+### 🎯 Metas Conectadas à Agenda
+- **O que é:** Sistema de metas integrado com sua agenda de trabalho.
+- **Como funciona:** Configure sua meta diária e conecte à sua agenda. O sistema calcula automaticamente quantos dias você deveria ter trabalhado e compara com seu ganho real.
+- **Novo:** Exibe no Dashboard:
+  - **Meta esperada** até hoje (baseada nos dias de trabalho configurados)
+  - **Valor realizado** no período
+  - **Status:** Acima da meta ou atrasado (com valor da diferença)
+  - **Dias trabalhados** vs esperados
 
 ### ⛽ Calculadora de Combustível
 - **O que é:** Comparador de eficiência entre Gasolina e Álcool.
@@ -25,6 +45,12 @@
 ### 🔧 Gestão de Manutenção
 - **O que é:** Controle rigoroso da saúde do seu veículo.
 - **Como usar:** Registre trocas de óleo, pneus e freios. O app avisa quando a manutenção está próxima. Use o botão **"Trocar Agora"** para registrar uma manutenção rápida ou **"Zerar Tudo"** ao iniciar um novo ciclo no veículo.
+
+### 👤 Perfil do Veículo
+- **Novo:** Adicione informações sobre a **parcela do veículo**:
+  - Valor da parcela mensal
+  - Quantidade de parcelas restantes
+  - Total a pagar é exibido no Dashboard
 
 ### 📄 Relatórios Profissionais
 - **O que é:** Exportação de dados para análise externa.
@@ -47,18 +73,19 @@ O OrganizaAi utiliza diversas fórmulas matemáticas para calcular consumo de co
 | Categoria | Principais Fórmulas |
 |-----------|---------------------|
 | **Combustível** | Método da Reserva, Consumo Real, Média Global, Autonomia |
-| **Financeiras** | Lucro Líquido, Ganho por Hora/KM/Corrida, Custos Fixos |
+| **Financeiras** | Lucro Líquido, Ganho por Hora/KM/Corrida, Custos Fixos Mensais |
 | **Manutenção** | Progresso por KM/Dias, Dias Restantes, Previsão de Troca |
+| **Metas** | Meta Esperada (Agenda), Diferença Real vs Esperado, Dias Trabalhados |
 | **Simulação** | Projeção de Ganhos, Ratio de Despesas, Lucro Projetado |
 
 ---
 
 ## 📖 Tutorial Completo de Uso
 
-1. **Configuração Inicial:** Ao abrir o app pela primeira vez, preencha seu perfil com o nome, modelo do veículo e consumo médio.
-2. **Lançando Ganhos:** Após cada turno, vá em **"Lançamentos"** e insira o valor total, KM rodado e a divisão por aplicativos (Uber, iFood, etc).
-3. **Registrando Gastos:** Insira todos os seus custos (combustível, lanches, taxas) em **"Despesas"**.
-4. **Monitorando Metas:** Defina uma meta diária ou semanal em **"Metas"** e acompanhe a barra de progresso no Dashboard.
+1. **Configuração Inicial:** Ao abrir o app pela primeira vez, preencha seu perfil com o nome, modelo do veículo, consumo médio e configure sua agenda de trabalho.
+2. **Lançando Ganhos:** Após cada turno, vá em **"Lançamentos"** e insira o valor total, KM rodado e a divisão por aplicativos (Uber, iFood, etc). O app calculará automaticamente as horas trabalhadas e o custo estimado de combustível.
+3. **Registrando Gastos:** Insira todos os seus custos (combustível, lanches, taxas) em **"Despesas"**. O app mostrará quantos KM você precisa rodar para pagar cada despesa.
+4. **Monitorando Metas:** Defina uma meta diária em **"Metas"**, conecte à sua agenda e acompanhe seu progresso em tempo real. O sistema mostra se você está acima ou atrasado da meta.
 5. **Manutenção:** Sempre que trocar uma peça, clique em **"Trocar Agora"** no menu de Manutenção para reiniciar o contador de KM daquela peça.
 
 ---
