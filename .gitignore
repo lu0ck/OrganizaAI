@@ -1,9 +1,17 @@
 node_modules/
 build/
 dist/
+dist_desktop/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
 releases/*.AppImage
+
+# Capacitor
+android/app/build/
+android/.gradle/
+android/build/
+ios/Pods/
+ios/build/
