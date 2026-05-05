@@ -462,36 +462,39 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
-              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                <div key={day} className="text-center text-xs font-bold text-slate-400 py-2">{day}</div>
-              ))}
-              {monthStats.map((stat, i) => (
-                <div 
-                  key={i} 
-                  className={cn(
-                    "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
-                    !stat.hasData 
-                      ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800" 
-                      : stat.isMet 
-                        ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30" 
+<div className="grid grid-cols-7 gap-2">
+                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                  <div key={day} className="text-center text-xs font-bold text-slate-400 py-2">{day}</div>
+                ))}
+                {monthStats.length > 0 && Array.from({ length: monthStats[0].day.getDay() }).map((_, i) => (
+                  <div key={`empty-${i}`} className="aspect-square" />
+                ))}
+                {monthStats.map((stat, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
+                      !stat.hasData
+                        ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
+                        : stat.isMet
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
                         : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
-                  )}
-                >
-                  <span className="text-xs font-bold text-slate-400 mb-1">{format(stat.day, 'd')}</span>
-                  {stat.hasData && (
-                    stat.isMet 
-                      ? <CheckCircle2 size={16} className="text-emerald-500" /> 
-                      : <XCircle size={16} className="text-rose-500" />
-                  )}
-                  
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10">
-                    {stat.hasData ? `R$ ${stat.totalEarned.toFixed(2)}` : 'Sem dados'}
+                    )}
+                  >
+                    <span className="text-xs font-bold text-slate-400 mb-1">{format(stat.day, 'd')}</span>
+                    {stat.hasData && (
+                      stat.isMet
+                        ? <CheckCircle2 size={16} className="text-emerald-500" />
+                        : <XCircle size={16} className="text-rose-500" />
+                    )}
+
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10">
+                      {stat.hasData ? `R$ ${stat.totalEarned.toFixed(2)}` : 'Sem dados'}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
             <div className="mt-6 flex items-center justify-center gap-8 border-t border-slate-100 dark:border-slate-800 pt-6">
               <div className="flex items-center gap-2">

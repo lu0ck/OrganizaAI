@@ -860,18 +860,21 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
     </div>
   </div>
 
-  {/* Cards de Combustível - Método da Reserva */}
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {/* Saldo Atual no Tanque */}
-    {motoStats.lastFuelExpense && (
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+{/* Cards de Combustível - Método da Reserva */}
+      <div className={cn(
+        "grid grid-cols-1 sm:grid-cols-2 gap-4",
+        sidebarCollapsed ? "lg:grid-cols-3" : "lg:grid-cols-2 xl:grid-cols-3"
+      )}>
+        {/* Saldo Atual no Tanque */}
+        {motoStats.lastFuelExpense && (
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950/30 flex items-center justify-center text-brand-600">
               <Droplets size={20} />
             </div>
             <div>
-              <p className="text-sm font-bold dark:text-white">Saldo no Tanque</p>
+              <p className="text-sm font-bold dark:text-white truncate">Saldo no Tanque</p>
               <p className="text-xs text-slate-500">
                 {format(parseISO(motoStats.lastFuelExpense.date), 'dd/MM/yyyy')}
               </p>
@@ -905,14 +908,14 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
 
     {/* Consumo do Último Trecho */}
     {motoStats.lastFuelExpense?.segmentConsumption && (
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center text-orange-600">
-              <Activity size={20} />
-            </div>
-            <div>
-              <p className="text-sm font-bold dark:text-white">Consumo do Trecho</p>
+<div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center text-orange-600">
+                <Activity size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold dark:text-white truncate">Consumo do Trecho</p>
               <p className="text-xs text-slate-500">{motoStats.lastFuelExpense.tripTotal} km</p>
             </div>
           </div>
@@ -937,14 +940,14 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
 
     {/* Média Global Real */}
     {motoStats.globalConsumption.status === 'valid' && (
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
-              <TrendingUp size={20} />
-            </div>
-            <div>
-              <p className="text-sm font-bold dark:text-white">Média Global Real</p>
+<div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
+                <TrendingUp size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold dark:text-white truncate">Média Global Real</p>
               <p className="text-xs text-slate-500">{motoStats.globalConsumption.validSegments} trechos calibrados</p>
             </div>
           </div>
