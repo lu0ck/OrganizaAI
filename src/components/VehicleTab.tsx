@@ -61,9 +61,8 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
     const currentOdometerKm = profile.vehicleOdometerKm || totalKm;
 
     const globalConsumption = calculateGlobalConsumption(expenses);
-    const kmPerLiter = globalConsumption.status === 'valid'
-      ? globalConsumption.globalAverage
-      : (profile.kmPerLiter || (totalLiters > 0 ? totalKm / totalLiters : 0));
+    const simpleAverage = totalLiters > 0 ? totalKm / totalLiters : 0;
+    const kmPerLiter = profile.kmPerLiter || simpleAverage || 0;
 
     const lastFuelExpense = getLastFuelExpense(expenses);
     const autonomy = lastFuelExpense && globalConsumption.status === 'valid'
@@ -861,123 +860,120 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
   </div>
 
 {/* Cards de Combustível - Método da Reserva */}
-      <div className={cn(
-        "grid grid-cols-1 sm:grid-cols-2 gap-4",
-        sidebarCollapsed ? "lg:grid-cols-3" : "lg:grid-cols-2 xl:grid-cols-3"
-      )}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Saldo Atual no Tanque */}
         {motoStats.lastFuelExpense && (
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950/30 flex items-center justify-center text-brand-600">
-              <Droplets size={20} />
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="mb-3">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950/30 flex items-center justify-center text-brand-600 shrink-0">
+                  <Droplets size={20} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold dark:text-white">Saldo no Tanque</p>
+                  <p className="text-xs text-slate-500">
+                    {format(parseISO(motoStats.lastFuelExpense.date), 'dd/MM/yyyy')}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold dark:text-white truncate">Saldo no Tanque</p>
-              <p className="text-xs text-slate-500">
-                {format(parseISO(motoStats.lastFuelExpense.date), 'dd/MM/yyyy')}
+            <div className="flex items-end gap-2 overflow-hidden">
+              <p className="text-2xl sm:text-3xl font-bold text-brand-600 truncate">
+                {motoStats.lastFuelExpense.saldoAfterFueling?.toFixed(1) || '0'}
               </p>
+              <p className="text-lg text-slate-400 mb-1">litros</p>
+            </div>
+            {profile.totalTankSize && (
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                  <span>0L</span>
+                  <span>{profile.totalTankSize}L</span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-500 rounded-full transition-all"
+                    style={{
+                      width: `${((motoStats.lastFuelExpense.saldoAfterFueling || 0) / profile.totalTankSize) * 100}%`
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Consumo do Último Trecho */}
+        {motoStats.lastFuelExpense?.segmentConsumption && (
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="mb-3">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center text-orange-600 shrink-0">
+                  <Activity size={20} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold dark:text-white">Consumo do Trecho</p>
+                  <p className="text-xs text-slate-500">{motoStats.lastFuelExpense.tripTotal} km</p>
+                </div>
+              </div>
+              {motoStats.lastFuelExpense.isCalibrated ? (
+                <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-full inline-block mt-1">
+                  Calibrado
+                </span>
+              ) : (
+                <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-full inline-block mt-1">
+                  Estimado
+                </span>
+              )}
+            </div>
+            <div className="flex items-end gap-2 overflow-hidden">
+              <p className="text-2xl sm:text-3xl font-bold text-orange-600 truncate">
+                {motoStats.lastFuelExpense.segmentConsumption.toFixed(1)}
+              </p>
+              <p className="text-lg text-slate-400 mb-1">km/l</p>
             </div>
           </div>
-        </div>
-        <div className="flex items-end gap-2">
-          <p className="text-3xl font-bold text-brand-600">
-            {motoStats.lastFuelExpense.saldoAfterFueling?.toFixed(1) || '0'}
-          </p>
-          <p className="text-lg text-slate-400 mb-1">litros</p>
-        </div>
-        {profile.totalTankSize && (
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-slate-500 mb-1">
-              <span>0L</span>
-              <span>{profile.totalTankSize}L</span>
+        )}
+
+        {/* Média Global Real */}
+        {motoStats.globalConsumption.status === 'valid' && (
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm md:col-span-2 overflow-hidden">
+            <div className="mb-3">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 shrink-0">
+                  <TrendingUp size={20} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold dark:text-white">Média Global Real</p>
+                  <p className="text-xs text-slate-500">{motoStats.globalConsumption.validSegments} trechos calibrados</p>
+                </div>
+              </div>
+              <InfoTooltip content="Média real considerando saldo no tanque. Fórmula: Total KM ÷ (Litros abastecidos - Saldo atual)." />
             </div>
-            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-brand-500 rounded-full transition-all"
-                style={{
-                  width: `${((motoStats.lastFuelExpense.saldoAfterFueling || 0) / profile.totalTankSize) * 100}%`
-                }}
-              />
+            <div className="flex items-end gap-2 mb-4 overflow-hidden">
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-600 truncate">
+                {motoStats.globalConsumption.globalAverage.toFixed(1)}
+              </p>
+              <p className="text-lg text-slate-400 mb-1">km/l</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">KM Total</p>
+                <p className="text-sm font-bold dark:text-white">{motoStats.globalConsumption.totalKm.toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Queimados</p>
+                <p className="text-sm font-bold dark:text-white">{motoStats.globalConsumption.litersBurned.toFixed(1)}L</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Autonomia</p>
+                <p className="text-sm font-bold dark:text-white">
+                  {motoStats.autonomy ? `${motoStats.autonomy.kmAutonomy.toFixed(0)} km` : '-'}
+                </p>
+              </div>
             </div>
           </div>
         )}
       </div>
-    )}
-
-    {/* Consumo do Último Trecho */}
-    {motoStats.lastFuelExpense?.segmentConsumption && (
-<div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center text-orange-600">
-                <Activity size={20} />
-              </div>
-              <div>
-                <p className="text-sm font-bold dark:text-white truncate">Consumo do Trecho</p>
-              <p className="text-xs text-slate-500">{motoStats.lastFuelExpense.tripTotal} km</p>
-            </div>
-          </div>
-          {motoStats.lastFuelExpense.isCalibrated ? (
-            <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-full">
-              Calibrado
-            </span>
-          ) : (
-            <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-full">
-              Estimado
-            </span>
-          )}
-        </div>
-        <div className="flex items-end gap-2">
-          <p className="text-3xl font-bold text-orange-600">
-            {motoStats.lastFuelExpense.segmentConsumption.toFixed(1)}
-          </p>
-          <p className="text-lg text-slate-400 mb-1">km/l</p>
-        </div>
-      </div>
-    )}
-
-    {/* Média Global Real */}
-    {motoStats.globalConsumption.status === 'valid' && (
-<div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
-                <TrendingUp size={20} />
-              </div>
-              <div>
-                <p className="text-sm font-bold dark:text-white truncate">Média Global Real</p>
-              <p className="text-xs text-slate-500">{motoStats.globalConsumption.validSegments} trechos calibrados</p>
-            </div>
-          </div>
-          <InfoTooltip content="Média real considerando saldo no tanque. Fórmula: Total KM ÷ (Litros abastecidos - Saldo atual)." />
-        </div>
-        <div className="flex items-end gap-2 mb-4">
-          <p className="text-3xl font-bold text-emerald-600">
-            {motoStats.globalConsumption.globalAverage.toFixed(1)}
-          </p>
-          <p className="text-lg text-slate-400 mb-1">km/l</p>
-        </div>
-        <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <div>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">KM Total</p>
-            <p className="text-sm font-bold dark:text-white">{motoStats.globalConsumption.totalKm.toFixed(0)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Queimados</p>
-            <p className="text-sm font-bold dark:text-white">{motoStats.globalConsumption.litersBurned.toFixed(1)}L</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Autonomia</p>
-            <p className="text-sm font-bold dark:text-white">
-              {motoStats.autonomy ? `${motoStats.autonomy.kmAutonomy.toFixed(0)} km` : '-'}
-            </p>
-          </div>
-        </div>
-      </div>
-  )}
-  </div>
   </div>
 
   <FuelConsumptionHistory expenses={expenses} profileKmPerLiter={profile.kmPerLiter || 0} />

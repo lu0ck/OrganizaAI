@@ -25,13 +25,13 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
           <div>
             <h3 className="text-base sm:text-lg font-bold dark:text-white">Histórico de Consumo</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {globalConsumption.status === 'valid'
-                ? `${globalConsumption.validSegments} trechos calibrados`
-                : 'Registre abastecimentos com trip'}
+{globalConsumption.status === 'valid' && globalConsumption.validSegments >= 2
+      ? `${globalConsumption.validSegments} trechos calibrados`
+      : 'Registre abastecimentos com trip'}
             </p>
           </div>
         </div>
-        {globalConsumption.status === 'valid' && (
+        {globalConsumption.status === 'valid' && globalConsumption.validSegments >= 2 && (
           <div className="flex gap-4 text-sm">
             <div className="text-center">
               <p className="text-[10px] text-slate-400 uppercase font-bold">Média</p>
@@ -45,7 +45,7 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
         )}
       </div>
 
-      {globalConsumption.status === 'valid' ? (
+      {globalConsumption.status === 'valid' && globalConsumption.validSegments >= 2 ? (
         <>
           <div className="min-h-[180px] sm:h-[200px] w-full mb-4">
             <ResponsiveContainer width="100%" height="100%">

@@ -38,60 +38,48 @@ export function calculateFuelBalance(
   profile: UserProfile,
   previousExpense?: Expense
 ): FuelCalculationResult {
-  const T = profile.totalTankSize || 50; // Capacidade total
-  const R = profile.reserveSize || 5; // Reserva
-  const Cref = previousExpense?.segmentConsumption || profile.kmPerLiter || 10; // Média de referência
+  const T = profile.totalTankSize || 50;
+  const R = profile.reserveSize || 5;
+  const Cref = previousExpense?.segmentConsumption || profile.kmPerLiter || 10;
 
-  // PASSO 1: Calcular distância útil
   const usefulDistance = tripTotal - tripOnReserve;
 
-  // PASSO 2: Determinar consumo do trecho
+  if (!previousExpense) {
+    const fuelBurned = Cref > 0 ? tripTotal / Cref : 0;
+    return {
+      usefulDistance,
+      segmentConsumption: Cref,
+      saldoBeforeFueling: 0,
+      saldoAfterFueling: Math.min(litersAdded, T),
+      isCalibrated: false,
+      fuelBurned
+    };
+  }
+
   let segmentConsumption: number;
   let saldoBeforeFueling: number;
   let isCalibrated: boolean;
   let fuelBurned: number;
 
+  const Santerior = previousExpense.saldoAfterFueling;
+
   if (tripOnReserve > 0) {
-    // CENÁRIO A: Calibração física (entrou na reserva)
     isCalibrated = true;
-    
-    // Saldo anterior = capacidade total (se primeiro) ou saldo do abastecimento anterior
-    const Santerior = previousExpense?.saldoAfterFueling ?? T;
-    
-    // Quanto foi queimado antes de entrar na reserva
     fuelBurned = Santerior - R;
-    
-    // Consumo real = distância útil / combustível queimado
-    segmentConsumption = usefulDistance / fuelBurned;
-    
-    // Saldo antes de abastecer = reserva - consumo na reserva
-    const fuelBurnedOnReserve = tripOnReserve / segmentConsumption;
+    segmentConsumption = fuelBurned > 0 ? usefulDistance / fuelBurned : Cref;
+    const fuelBurnedOnReserve = segmentConsumption > 0 ? tripOnReserve / segmentConsumption : 0;
     saldoBeforeFueling = R - fuelBurnedOnReserve;
-    
   } else {
-    // CENÁRIO B: Estimativa (não entrou na reserva)
     isCalibrated = false;
-    
-    // Usa média de referência
     segmentConsumption = Cref;
-    
-    // Saldo anterior
-    const Santerior = previousExpense?.saldoAfterFueling ?? T;
-    
-    // Estimativa de combustível queimado
-    fuelBurned = tripTotal / segmentConsumption;
-    
-    // Saldo antes de abastecer
+    fuelBurned = segmentConsumption > 0 ? tripTotal / segmentConsumption : 0;
     saldoBeforeFueling = Santerior - fuelBurned;
-    
-    // Ajuste se ficou negativo (algo está errado)
     if (saldoBeforeFueling < 0) {
       saldoBeforeFueling = 0;
       fuelBurned = Santerior;
     }
   }
 
-  // PASSO 3: Calcular saldo final
   const saldoAfterFueling = Math.min(saldoBeforeFueling + litersAdded, T);
 
   return {
@@ -130,7 +118,6 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
   const currentSaldo = fuelExpenses[fuelExpenses.length - 1]?.saldoAfterFueling || 0;
   const litersBurned = totalLitersAdded - currentSaldo;
 
-  // Precisa de pelo menos 1 trecho calibrado para ser válido
   const calibratedSegments = fuelExpenses.filter(e => e.isCalibrated).length;
 
   if (litersBurned <= 0 || calibratedSegments === 0) {
@@ -146,6 +133,23 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
   }
 
   const globalAverage = totalKm / litersBurned;
+
+  const simpleAverage = totalLitersAdded > 0 ? totalKm / totalLitersAdded : 0;
+  const isPlausible = simpleAverage > 0
+    && globalAverage >= simpleAverage * 0.5
+    && globalAverage <= simpleAverage * 1.5;
+
+  if (!isPlausible) {
+    return {
+      totalKm,
+      totalLitersAdded,
+      currentSaldo,
+      litersBurned,
+      globalAverage: 0,
+      status: 'insufficient_data',
+      validSegments: calibratedSegments
+    };
+  }
 
   return {
     totalKm,

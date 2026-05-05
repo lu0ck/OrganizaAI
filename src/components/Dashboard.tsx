@@ -147,9 +147,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
     const costPerKm = lastMonthKm > 0 ? lastMonthTotalCost / lastMonthKm : 0;
 
 const globalConsumption = calculateGlobalConsumption(expenses);
-    const kmPerLiter = globalConsumption.status === 'valid'
-      ? globalConsumption.globalAverage
-      : (profile?.kmPerLiter || 0);
+    const kmPerLiter = profile?.kmPerLiter || 0;
 
     // Cálculo do custo fixo mensal
     const ipvaMonthly = (profile?.ipvaValue || 0) / 12;
