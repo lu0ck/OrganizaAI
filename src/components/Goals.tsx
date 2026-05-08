@@ -170,29 +170,34 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
 
     const result = new Map<number, { compensatedBy?: { day: number; amount: number }; compensated?: { day: number; amount: number } }>();
     const pendingDeficits: { dayIndex: number; amount: number }[] = [];
-    let availableSurplus = 0;
-    let surplusSourceDayIndex: number | null = null;
 
     monthStats.forEach((stat, i) => {
       if (!stat.hasData) return;
 
       if (stat.deficit > 0) {
-        let remaining = stat.deficit;
-        while (remaining > 0 && availableSurplus > 0) {
-          const compensated = Math.min(remaining, availableSurplus);
-          result.set(i, { ...(result.get(i) || {}), compensatedBy: { day: surplusSourceDayIndex!, amount: compensated } });
-          result.set(surplusSourceDayIndex!, { ...(result.get(surplusSourceDayIndex!) || {}), compensated: { day: i, amount: compensated } });
-          remaining -= compensated;
-          availableSurplus -= compensated;
-          if (availableSurplus <= 0) {
-            surplusSourceDayIndex = null;
-          }
-        }
+        pendingDeficits.push({ dayIndex: i, amount: stat.deficit });
       }
 
       if (stat.surplus > 0) {
-        availableSurplus = stat.surplus;
-        surplusSourceDayIndex = i;
+        let remainingSurplus = stat.surplus;
+
+        const stillPending: typeof pendingDeficits = [];
+        for (const deficit of pendingDeficits) {
+          if (remainingSurplus <= 0) {
+            stillPending.push(deficit);
+            continue;
+          }
+
+          if (remainingSurplus >= deficit.amount) {
+            remainingSurplus -= deficit.amount;
+            result.set(deficit.dayIndex, { ...(result.get(deficit.dayIndex) || {}), compensatedBy: { day: i, amount: deficit.amount } });
+            result.set(i, { ...(result.get(i) || {}), compensated: { day: deficit.dayIndex, amount: deficit.amount } });
+          } else {
+            stillPending.push(deficit);
+          }
+        }
+        pendingDeficits.length = 0;
+        pendingDeficits.push(...stillPending);
       }
     });
 
@@ -531,7 +536,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
           <div
             key={i}
             className={cn(
-              "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
+              "rounded-xl flex flex-col items-center justify-center border transition-all relative group py-1.5 min-h-[52px]",
               !stat.hasData
               ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
               : stat.isMet
@@ -539,52 +544,68 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
             )}
           >
-            <span className="text-xs font-bold text-slate-400">{format(stat.day, 'd')}</span>
+            <span className="text-sm font-bold text-slate-500">{format(stat.day, 'd')}</span>
             {stat.hasData && (
               <>
                 <span className={cn(
-                  "text-[9px] font-bold",
+                  "text-[11px] font-bold leading-tight",
                   stat.isMet ? "text-emerald-600" : "text-rose-600"
                 )}>
-                  R$ {stat.totalEarned.toFixed(0)}
+                  R${Math.round(stat.totalEarned)}
                 </span>
                 {stat.isMet
-                  ? <CheckCircle2 size={10} className="text-emerald-500 mt-0.5" />
-                  : <XCircle size={10} className="text-rose-500 mt-0.5" />
+                  ? <CheckCircle2 size={12} className="text-emerald-500" />
+                  : <XCircle size={12} className="text-rose-500" />
                 }
               </>
             )}
             {comp?.compensatedBy && (
-              <span className="text-[7px] font-bold text-blue-500 leading-tight text-center mt-0.5">
-                +{format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
+              <span className="text-[9px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
+                Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
               </span>
             )}
             {comp?.compensated && (
-              <span className="text-[7px] font-bold text-emerald-600 leading-tight text-center mt-0.5">
-                &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
+              <span className="text-[9px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
+                &rarr; {format(monthStats[comp.compensated.day].day, 'd/MM')}
               </span>
             )}
 
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10">
-              {stat.hasData ? `R$ ${stat.totalEarned.toFixed(2)}` : 'Sem dados'}
-              {comp?.compensatedBy && ` (Compensado por ${format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ ${comp.compensatedBy.amount.toFixed(2)})`}
-              {comp?.compensated && ` (Compensou ${format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ ${comp.compensated.amount.toFixed(2)})`}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10 shadow-xl">
+              {stat.hasData ? (
+                <>
+                  R$ {stat.totalEarned.toFixed(2)}
+                  {comp?.compensatedBy && (
+                    <span className="block text-blue-300 text-[10px]">
+                      Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+                    </span>
+                  )}
+                  {comp?.compensated && (
+                    <span className="block text-emerald-300 text-[10px]">
+                      Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
+                    </span>
+                  )}
+                </>
+              ) : 'Sem dados'}
             </div>
           </div>
           );
         })}
               </div>
 
-            <div className="mt-6 flex items-center justify-center gap-8 border-t border-slate-100 dark:border-slate-800 pt-6">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Metas Batidas: <span className="text-emerald-600 font-bold">{metCount}</span></span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-rose-500" />
-                <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Metas Perdidas: <span className="text-rose-600 font-bold">{missedCount}</span></span>
-              </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-6 border-t border-slate-100 dark:border-slate-800 pt-6">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Metas Batidas: <span className="text-emerald-600 font-bold">{metCount}</span></span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-rose-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Metas Perdidas: <span className="text-rose-600 font-bold">{missedCount}</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Compensado</span>
+            </div>
+          </div>
           </div>
         </div>
 

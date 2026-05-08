@@ -428,6 +428,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                 const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
                 const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
                 const isMostRecentFuel = expense.type === 'combustivel' && expenseIndex === 0;
+                const hasSegmentConsumption = expense.type === 'combustivel' && expense.segmentConsumption && expense.segmentConsumption > 0;
                 return (
     <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -457,7 +458,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     )}
                   </div>
                 )}
-                {expense.type === 'combustivel' && expense.pricePerLiter && !isMostRecentFuel && (
+                {expense.type === 'combustivel' && expense.pricePerLiter && (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Preço/L</p>
                     <p className="font-bold text-slate-900 dark:text-white">
@@ -465,11 +466,11 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </p>
                   </div>
                 )}
-                {expense.type === 'combustivel' && expense.segmentConsumption && !isMostRecentFuel && (
+                {hasSegmentConsumption && (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Consumo</p>
                     <p className="font-bold text-slate-900 dark:text-white">
-                      {expense.segmentConsumption.toFixed(1)} km/l
+                      {expense.segmentConsumption!.toFixed(1)} km/l
                     </p>
                   </div>
                 )}

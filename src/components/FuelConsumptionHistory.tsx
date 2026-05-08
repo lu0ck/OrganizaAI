@@ -13,7 +13,11 @@ interface FuelConsumptionHistoryProps {
 
 export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: FuelConsumptionHistoryProps) {
   const globalConsumption = calculateGlobalConsumption(expenses);
-  const fuelExpenses = expenses.filter(e => e.type === 'combustivel' && e.tripTotal);
+  const fuelExpenses = expenses.filter(e => e.type === 'combustivel' && e.tripTotal && e.liters)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const hasChartableData = fuelExpenses.length >= 2;
+  const hasSegmentData = fuelExpenses.some(e => e.segmentConsumption && e.segmentConsumption > 0);
 
   return (
     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -25,13 +29,13 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
           <div>
             <h3 className="text-base sm:text-lg font-bold dark:text-white">Histórico de Consumo</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-{globalConsumption.status === 'valid' && globalConsumption.validSegments >= 2
-      ? `${globalConsumption.validSegments} trechos calibrados`
-      : 'Registre abastecimentos com trip'}
+              {hasChartableData
+                ? `${fuelExpenses.length} abastecimentos registrados`
+                : 'Registre abastecimentos com trip e litros'}
             </p>
           </div>
         </div>
-        {globalConsumption.status === 'valid' && globalConsumption.validSegments >= 2 && (
+        {globalConsumption.status === 'valid' && (
           <div className="flex gap-4 text-sm">
             <div className="text-center">
               <p className="text-[10px] text-slate-400 uppercase font-bold">Média</p>
@@ -45,13 +49,13 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
         )}
       </div>
 
-      {globalConsumption.status === 'valid' && globalConsumption.validSegments >= 2 ? (
+      {hasChartableData ? (
         <>
           <div className="min-h-[180px] sm:h-[200px] w-full mb-4">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={fuelExpenses.slice().reverse().slice(0, 20).map(expense => ({
                 date: format(parseISO(expense.date), 'dd/MM'),
-                kmPerLiter: expense.segmentConsumption || 0,
+                kmPerLiter: expense.segmentConsumption || (expense.tripTotal && expense.liters ? expense.tripTotal / expense.liters : 0),
                 trip: expense.tripTotal || 0
               }))}>
                 <defs>
@@ -64,7 +68,9 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} domain={['dataMin - 2', 'dataMax + 2']} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                <ReferenceLine y={globalConsumption.globalAverage} stroke="#10b981" strokeDasharray="5 5" strokeOpacity={0.5} />
+                {globalConsumption.status === 'valid' && (
+                  <ReferenceLine y={globalConsumption.globalAverage} stroke="#10b981" strokeDasharray="5 5" strokeOpacity={0.5} />
+                )}
                 <Area type="monotone" dataKey="kmPerLiter" stroke="#10b981" strokeWidth={2} fill="url(#colorConsumption)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -73,8 +79,8 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
           <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
             {fuelExpenses.slice().reverse().slice(0, 15).map((expense) => {
               const isCalibrated = expense.isCalibrated;
-              const segmentKmPerLiter = expense.segmentConsumption || 0;
-              const isAboveAvg = segmentKmPerLiter >= globalConsumption.globalAverage;
+              const segmentKmPerLiter = expense.segmentConsumption || (expense.tripTotal && expense.liters ? expense.tripTotal / expense.liters : 0);
+              const isAboveAvg = globalConsumption.status === 'valid' && segmentKmPerLiter >= globalConsumption.globalAverage;
               
               return (
                 <div key={expense.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
@@ -110,7 +116,7 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
           </div>
           <p className="text-slate-500 dark:text-slate-400 mb-1 text-sm">Sem dados suficientes</p>
           <p className="text-xs text-slate-400 max-w-sm">
-            Adicione abastecimentos com o campo "Trip" preenchido para calcular o consumo real.
+            Adicione pelo menos 2 abastecimentos com os campos "Trip" e "Litros" preenchidos para visualizar o histórico.
           </p>
         </div>
       )}
