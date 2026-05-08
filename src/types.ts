@@ -47,6 +47,7 @@ export interface Goal {
   startDate: string;
   createdAt?: string;
   connectedToSchedule?: boolean;
+  monthlyCycle?: boolean;
 }
 
 export interface MaintenanceHistory {

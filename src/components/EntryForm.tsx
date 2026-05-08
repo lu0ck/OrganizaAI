@@ -26,8 +26,7 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
     totalValue: '',
     region: '',
     appRides: [
-      { appName: 'Uber', modality: 'passageiro' as AppModality, count: 0, value: 0 },
-      { appName: 'iFood', modality: 'entrega' as AppModality, count: 0, value: 0 }
+      { appName: '99Pop', modality: 'passageiro' as AppModality, count: 0, value: 0 }
     ]
   });
 
@@ -63,17 +62,21 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
       totalValue: '',
       region: '',
       appRides: [
-        { appName: 'Uber', modality: 'passageiro', count: 0, value: 0 },
-        { appName: 'iFood', modality: 'entrega', count: 0, value: 0 }
+        { appName: '99Pop', modality: 'passageiro', count: 0, value: 0 }
       ]
     });
   };
 
   const addAppRow = () => {
-    setFormData(prev => ({
-      ...prev,
-      appRides: [...prev.appRides, { appName: '', modality: 'passageiro', count: 0, value: 0 }]
-    }));
+    setFormData(prev => {
+      const currentTotal = Number(prev.totalValue) || 0;
+      const firstAppValue = prev.appRides.length > 0 ? Number(prev.appRides[0].value) || 0 : 0;
+      const remainingValue = currentTotal - firstAppValue;
+      return {
+        ...prev,
+        appRides: [...prev.appRides, { appName: '', modality: 'passageiro', count: 0, value: remainingValue > 0 ? remainingValue : 0 }]
+      };
+    });
   };
 
   const removeAppRow = (index: number) => {
@@ -84,10 +87,13 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
   };
 
   const updateAppRow = (index: number, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      appRides: prev.appRides.map((r, i) => i === index ? { ...r, [field]: value } : r)
-    }));
+    setFormData(prev => {
+      const updatedAppRides = prev.appRides.map((r, i) => i === index ? { ...r, [field]: value } : r);
+      if (index === 0 && field === 'value' && updatedAppRides.length === 1) {
+        return { ...prev, totalValue: String(value), appRides: updatedAppRides };
+      }
+      return { ...prev, appRides: updatedAppRides };
+    });
   };
 
   const calculateHours = (startTime: string, endTime: string): number => {
@@ -180,18 +186,24 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Valor Total (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                value={formData.totalValue}
-                onChange={(e) => setFormData({ ...formData, totalValue: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-                placeholder="0,00"
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Valor Total (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.totalValue}
+                    onChange={(e) => {
+                      const totalVal = e.target.value;
+                      const updatedAppRides = formData.appRides.length === 1
+                        ? [{ ...formData.appRides[0], value: Number(totalVal) || 0 }]
+                        : formData.appRides;
+                      setFormData({ ...formData, totalValue: totalVal, appRides: updatedAppRides });
+                    }}
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                    placeholder="0,00"
+                  />
+                </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Região Rodada</label>
               <input
@@ -336,15 +348,14 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
                 kmDriven: String(ride.kmDriven),
                 totalValue: String(ride.totalValue),
                 region: ride.region,
-                appRides: ride.appRides.length > 0 ? ride.appRides.map(r => ({
-                  appName: r.appName,
-                  modality: r.modality,
-                  count: String(r.count),
-                  value: String(r.value)
-                })) : [
-                  { appName: 'Uber', modality: 'passageiro', count: '0', value: '0' },
-                  { appName: 'iFood', modality: 'entrega', count: '0', value: '0' }
-                ]
+        appRides: ride.appRides.length > 0 ? ride.appRides.map(r => ({
+        appName: r.appName,
+        modality: r.modality,
+        count: String(r.count),
+        value: String(r.value)
+      })) : [
+        { appName: '99Pop', modality: 'passageiro', count: '0', value: '0' }
+      ]
               });
             }}
             className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
@@ -360,28 +371,49 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-          <Clock size={14} className="text-blue-600" />
-          <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
-            {hours.toFixed(1)}h trabalhadas
-          </span>
-        </div>
-        {fuelCost !== null && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-            <Fuel size={14} className="text-orange-600" />
-            <span className="text-sm font-bold text-orange-700 dark:text-orange-300">
-              Custo comb. est.: R$ {fuelCost.toFixed(2)}
-            </span>
-          </div>
-        )}
-        {ride.appRides.map((app, i) => (
-          <span key={i} className="px-3 py-1 bg-slate-50 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">
-            {app.modality === 'passageiro' ? <User size={12} /> : <Package size={12} />}
-            {app.appName}: {app.count}
-          </span>
-        ))}
-      </div>
+              <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800 flex flex-wrap gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                  <Clock size={14} className="text-blue-600" />
+                  <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                    {hours.toFixed(1)}h trabalhadas
+                  </span>
+                </div>
+                {fuelCost !== null && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                    <Fuel size={14} className="text-orange-600" />
+                    <span className="text-sm font-bold text-orange-700 dark:text-orange-300">
+                      Custo comb. est.: R$ {fuelCost.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {ride.kmDriven > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 dark:bg-violet-950/30 rounded-lg">
+                    <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
+                      R$ {(ride.totalValue / ride.kmDriven).toFixed(2)}/km
+                    </span>
+                  </div>
+                )}
+                {ride.numRides > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
+                    <span className="text-sm font-bold text-teal-700 dark:text-teal-300">
+                      R$ {(ride.totalValue / ride.numRides).toFixed(2)}/corrida
+                    </span>
+                  </div>
+                )}
+                {hours > 0 && ride.numRides > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+                    <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                      {(ride.numRides / hours).toFixed(1)} corridas/h
+                    </span>
+                  </div>
+                )}
+                {ride.appRides.map((app, i) => (
+                  <span key={i} className="px-3 py-1 bg-slate-50 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                    {app.modality === 'passageiro' ? <User size={12} /> : <Package size={12} />}
+                    {app.appName}: {app.count}
+                  </span>
+                ))}
+              </div>
     </div>
   );
   })}

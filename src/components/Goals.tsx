@@ -65,7 +65,8 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
     type: 'diaria',
     targetValue: 0,
     startDate: format(new Date(), 'yyyy-MM-dd'),
-    connectedToSchedule: true
+    connectedToSchedule: true,
+    monthlyCycle: false
   });
 
   const estimates = useMemo(() => {
@@ -143,20 +144,60 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
   const dailyGoal = goals.find(g => g.type === 'diaria');
 
   const monthStats = useMemo(() => {
+    const targetValue = dailyGoal?.targetValue || 0;
     return daysInMonth.map(day => {
       const dayRides = rides.filter(r => isSameDay(parseISO(r.date), day));
       const totalEarned = dayRides.reduce((acc, r) => acc + r.totalValue, 0);
       const isMet = dailyGoal ? totalEarned >= dailyGoal.targetValue : false;
       const hasData = dayRides.length > 0;
-      
+      const deficit = hasData && !isMet && targetValue > 0 ? targetValue - totalEarned : 0;
+      const surplus = hasData && isMet && targetValue > 0 ? totalEarned - targetValue : 0;
+
       return {
         day,
         totalEarned,
         isMet,
-        hasData
+        hasData,
+        deficit,
+        surplus
       };
     });
   }, [daysInMonth, rides, dailyGoal]);
+
+  const compensationMap = useMemo(() => {
+    const targetValue = dailyGoal?.targetValue || 0;
+    if (!targetValue) return new Map<number, { compensatedBy?: { day: number; amount: number }; compensated?: { day: number; amount: number } }>();
+
+    const result = new Map<number, { compensatedBy?: { day: number; amount: number }; compensated?: { day: number; amount: number } }>();
+    const pendingDeficits: { dayIndex: number; amount: number }[] = [];
+    let availableSurplus = 0;
+    let surplusSourceDayIndex: number | null = null;
+
+    monthStats.forEach((stat, i) => {
+      if (!stat.hasData) return;
+
+      if (stat.deficit > 0) {
+        let remaining = stat.deficit;
+        while (remaining > 0 && availableSurplus > 0) {
+          const compensated = Math.min(remaining, availableSurplus);
+          result.set(i, { ...(result.get(i) || {}), compensatedBy: { day: surplusSourceDayIndex!, amount: compensated } });
+          result.set(surplusSourceDayIndex!, { ...(result.get(surplusSourceDayIndex!) || {}), compensated: { day: i, amount: compensated } });
+          remaining -= compensated;
+          availableSurplus -= compensated;
+          if (availableSurplus <= 0) {
+            surplusSourceDayIndex = null;
+          }
+        }
+      }
+
+      if (stat.surplus > 0) {
+        availableSurplus = stat.surplus;
+        surplusSourceDayIndex = i;
+      }
+    });
+
+    return result;
+  }, [monthStats, dailyGoal]);
 
   const metCount = monthStats.filter(s => s.hasData && s.isMet).length;
   const missedCount = monthStats.filter(s => s.hasData && !s.isMet).length;
@@ -168,11 +209,12 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
       targetValue: Number(formData.targetValue) || 0,
       startDate: formData.startDate || new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      connectedToSchedule: formData.connectedToSchedule ?? true
+      connectedToSchedule: formData.connectedToSchedule ?? true,
+      monthlyCycle: formData.monthlyCycle ?? false
     };
     onAddGoal(newGoal);
     setIsAdding(false);
-    setFormData({ type: 'diaria', targetValue: 0, startDate: format(new Date(), 'yyyy-MM-dd'), connectedToSchedule: true });
+    setFormData({ type: 'diaria', targetValue: 0, startDate: format(new Date(), 'yyyy-MM-dd'), connectedToSchedule: true, monthlyCycle: false });
   };
 
   const handleEdit = (goal: Goal) => {
@@ -249,22 +291,36 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.connectedToSchedule ?? true}
-                    onChange={(e) => setFormData({ ...formData, connectedToSchedule: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                  />
-                  Conectar à agenda de trabalho
-                </label>
-                {formData.connectedToSchedule && profile?.workSchedule && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Dias configurados: {profile.workSchedule.filter(d => d.active).map(d => d.day).join(', ')}
-                  </p>
-                )}
-              </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.connectedToSchedule ?? true}
+                          onChange={(e) => setFormData({ ...formData, connectedToSchedule: e.target.checked })}
+                          className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        Conectar à agenda de trabalho
+                      </label>
+                      {formData.connectedToSchedule && profile?.workSchedule && (
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Dias configurados: {profile.workSchedule.filter(d => d.active).map(d => d.day).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.monthlyCycle ?? false}
+                          onChange={(e) => setFormData({ ...formData, monthlyCycle: e.target.checked })}
+                          className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        Ciclo mensal
+                      </label>
+                      <p className="text-[10px] text-slate-400">
+                        Quando ativado, o progresso é calculado a partir do 1º do mês atual em vez da data de início.
+                      </p>
+                    </div>
             </div>
             <div className="flex gap-4">
               <button
@@ -469,31 +525,54 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 {monthStats.length > 0 && Array.from({ length: monthStats[0].day.getDay() }).map((_, i) => (
                   <div key={`empty-${i}`} className="aspect-square" />
                 ))}
-                {monthStats.map((stat, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
-                      !stat.hasData
-                        ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
-                        : stat.isMet
-                        ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
-                        : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
-                    )}
-                  >
-                    <span className="text-xs font-bold text-slate-400 mb-1">{format(stat.day, 'd')}</span>
-                    {stat.hasData && (
-                      stat.isMet
-                        ? <CheckCircle2 size={16} className="text-emerald-500" />
-                        : <XCircle size={16} className="text-rose-500" />
-                    )}
+        {monthStats.map((stat, i) => {
+          const comp = compensationMap.get(i);
+          return (
+          <div
+            key={i}
+            className={cn(
+              "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
+              !stat.hasData
+              ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
+              : stat.isMet
+              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
+              : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
+            )}
+          >
+            <span className="text-xs font-bold text-slate-400">{format(stat.day, 'd')}</span>
+            {stat.hasData && (
+              <>
+                <span className={cn(
+                  "text-[9px] font-bold",
+                  stat.isMet ? "text-emerald-600" : "text-rose-600"
+                )}>
+                  R$ {stat.totalEarned.toFixed(0)}
+                </span>
+                {stat.isMet
+                  ? <CheckCircle2 size={10} className="text-emerald-500 mt-0.5" />
+                  : <XCircle size={10} className="text-rose-500 mt-0.5" />
+                }
+              </>
+            )}
+            {comp?.compensatedBy && (
+              <span className="text-[7px] font-bold text-blue-500 leading-tight text-center mt-0.5">
+                +{format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
+              </span>
+            )}
+            {comp?.compensated && (
+              <span className="text-[7px] font-bold text-emerald-600 leading-tight text-center mt-0.5">
+                &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
+              </span>
+            )}
 
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10">
-                      {stat.hasData ? `R$ ${stat.totalEarned.toFixed(2)}` : 'Sem dados'}
-                    </div>
-                  </div>
-                ))}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10">
+              {stat.hasData ? `R$ ${stat.totalEarned.toFixed(2)}` : 'Sem dados'}
+              {comp?.compensatedBy && ` (Compensado por ${format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ ${comp.compensatedBy.amount.toFixed(2)})`}
+              {comp?.compensated && ` (Compensou ${format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ ${comp.compensated.amount.toFixed(2)})`}
+            </div>
+          </div>
+          );
+        })}
               </div>
 
             <div className="mt-6 flex items-center justify-center gap-8 border-t border-slate-100 dark:border-slate-800 pt-6">
@@ -519,8 +598,10 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
           ) : (
             goals.map((goal) => {
               const now = new Date();
-              const goalStartDate = parseISO(goal.startDate);
-              const effectiveStart = isBefore(goalStartDate, now) ? goalStartDate : now;
+        const goalStartDate = parseISO(goal.startDate);
+        const effectiveStart = goal.monthlyCycle
+          ? startOfMonth(now)
+          : (isBefore(goalStartDate, now) ? goalStartDate : now);
               
               // Calcular dias esperados de trabalho e valor esperado
               let expectedDays = 0;
@@ -581,12 +662,13 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                     <button
                       onClick={() => {
                         setEditingGoalId(isEditing ? null : goal.id);
-                        setFormData({
-                          type: goal.type,
-                          targetValue: goal.targetValue,
-                          startDate: goal.startDate,
-                          connectedToSchedule: goal.connectedToSchedule ?? true
-                        });
+              setFormData({
+                type: goal.type,
+                targetValue: goal.targetValue,
+                startDate: goal.startDate,
+                connectedToSchedule: goal.connectedToSchedule ?? true,
+                monthlyCycle: goal.monthlyCycle ?? false
+              });
                       }}
                       className="p-2 text-slate-300 hover:text-brand-500 transition-all"
                     >
@@ -605,9 +687,9 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                       <TrendingUp size={20} />
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        {goal.type} {goal.connectedToSchedule ? '• Conectada à agenda' : ''}
-                      </span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                {goal.type} {goal.connectedToSchedule ? '• Conectada à agenda' : ''} {goal.monthlyCycle ? '• Ciclo mensal' : ''}
+              </span>
                       <h4 className="font-bold dark:text-white">
                         Alvo: R$ {goal.targetValue.toFixed(2)}/dia
                       </h4>
@@ -636,25 +718,35 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                           />
                         </div>
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                        <input
-                          type="checkbox"
-                          checked={formData.connectedToSchedule ?? true}
-                          onChange={(e) => setFormData({ ...formData, connectedToSchedule: e.target.checked })}
-                          className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                        />
-                        Conectar à agenda de trabalho
-                      </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={formData.connectedToSchedule ?? true}
+                      onChange={(e) => setFormData({ ...formData, connectedToSchedule: e.target.checked })}
+                      className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    Conectar à agenda de trabalho
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={formData.monthlyCycle ?? false}
+                      onChange={(e) => setFormData({ ...formData, monthlyCycle: e.target.checked })}
+                      className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    Ciclo mensal
+                  </label>
                       <div className="flex gap-2">
                         <button
                           onClick={() => {
                             if (onUpdateGoal) {
-                              onUpdateGoal({
-                                ...goal,
-                                targetValue: formData.targetValue || goal.targetValue,
-                                startDate: formData.startDate || goal.startDate,
-                                connectedToSchedule: formData.connectedToSchedule ?? true
-                              });
+                    onUpdateGoal({
+                      ...goal,
+                      targetValue: formData.targetValue || goal.targetValue,
+                      startDate: formData.startDate || goal.startDate,
+                      connectedToSchedule: formData.connectedToSchedule ?? true,
+                      monthlyCycle: formData.monthlyCycle ?? false
+                    });
                             }
                             setEditingGoalId(null);
                           }}

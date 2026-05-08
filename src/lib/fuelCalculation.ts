@@ -98,7 +98,7 @@ export function calculateFuelBalance(
  */
 export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumptionResult {
   const fuelExpenses = expenses
-    .filter(e => e.type === 'combustivel' && e.tripTotal !== undefined && e.liters !== undefined)
+    .filter(e => e.type === 'combustivel' && e.tripTotal !== undefined && e.liters !== undefined && e.enteredReserve === true)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (fuelExpenses.length === 0) {

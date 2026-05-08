@@ -140,10 +140,10 @@ export default function App() {
   // Atualizar consumo atual no perfil
   useEffect(() => {
     if (!state.profile) return;
-    
+
     try {
       const globalConsumption = calculateGlobalConsumption(state.expenses);
-      
+
       if (globalConsumption.status === 'valid' && globalConsumption.globalAverage > 0) {
         const currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
         if (state.profile.currentKmPerLiter !== currentKmPerLiter) {
@@ -152,6 +152,11 @@ export default function App() {
             profile: { ...prev.profile!, currentKmPerLiter }
           }));
         }
+      } else if (state.profile.currentKmPerLiter && state.profile.currentKmPerLiter > 0) {
+        setState(prev => ({
+          ...prev,
+          profile: { ...prev.profile!, currentKmPerLiter: 0 }
+        }));
       }
     } catch (error) {
       console.error('Error updating consumption:', error);

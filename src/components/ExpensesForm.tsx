@@ -424,10 +424,11 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
           </div>
         ) : (
 <div className="grid gap-4">
-  {filteredExpenses.map((expense) => {
-    const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
-    const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
-    return (
+              {filteredExpenses.map((expense, expenseIndex) => {
+                const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
+                const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
+                const isMostRecentFuel = expense.type === 'combustivel' && expenseIndex === 0;
+                return (
     <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -445,17 +446,33 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
             <p className="text-xs text-slate-500">Valor</p>
             <p className="font-bold text-rose-600">R$ {expense.value.toFixed(2)}</p>
           </div>
-          {expense.liters && (
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Litros</p>
-              <p className="font-bold text-slate-900 dark:text-white">
-                {expense.liters.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}L
-              </p>
-              {expense.fuelType && (
-                <span className="text-[10px] font-bold text-orange-500 uppercase">{expense.fuelType}</span>
-              )}
-            </div>
-          )}
+            {expense.liters && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Litros</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {expense.liters.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}L
+                    </p>
+                    {expense.fuelType && (
+                      <span className="text-[10px] font-bold text-orange-500 uppercase">{expense.fuelType}</span>
+                    )}
+                  </div>
+                )}
+                {expense.type === 'combustivel' && expense.pricePerLiter && !isMostRecentFuel && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Preço/L</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      R$ {expense.pricePerLiter.toFixed(2)}/L
+                    </p>
+                  </div>
+                )}
+                {expense.type === 'combustivel' && expense.segmentConsumption && !isMostRecentFuel && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Consumo</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {expense.segmentConsumption.toFixed(1)} km/l
+                    </p>
+                  </div>
+                )}
           {expense.tripTotal && (
             <div className="text-right">
               <p className="text-xs text-slate-500">Trip</p>

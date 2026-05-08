@@ -150,12 +150,17 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                       onChange={(e) => setFormData({ ...formData, kmPerLiter: Number(e.target.value) })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                     />
-                    {profile.currentKmPerLiter && profile.currentKmPerLiter > 0 && (
-                      <p className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
-                        <TrendingUp size={12} />
-                        Consumo real: <strong>{profile.currentKmPerLiter} km/l</strong>
-                      </p>
-                    )}
+{profile.currentKmPerLiter && profile.currentKmPerLiter > 0 ? (
+          <p className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
+            <TrendingUp size={12} />
+            Consumo real: <strong>{profile.currentKmPerLiter} km/l</strong>
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-slate-400 flex items-center gap-1">
+            <TrendingUp size={12} />
+            Consumo real: dados insuficientes
+          </p>
+        )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
