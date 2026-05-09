@@ -530,66 +530,71 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 {monthStats.length > 0 && Array.from({ length: monthStats[0].day.getDay() }).map((_, i) => (
                   <div key={`empty-${i}`} className="aspect-square" />
                 ))}
-        {monthStats.map((stat, i) => {
-          const comp = compensationMap.get(i);
-          return (
-          <div
-            key={i}
-            className={cn(
-              "rounded-xl flex flex-col items-center justify-center border transition-all relative group py-1.5 min-h-[52px]",
-              !stat.hasData
-              ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
-              : stat.isMet
-              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
-              : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
-            )}
-          >
-            <span className="text-sm font-bold text-slate-500">{format(stat.day, 'd')}</span>
-            {stat.hasData && (
-              <>
-                <span className={cn(
-                  "text-[11px] font-bold leading-tight",
-                  stat.isMet ? "text-emerald-600" : "text-rose-600"
-                )}>
-                  R${Math.round(stat.totalEarned)}
-                </span>
-                {stat.isMet
-                  ? <CheckCircle2 size={12} className="text-emerald-500" />
-                  : <XCircle size={12} className="text-rose-500" />
-                }
-              </>
-            )}
-            {comp?.compensatedBy && (
-              <span className="text-[9px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
-                Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
-              </span>
-            )}
-            {comp?.compensated && (
-              <span className="text-[9px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
-                &rarr; {format(monthStats[comp.compensated.day].day, 'd/MM')}
-              </span>
-            )}
+            {monthStats.map((stat, i) => {
+              const comp = compensationMap.get(i);
+              const isCompensated = !!comp?.compensatedBy;
+              return (
+              <div
+                key={i}
+                className={cn(
+                  "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
+                  !stat.hasData
+                  ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
+                  : isCompensated
+                  ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30"
+                  : stat.isMet
+                  ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
+                  : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
+                )}
+              >
+                <span className="text-xs font-bold text-slate-500">{format(stat.day, 'd')}</span>
+                {stat.hasData && (
+                  <>
+                    <span className={cn(
+                      "text-[10px] font-bold leading-tight",
+                      isCompensated ? "text-blue-600" : stat.isMet ? "text-emerald-600" : "text-rose-600"
+                    )}>
+                      R${Math.round(stat.totalEarned)}
+                    </span>
+                    {isCompensated
+                      ? <CheckCircle2 size={10} className="text-blue-500" />
+                      : stat.isMet
+                      ? <CheckCircle2 size={10} className="text-emerald-500" />
+                      : <XCircle size={10} className="text-rose-500" />
+                    }
+                  </>
+                )}
+                {comp?.compensatedBy && (
+                  <span className="text-[8px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
+                    Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
+                  </span>
+                )}
+                {comp?.compensated && (
+                  <span className="text-[8px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
+                    &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
+                  </span>
+                )}
 
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10 shadow-xl">
-              {stat.hasData ? (
-                <>
-                  R$ {stat.totalEarned.toFixed(2)}
-                  {comp?.compensatedBy && (
-                    <span className="block text-blue-300 text-[10px]">
-                      Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
-                    </span>
-                  )}
-                  {comp?.compensated && (
-                    <span className="block text-emerald-300 text-[10px]">
-                      Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
-                    </span>
-                  )}
-                </>
-              ) : 'Sem dados'}
-            </div>
-          </div>
-          );
-        })}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10 shadow-xl">
+                  {stat.hasData ? (
+                    <>
+                      R$ {stat.totalEarned.toFixed(2)}
+                      {comp?.compensatedBy && (
+                        <span className="block text-blue-300 text-[10px]">
+                          Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+                        </span>
+                      )}
+                      {comp?.compensated && (
+                        <span className="block text-emerald-300 text-[10px]">
+                          Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
+                        </span>
+                      )}
+                    </>
+                  ) : 'Sem dados'}
+                </div>
+              </div>
+              );
+            })}
               </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-6 border-t border-slate-100 dark:border-slate-800 pt-6">

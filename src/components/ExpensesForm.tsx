@@ -427,7 +427,6 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
               {filteredExpenses.map((expense, expenseIndex) => {
                 const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
                 const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
-                const isMostRecentFuel = expense.type === 'combustivel' && expenseIndex === 0;
                 const hasSegmentConsumption = expense.type === 'combustivel' && expense.segmentConsumption && expense.segmentConsumption > 0;
                 return (
     <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">

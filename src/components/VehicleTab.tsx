@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Bike, Settings, Fuel, AlertCircle, TrendingUp, MapPin, Calendar, Clock, Plus, Trash2, Save, X, DollarSign, Car, Filter, Search, History, ChevronDown, ChevronUp, Droplets, Activity } from 'lucide-react';
+import { Bike, Settings, Fuel, AlertCircle, TrendingUp, MapPin, Calendar, Clock, Plus, Trash2, Save, X, DollarSign, Car, Filter, Search, History, ChevronDown, ChevronUp, Droplets, Activity, Info } from 'lucide-react';
 import { RideEntry, Expense, MaintenanceItem, UserProfile, MaintenanceHistory } from '../types';
 import { cn } from '../lib/utils';
 import { format, parseISO, differenceInDays, addDays, isAfter } from 'date-fns';
@@ -421,28 +421,49 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
             </div>
           </div>
         )}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative group">
-          <InfoTooltip 
-            content="Cálculo baseado em abastecimentos completos: (KM atual - KM anterior) ÷ Litros abastecidos." 
-            className="absolute top-3 right-3"
-          />
-          <p className="text-xs sm:text-sm text-slate-500 mb-1">Consumo Médio</p>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
-              {motoStats.kmPerLiter.toFixed(1)}
-              <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1">KM/L</span>
-            </p>
-            {motoStats.globalConsumption.status === 'valid' ? (
-              <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
-                Real
-              </span>
-            ) : (
-              <span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
-                Est.
-              </span>
-            )}
-          </div>
-        </div>
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative group">
+              <div className="absolute top-3 right-3 z-20">
+                <div className="relative">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center cursor-help text-slate-400 hover:text-brand-600 transition-colors">
+                    <Info size={12} />
+                  </div>
+                  <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-50">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Últimos abastecimentos</p>
+                    {expenses
+                      .filter(e => e.type === 'combustivel' && e.enteredReserve && e.tripTotal)
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .slice(0, 5)
+                      .map((e, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-50 dark:border-slate-800 last:border-0">
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400">{format(parseISO(e.date), 'dd/MM')}</span>
+                          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{e.tripTotal} km</span>
+                          <span className="text-[10px] font-bold text-emerald-600">{e.segmentConsumption ? `${e.segmentConsumption.toFixed(1)} km/l` : '—'}</span>
+                        </div>
+                      ))
+                    }
+                    {expenses.filter(e => e.type === 'combustivel' && e.enteredReserve && e.tripTotal).length === 0 && (
+                      <p className="text-[10px] text-slate-400">Nenhum abastecimento de tanque cheio</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 mb-1">Consumo Médio</p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
+                  {motoStats.kmPerLiter.toFixed(1)}
+                  <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1">KM/L</span>
+                </p>
+                {motoStats.globalConsumption.status === 'valid' ? (
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+                    Real
+                  </span>
+                ) : (
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+                    Est.
+                  </span>
+                )}
+              </div>
+            </div>
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative">
           <InfoTooltip 
             content="Fórmula: (Gastos com combustível + Manutenção) ÷ KM rodados." 

@@ -233,16 +233,28 @@ export default function App() {
     });
   };
 
-// Handler para editar expense
+  // Handler para editar expense
   const handleEditExpense = (updatedExpense: Expense) => {
     setState(prev => {
+      const oldExpense = prev.expenses.find(e => e.id === updatedExpense.id);
+      let newProfile = prev.profile;
+
+      if (oldExpense && prev.profile && oldExpense.type === 'combustivel' && updatedExpense.type === 'combustivel') {
+        const oldTrip = oldExpense.tripTotal || 0;
+        const newTrip = updatedExpense.tripTotal || 0;
+        const tripDiff = newTrip - oldTrip;
+        if (tripDiff !== 0 && prev.profile.vehicleOdometerKm) {
+          newProfile = { ...prev.profile, vehicleOdometerKm: prev.profile.vehicleOdometerKm + tripDiff };
+        }
+      }
+
       const newExpenses = prev.expenses.map(e =>
         e.id === updatedExpense.id ? updatedExpense : e
       );
 
-      if (prev.profile) {
-        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, prev.profile);
-        return { ...prev, expenses: recalculatedExpenses };
+      if (newProfile) {
+        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, newProfile);
+        return { ...prev, expenses: recalculatedExpenses, profile: newProfile };
       }
 
       return { ...prev, expenses: newExpenses };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Clock, MapPin, Navigation, Package, User, Save, X, Calendar, Pencil, Fuel } from 'lucide-react';
+import { Plus, Trash2, Clock, MapPin, Navigation, Package, User, Save, X, Calendar, Pencil, Fuel, Activity, DollarSign, Zap } from 'lucide-react';
 import { RideEntry, AppModality, UserProfile, Expense } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -371,39 +371,42 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
         </div>
       </div>
 
-              <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800 flex flex-wrap gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                  <Clock size={14} className="text-blue-600" />
-                  <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
-                    {hours.toFixed(1)}h trabalhadas
+              <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800 flex flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                  <Clock size={12} className="text-blue-500" />
+                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                    {hours.toFixed(1)}h
                   </span>
                 </div>
                 {fuelCost !== null && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                    <Fuel size={14} className="text-orange-600" />
-                    <span className="text-sm font-bold text-orange-700 dark:text-orange-300">
-                      Custo comb. est.: R$ {fuelCost.toFixed(2)}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                    <Fuel size={12} className="text-orange-500" />
+                    <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                      R$ {fuelCost.toFixed(2)}
                     </span>
                   </div>
                 )}
                 {ride.kmDriven > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 dark:bg-violet-950/30 rounded-lg">
-                    <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 dark:bg-violet-950/30 rounded-lg">
+                    <MapPin size={12} className="text-violet-500" />
+                    <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
                       R$ {(ride.totalValue / ride.kmDriven).toFixed(2)}/km
                     </span>
                   </div>
                 )}
                 {ride.numRides > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
-                    <span className="text-sm font-bold text-teal-700 dark:text-teal-300">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
+                    <DollarSign size={12} className="text-teal-500" />
+                    <span className="text-xs font-semibold text-teal-700 dark:text-teal-300">
                       R$ {(ride.totalValue / ride.numRides).toFixed(2)}/corrida
                     </span>
                   </div>
                 )}
                 {hours > 0 && ride.numRides > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
-                    <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
-                      {(ride.numRides / hours).toFixed(1)} corridas/h
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+                    <Zap size={12} className="text-amber-500" />
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      {(ride.numRides / hours).toFixed(1)}/h
                     </span>
                   </div>
                 )}
