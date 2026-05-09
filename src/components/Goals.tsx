@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Target, Plus, Trash2, TrendingUp, Calendar, CheckCircle2, Save, X, XCircle, ChevronLeft, ChevronRight, Info, Edit3 } from 'lucide-react';
+import { Target, Plus, Trash2, TrendingUp, Calendar, CheckCircle2, Save, X, XCircle, ChevronLeft, ChevronRight, Info, Edit3, AlertTriangle } from 'lucide-react';
 import { Goal, RideEntry, Expense, UserProfile, WorkDay } from '../types';
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, isSameDay, subMonths, addMonths, differenceInDays, isBefore, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -143,26 +143,36 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
 
   const dailyGoal = goals.find(g => g.type === 'diaria');
 
+  const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
   const monthStats = useMemo(() => {
     const targetValue = dailyGoal?.targetValue || 0;
+    const schedule = profile?.workSchedule;
     return daysInMonth.map(day => {
       const dayRides = rides.filter(r => isSameDay(parseISO(r.date), day));
       const totalEarned = dayRides.reduce((acc, r) => acc + r.totalValue, 0);
-      const isMet = dailyGoal ? totalEarned >= dailyGoal.targetValue : false;
       const hasData = dayRides.length > 0;
-      const deficit = hasData && !isMet && targetValue > 0 ? targetValue - totalEarned : 0;
-      const surplus = hasData && isMet && targetValue > 0 ? totalEarned - targetValue : 0;
+      const isWorkDay = schedule ? (schedule.find(d => d.day === dayNames[day.getDay()])?.active ?? false) : false;
+      const isPastDay = isBefore(day, new Date()) || isSameDay(day, new Date());
+      const isAbsentDay = isWorkDay && !hasData && isPastDay && targetValue > 0;
+
+      const effectiveTarget = targetValue;
+      const isMet = hasData ? totalEarned >= effectiveTarget : false;
+      const deficit = (hasData && !isMet && targetValue > 0) ? effectiveTarget - totalEarned : (isAbsentDay ? effectiveTarget : 0);
+      const surplus = hasData && isMet && targetValue > 0 ? totalEarned - effectiveTarget : 0;
 
       return {
         day,
         totalEarned,
         isMet,
         hasData,
+        isWorkDay,
+        isAbsentDay,
         deficit,
         surplus
       };
     });
-  }, [daysInMonth, rides, dailyGoal]);
+  }, [daysInMonth, rides, dailyGoal, profile?.workSchedule]);
 
   const compensationMap = useMemo(() => {
     const targetValue = dailyGoal?.targetValue || 0;
@@ -172,8 +182,6 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
     const pendingDeficits: { dayIndex: number; amount: number }[] = [];
 
     monthStats.forEach((stat, i) => {
-      if (!stat.hasData) return;
-
       if (stat.deficit > 0) {
         pendingDeficits.push({ dayIndex: i, amount: stat.deficit });
       }
@@ -206,6 +214,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
 
   const metCount = monthStats.filter(s => s.hasData && s.isMet).length;
   const missedCount = monthStats.filter(s => s.hasData && !s.isMet).length;
+  const absentCount = monthStats.filter(s => s.isAbsentDay).length;
 
   const handleAdd = () => {
     const newGoal: Goal = {
@@ -538,17 +547,31 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 key={i}
                 className={cn(
                   "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
-                  !stat.hasData
-                  ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
+                  stat.isAbsentDay && !isCompensated
+                  ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/30"
                   : isCompensated
                   ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30"
+                  : !stat.hasData
+                  ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
                   : stat.isMet
                   ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
                   : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
                 )}
               >
                 <span className="text-xs font-bold text-slate-500">{format(stat.day, 'd')}</span>
-                {stat.hasData && (
+                {stat.isAbsentDay && !isCompensated && (
+                  <>
+                    <span className="text-[10px] font-bold text-amber-600 leading-tight">R$0</span>
+                    <AlertTriangle size={10} className="text-amber-500" />
+                  </>
+                )}
+                {stat.isAbsentDay && isCompensated && (
+                  <>
+                    <span className="text-[10px] font-bold text-blue-600 leading-tight">R$0</span>
+                    <CheckCircle2 size={10} className="text-blue-500" />
+                  </>
+                )}
+                {!stat.isAbsentDay && stat.hasData && (
                   <>
                     <span className={cn(
                       "text-[10px] font-bold leading-tight",
@@ -564,6 +587,9 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                     }
                   </>
                 )}
+                {!stat.isAbsentDay && !stat.hasData && (
+                  <span className="text-[8px] text-slate-300">—</span>
+                )}
                 {comp?.compensatedBy && (
                   <span className="text-[8px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
                     Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
@@ -576,7 +602,16 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 )}
 
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10 shadow-xl">
-                  {stat.hasData ? (
+                  {stat.isAbsentDay ? (
+                    <>
+                      <span className="text-amber-400 font-bold">Faltou</span>
+                      {comp?.compensatedBy && (
+                        <span className="block text-blue-300 text-[10px]">
+                          Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+                        </span>
+                      )}
+                    </>
+                  ) : stat.hasData ? (
                     <>
                       R$ {stat.totalEarned.toFixed(2)}
                       {comp?.compensatedBy && (
@@ -590,7 +625,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                         </span>
                       )}
                     </>
-                  ) : 'Sem dados'}
+                  ) : 'Folga'}
                 </div>
               </div>
               );
@@ -605,6 +640,10 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-rose-500" />
               <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Metas Perdidas: <span className="text-rose-600 font-bold">{missedCount}</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-amber-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Faltou: <span className="text-amber-600 font-bold">{absentCount}</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500" />
@@ -636,22 +675,43 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               let earned = 0;
               let periodLabel = '';
               
-              if (goal.connectedToSchedule && profile?.workSchedule) {
-                // Meta conectada à agenda - calcular desde o início da meta até hoje
-                expectedDays = countExpectedWorkDays(profile.workSchedule, effectiveStart, now);
-                expectedValue = expectedDays * goal.targetValue;
-                workedDays = countWorkedDays(rides, effectiveStart, now);
-                
-                // Ganho real no período
-                earned = rides
-                  .filter(r => {
-                    const rideDate = parseISO(r.date);
-                    return !isBefore(rideDate, effectiveStart) && !isAfter(rideDate, now);
-                  })
-                  .reduce((acc, r) => acc + r.totalValue, 0);
-                
-                const daysDiff = differenceInDays(now, effectiveStart) + 1;
-                periodLabel = `${expectedDays} dias de trabalho em ${daysDiff} dias`;
+        if (goal.connectedToSchedule && profile?.workSchedule) {
+          const hourlyRate = profile.hourlyRate || 0;
+
+          expectedDays = countExpectedWorkDays(profile.workSchedule, effectiveStart, now);
+          workedDays = countWorkedDays(rides, effectiveStart, now);
+
+          let dailyTarget = goal.targetValue;
+          if (hourlyRate > 0 && goal.targetValue <= 0) {
+            const dayName = dayNames[now.getDay()];
+            const scheduleDay = profile.workSchedule.find(d => d.day === dayName);
+            if (scheduleDay?.active) {
+              let dayHours = 0;
+              scheduleDay.periods.forEach(p => {
+                if (!p.start || !p.end) return;
+                const [sH, sM] = p.start.split(':').map(Number);
+                const [eH, eM] = p.end.split(':').map(Number);
+                let diff = (eH * 60 + eM) - (sH * 60 + sM);
+                if (diff < 0) diff += 24 * 60;
+                dayHours += diff / 60;
+              });
+              dailyTarget = dayHours * hourlyRate;
+            }
+          }
+
+          expectedValue = expectedDays * dailyTarget;
+
+          earned = rides
+            .filter(r => {
+              const rideDate = parseISO(r.date);
+              return !isBefore(rideDate, effectiveStart) && !isAfter(rideDate, now);
+            })
+            .reduce((acc, r) => acc + r.totalValue, 0);
+
+          const daysDiff = differenceInDays(now, effectiveStart) + 1;
+          periodLabel = hourlyRate > 0
+            ? `${expectedDays} dias • R$ ${hourlyRate.toFixed(2)}/h`
+            : `${expectedDays} dias de trabalho em ${daysDiff} dias`;
               } else {
                 // Meta tradicional por período
                 let start: Date, end: Date;
@@ -716,9 +776,14 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 {goal.type} {goal.connectedToSchedule ? '• Conectada à agenda' : ''} {goal.monthlyCycle ? '• Ciclo mensal' : ''}
               </span>
-                      <h4 className="font-bold dark:text-white">
-                        Alvo: R$ {goal.targetValue.toFixed(2)}/dia
-                      </h4>
+                <h4 className="font-bold dark:text-white">
+                  Alvo: R$ {goal.targetValue > 0 ? goal.targetValue.toFixed(2) : (profile?.hourlyRate ? 'auto' : '0')}/dia
+                  {goal.connectedToSchedule && profile?.hourlyRate && goal.targetValue <= 0 && (
+                    <span className="text-xs font-normal text-slate-400 ml-1">
+                      (horas × R${profile.hourlyRate.toFixed(2)}/h)
+                    </span>
+                  )}
+                </h4>
                     </div>
                   </div>
 

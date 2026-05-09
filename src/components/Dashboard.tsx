@@ -135,19 +135,11 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
 
     const totalDailyCost = ipvaDaily + licensingDaily + insuranceDaily + installmentDaily + fuelDaily + maintenanceDaily;
 
-    const lastMonthStart = startOfMonth(subDays(new Date(), 30));
-    const lastMonthEnd = endOfDay(subDays(lastMonthStart, -30));
-    const lastMonthInterval = { start: lastMonthStart, end: lastMonthEnd };
-
-    const lastMonthKm = rides
-      .filter(r => isWithinInterval(parseISO(r.date), lastMonthInterval))
-      .reduce((acc, r) => acc + r.kmDriven, 0);
-
-    const lastMonthTotalCost = expenses
-      .filter(e => isWithinInterval(parseISO(e.date), lastMonthInterval))
-      .reduce((acc, e) => acc + e.value, 0) + (ipvaDaily + licensingDaily + insuranceDaily + installmentDaily) * 30;
-
-    const costPerKm = lastMonthKm > 0 ? lastMonthTotalCost / lastMonthKm : 0;
+    const filteredKm = filteredData.rides.reduce((acc, r) => acc + r.kmDriven, 0);
+    const filteredFuel = filteredData.expenses.filter(e => e.type === 'combustivel').reduce((acc, e) => acc + e.value, 0);
+    const filteredMaintenance = filteredData.expenses.filter(e => e.type === 'manutencao').reduce((acc, e) => acc + e.value, 0);
+    const variableCostPerKm = filteredKm > 0 ? (filteredFuel + filteredMaintenance) / filteredKm : 0;
+    const totalCostPerKm = filteredKm > 0 ? (totalExpenses + totalFixedCosts) / filteredKm : 0;
 
     const globalConsumption = calculateGlobalConsumption(expenses);
     const kmPerLiter = profile?.currentKmPerLiter || profile?.kmPerLiter || 0;
@@ -204,7 +196,8 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
         maintenance: maintenanceDaily,
         total: totalDailyCost
       },
-      costPerKm,
+      costPerKm: variableCostPerKm,
+      totalCostPerKm,
       kmPerLiter,
       globalConsumption,
       estimatedBalance,
@@ -473,7 +466,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
                 <p className="text-[10px] text-slate-400">{profile.vehicleModel || profile.vehicleType}</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="space-y-1">
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Saldo Tanque</p>
                 <p className="text-lg font-bold text-brand-600">{stats.estimatedBalance.toFixed(1)}L</p>
@@ -494,8 +487,14 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
                 <p className="text-lg font-bold text-emerald-600">{stats.autonomy ? `${stats.autonomy.kmAutonomy.toFixed(0)} km` : '—'}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Custo/KM</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Custo Var./KM</p>
                 <p className="text-lg font-bold text-slate-800 dark:text-white">R$ {stats.costPerKm.toFixed(2)}</p>
+                <p className="text-[8px] text-slate-400">comb. + manut.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Custo Total/KM</p>
+                <p className="text-lg font-bold text-slate-800 dark:text-white">R$ {stats.totalCostPerKm.toFixed(2)}</p>
+                <p className="text-[8px] text-slate-400">incluindo fixos</p>
               </div>
             </div>
           </div>

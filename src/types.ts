@@ -99,6 +99,7 @@ export interface UserProfile {
   vehicleInstallmentsRemaining?: number; // Parcelas restantes para quitar
   // Work schedule
   workSchedule?: WorkDay[];
+  hourlyRate?: number;
 }
 
 export interface AppState {

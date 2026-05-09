@@ -16,7 +16,7 @@ interface AgendaProps {
 
 export default function Agenda({ rides, expenses, profile, onUpdateProfile, sidebarCollapsed }: AgendaProps) {
   const [simulation, setSimulation] = useState({
-    avgPerHour: 0,
+    avgPerHour: profile?.hourlyRate || 0,
     schedule: profile?.workSchedule || [
       { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] },
       { day: 'Seg', active: true, periods: [{ start: '00:00', end: '00:00' }] },
@@ -40,7 +40,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
 
   const handleSave = () => {
     if (profile) {
-      onUpdateProfile({ ...profile, workSchedule: simulation.schedule });
+      onUpdateProfile({ ...profile, workSchedule: simulation.schedule, hourlyRate: simulation.avgPerHour || averages.perHour });
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
     }
