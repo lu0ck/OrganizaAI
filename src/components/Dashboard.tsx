@@ -491,7 +491,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Autonomia</p>
-                <p className="text-lg font-bold text-emerald-600">{stats.autonomy ? `${stats.autonomy.toFixed(0)} km` : '—'}</p>
+                <p className="text-lg font-bold text-emerald-600">{stats.autonomy ? `${stats.autonomy.kmAutonomy.toFixed(0)} km` : '—'}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Custo/KM</p>

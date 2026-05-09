@@ -144,7 +144,7 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-600 dark:text-slate-400">R$ {expense.value.toFixed(2)}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">R$ {(expense.value || 0).toFixed(2)}</p>
                     <p className={cn("font-bold text-sm", isAboveAvg ? "text-emerald-600" : "text-amber-600")}>
                       {segmentKmPerLiter.toFixed(1)} km/l
                     </p>
