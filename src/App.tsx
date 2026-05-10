@@ -144,18 +144,23 @@ export default function App() {
     try {
       const globalConsumption = calculateGlobalConsumption(state.expenses);
 
+      let currentKmPerLiter = 0;
+
       if (globalConsumption.status === 'valid' && globalConsumption.globalAverage > 0) {
-        const currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
-        if (state.profile.currentKmPerLiter !== currentKmPerLiter) {
-          setState(prev => ({
-            ...prev,
-            profile: { ...prev.profile!, currentKmPerLiter }
-          }));
+        currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
+      } else {
+        const fullTankExpenses = state.expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true);
+        const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
+        const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
+        if (totalLiters > 0 && fullTankKm > 0) {
+          currentKmPerLiter = Number((fullTankKm / totalLiters).toFixed(1));
         }
-      } else if (state.profile.currentKmPerLiter && state.profile.currentKmPerLiter > 0) {
+      }
+
+      if (state.profile.currentKmPerLiter !== currentKmPerLiter) {
         setState(prev => ({
           ...prev,
-          profile: { ...prev.profile!, currentKmPerLiter: 0 }
+          profile: { ...prev.profile!, currentKmPerLiter }
         }));
       }
     } catch (error) {
@@ -174,14 +179,12 @@ export default function App() {
   // Handler para adicionar ride e atualizar odômetro
   const handleAddRide = (ride: typeof state.rides[0]) => {
     setState(prev => {
-      const newOdometerKm = prev.profile?.vehicleOdometerKm 
-        ? prev.profile.vehicleOdometerKm + ride.kmDriven 
-        : ride.kmDriven;
-      
+      const newOdometerKm = Math.round(((prev.profile?.vehicleOdometerKm || 0) + ride.kmDriven) * 100) / 100;
+
       return {
         ...prev,
         rides: [ride, ...prev.rides],
-        profile: prev.profile 
+        profile: prev.profile
           ? { ...prev.profile, vehicleOdometerKm: newOdometerKm }
           : prev.profile
       };
@@ -194,11 +197,8 @@ export default function App() {
       let newProfile = prev.profile;
       
       // Se for combustível com tripTotal, atualizar odômetro
-      if (expense.type === 'combustivel' && expense.tripTotal && prev.profile) {
-        const newOdometerKm = prev.profile.vehicleOdometerKm 
-          ? prev.profile.vehicleOdometerKm + expense.tripTotal 
-          : expense.tripTotal;
-        
+    if (expense.type === 'combustivel' && expense.tripTotal && prev.profile) {
+        const newOdometerKm = Math.round(((prev.profile.vehicleOdometerKm || 0) + expense.tripTotal) * 100) / 100;
         newProfile = { ...prev.profile, vehicleOdometerKm: newOdometerKm };
         
         // Recalcular em cascata após adicionar
@@ -243,8 +243,8 @@ export default function App() {
         const oldTrip = oldExpense.tripTotal || 0;
         const newTrip = updatedExpense.tripTotal || 0;
         const tripDiff = newTrip - oldTrip;
-        if (tripDiff !== 0 && prev.profile.vehicleOdometerKm) {
-          newProfile = { ...prev.profile, vehicleOdometerKm: prev.profile.vehicleOdometerKm + tripDiff };
+        if (tripDiff !== 0) {
+          newProfile = { ...prev.profile, vehicleOdometerKm: Math.round(((prev.profile.vehicleOdometerKm || 0) + tripDiff) * 100) / 100 };
         }
       }
 

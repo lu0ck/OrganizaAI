@@ -125,9 +125,10 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                 KM Atual do Odômetro
                 <span className="block text-[10px] text-slate-400 font-normal">Quilometragem total do veículo (usado para controle de manutenção)</span>
               </label>
-              <input
-                type="number"
-                value={formData.vehicleOdometerKm || ''}
+          <input
+              type="number"
+              step="0.01"
+              value={formData.vehicleOdometerKm || ''}
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   setFormData({ ...formData, vehicleOdometerKm: value > 0 ? value : undefined });

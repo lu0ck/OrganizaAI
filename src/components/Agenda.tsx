@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -87,27 +87,34 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   };
 
   const averages = useMemo(() => {
-    if (rides.length === 0) return { perHour: 0, perDay: 0, perKm: 0, expenseRatio: 0 };
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    const monthInterval = { start: monthStart, end: monthEnd };
 
-    const totalValue = rides.reduce((acc, r) => acc + r.totalValue, 0);
-    const totalKm = rides.reduce((acc, r) => acc + r.kmDriven, 0);
-    const totalExpenses = expenses.reduce((acc, e) => acc + e.value, 0);
-    
-    // Calculate total hours
-    const totalHours = rides.reduce((acc, r) => {
+    const monthRides = rides.filter(r => isWithinInterval(parseISO(r.date), monthInterval));
+    const monthExpenses = expenses.filter(e => isWithinInterval(parseISO(e.date), monthInterval));
+
+    if (monthRides.length === 0) return { perHour: 0, perDay: 0, perKm: 0, expenseRatio: 0 };
+
+    const totalValue = monthRides.reduce((acc, r) => acc + r.totalValue, 0);
+    const totalKm = monthRides.reduce((acc, r) => acc + r.kmDriven, 0);
+    const totalExpenses = monthExpenses.reduce((acc, e) => acc + e.value, 0);
+
+    const totalHours = monthRides.reduce((acc, r) => {
       if (!r.startTime || !r.endTime) return acc;
       const start = r.startTime.split(':').map(Number);
       const end = r.endTime.split(':').map(Number);
       if (start.length < 2 || end.length < 2) return acc;
-      
+
       let diff = (end[0] * 60 + end[1]) - (start[0] * 60 + start[1]);
-      if (diff < 0) diff += 24 * 60; // Handle overnight
+      if (diff < 0) diff += 24 * 60;
       return acc + (diff / 60);
     }, 0);
 
     return {
       perHour: totalHours > 0 ? totalValue / totalHours : 0,
-      perDay: totalValue / rides.length,
+      perDay: totalValue / monthRides.length,
       perKm: totalKm > 0 ? totalValue / totalKm : 0,
       expenseRatio: totalValue > 0 ? totalExpenses / totalValue : 0
     };
