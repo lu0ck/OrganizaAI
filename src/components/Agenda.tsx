@@ -734,6 +734,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
                         plan={editPlan}
                         monthKey={ym.key}
                         monthLabel={ym.label}
+                        profile={profile}
                         onSave={(updated) => {
                           if (plan) onUpdatePlan?.(updated);
                           else onAddPlan?.(updated);
@@ -862,12 +863,13 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   );
 }
 
-function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel }: {
+function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile }: {
   plan: MonthlyPlan;
   monthKey: string;
   monthLabel: string;
   onSave: (plan: MonthlyPlan) => void;
   onCancel: () => void;
+  profile?: UserProfile | null;
 }) {
   const [localPlan, setLocalPlan] = useState<MonthlyPlan>(plan);
   const [vacationInput, setVacationInput] = useState('');
@@ -890,8 +892,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel }: {
   };
 
   const copyFromProfile = () => {
-    const profileSchedule = JSON.parse(localStorage.getItem('organizaai_data_v2') || '{}');
-    const workSchedule = profileSchedule?.profile?.workSchedule;
+    const workSchedule = profile?.workSchedule;
     if (workSchedule) {
       setLocalPlan({
         ...localPlan,
@@ -900,22 +901,77 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel }: {
     }
   };
 
+  const addPeriod = (dayIndex: number) => {
+    const newDays = [...localPlan.days];
+    newDays[dayIndex].periods.push({ start: '00:00', end: '00:00' });
+    setLocalPlan({ ...localPlan, days: newDays });
+  };
+
+  const removePeriod = (dayIndex: number, periodIndex: number) => {
+    const newDays = [...localPlan.days];
+    if (newDays[dayIndex].periods.length > 1) {
+      newDays[dayIndex].periods.splice(periodIndex, 1);
+      setLocalPlan({ ...localPlan, days: newDays });
+    }
+  };
+
+  const updatePeriod = (dayIndex: number, periodIndex: number, field: 'start' | 'end', value: string) => {
+    const newDays = [...localPlan.days];
+    newDays[dayIndex].periods[periodIndex][field] = value;
+    setLocalPlan({ ...localPlan, days: newDays });
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
         {localPlan.days.map((day, i) => (
-          <button
-            key={day.day}
-            onClick={() => toggleDay(i)}
-            className={cn(
-              "py-2 px-1 rounded-xl text-xs font-bold border transition-all",
-              day.active
-                ? "bg-brand-600 text-white border-brand-700"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700"
+          <div key={day.day} className="space-y-2">
+            <button
+              onClick={() => toggleDay(i)}
+              className={cn(
+                "w-full py-2 px-1 rounded-xl text-xs font-bold border transition-all",
+                day.active
+                  ? "bg-brand-600 text-white border-brand-700"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700"
+              )}
+            >
+              {day.day}
+            </button>
+            {day.active && (
+              <div className="space-y-1" onClick={e => e.stopPropagation()}>
+                {day.periods.map((period, pIdx) => (
+                  <div key={pIdx} className="space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">Turno {pIdx + 1}</span>
+                      {day.periods.length > 1 && (
+                        <button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600">
+                          <Trash2 size={8} />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="time"
+                      value={period.start}
+                      onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)}
+                      className="w-full text-[9px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                    <input
+                      type="time"
+                      value={period.end}
+                      onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)}
+                      className="w-full text-[9px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={() => addPeriod(i)}
+                  className="w-full py-0.5 flex items-center justify-center gap-0.5 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[8px] font-bold"
+                >
+                  <Plus size={8} /> Turno
+                </button>
+              </div>
             )}
-          >
-            {day.day}
-          </button>
+          </div>
         ))}
       </div>
 

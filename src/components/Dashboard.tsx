@@ -13,7 +13,8 @@ import {
   ArrowDownRight,
   Droplets,
   Zap,
-  Target
+  Target,
+  Calculator
 } from 'lucide-react';
 import {
   AreaChart,
@@ -30,7 +31,7 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInDays, addMonths } from 'date-fns';
 import { RideEntry, Expense, Goal, UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import { calculateGlobalConsumption, getLastFuelExpense, calculateAutonomy } from '../lib/fuelCalculation';
@@ -236,6 +237,51 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
       km: prevRides.reduce((acc, r) => acc + r.kmDriven, 0)
     };
   }, [filteredData, rides, expenses]);
+
+  const monthlyEstimate = useMemo(() => {
+    const now = new Date();
+    const schedule = profile?.workSchedule || [];
+    const hourlyRate = profile?.hourlyRate || 0;
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    let totalHours = 0;
+    let workDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(now.getFullYear(), now.getMonth(), d);
+      const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][date.getDay()];
+      const sched = schedule.find(s => s.day === dayName);
+      if (sched?.active) {
+        workDays++;
+        sched.periods.forEach(p => {
+          if (!p.start || !p.end) return;
+          const [sH, sM] = p.start.split(':').map(Number);
+          const [eH, eM] = p.end.split(':').map(Number);
+          if (isNaN(sH)) return;
+          let diff = (eH * 60 + eM) - (sH * 60 + sM);
+          if (diff < 0) diff += 24 * 60;
+          totalHours += diff / 60;
+        });
+      }
+    }
+
+    const earnings = totalHours * hourlyRate;
+    const last30 = expenses.filter(e => isWithinInterval(parseISO(e.date), { start: subDays(now, 30), end: now }));
+    const last30Fuel = last30.filter(e => e.type === 'combustivel').reduce((acc, e) => acc + e.value, 0);
+    const last30Maint = last30.filter(e => e.type === 'manutencao').reduce((acc, e) => acc + e.value, 0);
+    const last30Total = last30.reduce((acc, e) => acc + e.value, 0);
+    const dailyExpense = last30Total / 30;
+    const monthlyExpenses = dailyExpense * workDays;
+
+    return {
+      workDays,
+      totalHours,
+      earnings,
+      expenses: monthlyExpenses,
+      net: earnings - monthlyExpenses,
+      fuelEstimated: (last30Fuel / 30) * workDays,
+      maintEstimated: (last30Maint / 30) * workDays,
+    };
+  }, [profile, expenses]);
 
   const getChangePercent = (current: number, previous: number): number | null => {
     if (previous === 0) return current > 0 ? 100 : null;
@@ -483,13 +529,13 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
         />
       </motion.div>
 
-      {/* Veículo + Objetivo Diário */}
+      {/* Veículo + Estimativa + Objetivo Diário */}
       {profile && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
         >
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
@@ -534,38 +580,67 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
             </div>
           </div>
 
-          {stats.dailyGoalTarget > 0 && (
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
-                  <Target size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-white">Meta Diária</h3>
-                  <p className="text-[10px] text-slate-400">R$ {stats.dailyGoalTarget.toFixed(2)}/dia</p>
-                </div>
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950/30 flex items-center justify-center text-brand-600">
+                <Calculator size={20} />
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>Realizado</span>
-                  <span>{stats.periodTarget > 0 ? `${Math.min((stats.earnings / stats.periodTarget) * 100, 100).toFixed(0)}%` : '0%'}</span>
-                </div>
-                <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all",
-                      stats.earnings >= stats.periodTarget ? "bg-emerald-500" : "bg-brand-500"
-                    )}
-                    style={{ width: `${stats.periodTarget > 0 ? Math.min((stats.earnings / stats.periodTarget) * 100, 100) : 0}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">R$ {stats.earnings.toFixed(2)}</span>
-                  <span className="text-slate-400">de R$ {stats.periodTarget.toFixed(2)}</span>
-                </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Estimativa do Mês</h3>
+                <p className="text-[10px] text-slate-400">{format(new Date(), 'MMMM yyyy')}</p>
               </div>
             </div>
-          )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Ganhos</p>
+                <p className="text-lg font-bold text-emerald-600">R$ {monthlyEstimate.earnings.toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Gastos</p>
+                <p className="text-lg font-bold text-rose-600">R$ {monthlyEstimate.expenses.toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Líquido</p>
+                <p className="text-lg font-bold text-slate-800 dark:text-white">R$ {monthlyEstimate.net.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[9px] text-slate-400">
+              <span>{monthlyEstimate.workDays} dias</span>
+              <span>{monthlyEstimate.totalHours.toFixed(1)}h</span>
+              <span>R$ {(profile.hourlyRate || 0).toFixed(2)}/h</span>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
+                <Target size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Meta Diária</h3>
+                <p className="text-[10px] text-slate-400">{stats.dailyGoalTarget > 0 ? `R$ ${stats.dailyGoalTarget.toFixed(2)}/dia` : 'Não definida'}</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Realizado</span>
+                <span>{stats.periodTarget > 0 ? `${Math.min((stats.earnings / stats.periodTarget) * 100, 100).toFixed(0)}%` : '0%'}</span>
+              </div>
+              <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    stats.earnings >= stats.periodTarget ? "bg-emerald-500" : "bg-brand-500"
+                  )}
+                  style={{ width: `${stats.periodTarget > 0 ? Math.min((stats.earnings / stats.periodTarget) * 100, 100) : 0}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300">R$ {stats.earnings.toFixed(2)}</span>
+                <span className="text-slate-400">de R$ {stats.periodTarget.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
         </motion.div>
       )}
 
@@ -980,36 +1055,55 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
           </div>
         </div>
 
-        <div className="h-[280px] w-full">
+        <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={filteredMonthlyData} barCategoryGap={selectedMonth !== null ? '30%' : '10%'}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+              <defs>
+                <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.4} />
+                </linearGradient>
+                <linearGradient id="expensesGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.4} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" strokeOpacity={0.5} />
+              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
               <RechartsTooltip
                 formatter={(value: number, name: string) => [
                   `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                   name === 'earnings' ? 'Ganhos' : 'Gastos'
                 ]}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                labelFormatter={(label) => `Mês: ${label}`}
+                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)', padding: '12px 16px', background: '#1e293b', color: '#fff' }}
+                cursor={{ fill: 'rgba(0,0,0,0.03)' }}
               />
               <Legend
                 formatter={(value: string) => value === 'earnings' ? 'Ganhos' : 'Gastos'}
-                wrapperStyle={{ fontSize: '12px', marginTop: '8px' }}
+                wrapperStyle={{ fontSize: '13px', fontWeight: 600, marginTop: '8px' }}
+                iconType="circle"
               />
               <Bar
                 dataKey="earnings"
-                fill="#10b981"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={48}
-                animationDuration={1000}
+                fill="url(#earningsGrad)"
+                stroke="#059669"
+                strokeWidth={1}
+                radius={[8, 8, 0, 0]}
+                maxBarSize={56}
+                animationDuration={1200}
+                animationEasing="ease-in-out"
               />
               <Bar
                 dataKey="expenses"
-                fill="#f43f5e"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={48}
-                animationDuration={1000}
+                fill="url(#expensesGrad)"
+                stroke="#e11d48"
+                strokeWidth={1}
+                radius={[8, 8, 0, 0]}
+                maxBarSize={56}
+                animationDuration={1200}
+                animationEasing="ease-in-out"
               />
             </BarChart>
           </ResponsiveContainer>

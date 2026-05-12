@@ -372,42 +372,67 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
       </div>
 
               <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800 flex flex-wrap gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                  <Clock size={12} className="text-blue-500" />
-                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                    {hours.toFixed(1)}h
-                  </span>
+                <div className="relative group">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                    <Clock size={12} className="text-blue-500" />
+                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                      {hours.toFixed(1)}h
+                    </span>
+                  </div>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[9px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-10 shadow-lg">
+                    Horas trabalhadas
+                  </div>
                 </div>
                 {fuelCost !== null && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                    <Fuel size={12} className="text-orange-500" />
-                    <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                      R$ {fuelCost.toFixed(2)}
-                    </span>
+                  <div className="relative group">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                      <Fuel size={12} className="text-orange-500" />
+                      <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                        R$ {fuelCost.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[9px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-10 shadow-lg">
+                      Custo estimado de combustível
+                    </div>
                   </div>
                 )}
                 {ride.kmDriven > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 dark:bg-violet-950/30 rounded-lg">
-                    <MapPin size={12} className="text-violet-500" />
-                    <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
-                      R$ {(ride.totalValue / ride.kmDriven).toFixed(2)}/km
-                    </span>
+                  <div className="relative group">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 dark:bg-violet-950/30 rounded-lg">
+                      <MapPin size={12} className="text-violet-500" />
+                      <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+                        R$ {(ride.totalValue / ride.kmDriven).toFixed(2)}/km
+                      </span>
+                    </div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[9px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-10 shadow-lg">
+                      Ganho por quilômetro
+                    </div>
                   </div>
                 )}
                 {ride.numRides > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
-                    <DollarSign size={12} className="text-teal-500" />
-                    <span className="text-xs font-semibold text-teal-700 dark:text-teal-300">
-                      R$ {(ride.totalValue / ride.numRides).toFixed(2)}/corrida
-                    </span>
+                  <div className="relative group">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
+                      <DollarSign size={12} className="text-teal-500" />
+                      <span className="text-xs font-semibold text-teal-700 dark:text-teal-300">
+                        R$ {(ride.totalValue / ride.numRides).toFixed(2)}/corrida
+                      </span>
+                    </div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[9px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-10 shadow-lg">
+                      Ganho médio por corrida
+                    </div>
                   </div>
                 )}
                 {hours > 0 && ride.numRides > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
-                    <Zap size={12} className="text-amber-500" />
-                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-                      {(ride.numRides / hours).toFixed(1)}/h
-                    </span>
+                  <div className="relative group">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+                      <Zap size={12} className="text-amber-500" />
+                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        {(ride.numRides / hours).toFixed(1)}/h
+                      </span>
+                    </div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[9px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-10 shadow-lg">
+                      Corridas por hora
+                    </div>
                   </div>
                 )}
                 {ride.appRides.map((app, i) => (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Target, Plus, Trash2, TrendingUp, Calendar, CheckCircle2, Save, X, XCircle, ChevronLeft, ChevronRight, Info, Edit3, AlertTriangle } from 'lucide-react';
 import { Goal, RideEntry, Expense, UserProfile, WorkDay, ManualCompensation } from '../types';
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, isSameDay, subMonths, addMonths, differenceInDays, isBefore, isAfter } from 'date-fns';
@@ -96,8 +96,8 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [compModal, setCompModal] = useState<{ fromDay: Date; deficit: number } | null>(null);
-  const [compToDay, setCompToDay] = useState<number | null>(null);
-  const [compAmount, setCompAmount] = useState(0);
+  const [compCheckedDays, setCompCheckedDays] = useState<Set<number>>(new Set());
+  const compRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<Partial<Goal>>({
     type: 'diaria',
     targetValue: 0,
@@ -713,7 +713,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                       )}
                       {onAddManualCompensation && (
                         <button
-                          onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget }); setCompToDay(null); setCompAmount(stat.effectiveTarget); }}
+                          onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget }); setCompCheckedDays(new Set()); compRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
                           className="mt-1 px-2 py-0.5 bg-sky-600 text-white text-[10px] rounded-lg hover:bg-sky-700 transition-all w-full"
                         >
                           Compensar manualmente
@@ -735,7 +735,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                       )}
                       {onAddManualCompensation && (
                         <button
-                          onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget - stat.totalEarned }); setCompToDay(null); setCompAmount(stat.effectiveTarget - stat.totalEarned); }}
+                          onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget - stat.totalEarned }); setCompCheckedDays(new Set()); compRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
                           className="mt-1 px-2 py-0.5 bg-sky-600 text-white text-[10px] rounded-lg hover:bg-sky-700 transition-all w-full"
                         >
                           Compensar manualmente
@@ -803,6 +803,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
 
           {compModal && (
             <motion.div
+              ref={compRef}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/30 rounded-2xl border border-sky-200 dark:border-sky-900/30"
@@ -810,62 +811,90 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               <h4 className="text-sm font-bold text-sky-800 dark:text-sky-300 mb-3">
                 Compensar {format(compModal.fromDay, "EEEE, dd 'de' MMMM", { locale: ptBR })}
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase">Coberto pelo dia</label>
-                  <select
-                    value={compToDay ?? ''}
-                    onChange={(e) => setCompToDay(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-800 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 dark:text-white text-sm"
-                  >
-                    <option value="" disabled>Selecione um dia</option>
-                    {monthStats.map((s, idx) => (
-                      <option key={idx} value={idx}>
-                        {format(s.day, 'dd/MM')} {s.hasData ? `(R$ ${Math.round(s.totalEarned)})` : '(sem dados)'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase">Valor (R$)</label>
-                  <input
-                    type="number"
-                    value={compAmount}
-                    onChange={(e) => setCompAmount(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-800 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 dark:text-white text-sm"
-                    min={0}
-                    step={0.01}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      if (compToDay === null || compAmount <= 0) return;
-                      const toDate = monthStats[compToDay].day;
-                      onAddManualCompensation?.({
-                        id: crypto.randomUUID(),
-                        monthKey,
-                        fromDay: format(compModal.fromDay, 'yyyy-MM-dd'),
-                        toDay: format(toDate, 'yyyy-MM-dd'),
-                        amount: compAmount,
-                        createdAt: new Date().toISOString()
-                      });
-                      setCompModal(null);
-                      setCompToDay(null);
-                      setCompAmount(0);
-                    }}
-                    disabled={compToDay === null || compAmount <= 0}
-                    className="flex-1 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white text-sm font-bold py-2 rounded-xl transition-all"
-                  >
-                    Confirmar
-                  </button>
-                  <button
-                    onClick={() => { setCompModal(null); setCompToDay(null); setCompAmount(0); }}
-                    className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold py-2 rounded-xl hover:bg-slate-200 transition-all"
-                  >
-                    Cancelar
-                  </button>
-                </div>
+              <p className="text-xs text-sky-700 dark:text-sky-400 mb-3">
+                Déficit: R$ {compModal.deficit.toFixed(2)} — Selecione dias para cobrir
+              </p>
+              <div className="mb-3">
+                {monthStats.map((s, idx) => {
+                  const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((acc, c) => acc + c.amount, 0);
+                  const surplus = s.hasData ? Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual) : 0;
+                  const checked = compCheckedDays.has(idx);
+                  return (
+                    <label key={idx} className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all mb-1",
+                      checked ? "bg-sky-100 dark:bg-sky-900/30" : "hover:bg-sky-100/50 dark:hover:bg-sky-900/20"
+                    )}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={surplus <= 0}
+                        onChange={() => {
+                          const next = new Set(compCheckedDays);
+                          checked ? next.delete(idx) : next.add(idx);
+                          setCompCheckedDays(next);
+                        }}
+                        className="w-4 h-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500"
+                      />
+                      <span className="flex-1 text-sm dark:text-white">
+                        {format(s.day, 'dd/MM')}
+                      </span>
+                      <span className={cn(
+                        "text-xs font-bold",
+                        surplus > 0 ? "text-sky-700 dark:text-sky-300" : "text-slate-400"
+                      )}>
+                        {surplus > 0 ? `R$ ${surplus.toFixed(2)} disponível` : 'sem saldo'}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-sky-800 dark:text-sky-300">
+                  Total selecionado: R$ {Array.from(compCheckedDays).reduce((acc, idx) => {
+                    const s = monthStats[idx];
+                    const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((a, c) => a + c.amount, 0);
+                    return acc + Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual);
+                  }, 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (compCheckedDays.size === 0) return;
+                    let remaining = compModal.deficit;
+                    const sorted = Array.from(compCheckedDays).sort((a, b) => a - b);
+                    for (const idx of sorted) {
+                      if (remaining <= 0) break;
+                      const s = monthStats[idx];
+                      const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((a, c) => a + c.amount, 0);
+                      const maxAvail = Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual);
+                      const amount = Math.min(maxAvail, remaining);
+                      if (amount > 0) {
+                        onAddManualCompensation?.({
+                          id: crypto.randomUUID(),
+                          monthKey,
+                          fromDay: format(compModal.fromDay, 'yyyy-MM-dd'),
+                          toDay: format(s.day, 'yyyy-MM-dd'),
+                          amount,
+                          createdAt: new Date().toISOString()
+                        });
+                        remaining -= amount;
+                      }
+                    }
+                    setCompModal(null);
+                    setCompCheckedDays(new Set());
+                  }}
+                  disabled={compCheckedDays.size === 0}
+                  className="flex-1 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white text-sm font-bold py-2 rounded-xl transition-all"
+                >
+                  Confirmar ({compCheckedDays.size} dia{compCheckedDays.size !== 1 ? 's' : ''})
+                </button>
+                <button
+                  onClick={() => { setCompModal(null); setCompCheckedDays(new Set()); }}
+                  className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold py-2 rounded-xl hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
               </div>
             </motion.div>
           )}
