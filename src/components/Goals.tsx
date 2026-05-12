@@ -57,6 +57,36 @@ function countWorkedDays(rides: RideEntry[], startDate: Date, endDate: Date): nu
   return uniqueDays.size;
 }
 
+const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+function getDailyTarget(
+  day: Date,
+  goal: Goal | undefined,
+  profile: UserProfile | null | undefined
+): number {
+  const targetValue = goal?.targetValue || 0;
+  const connectedToSchedule = goal?.connectedToSchedule ?? false;
+
+  if (connectedToSchedule && profile?.workSchedule && profile?.hourlyRate && profile.hourlyRate > 0 && targetValue <= 0) {
+    const dayName = dayNames[day.getDay()];
+    const scheduleDay = profile.workSchedule.find(d => d.day === dayName);
+    if (scheduleDay?.active) {
+      let dayHours = 0;
+      scheduleDay.periods.forEach(p => {
+        if (!p.start || !p.end) return;
+        const [sH, sM] = p.start.split(':').map(Number);
+        const [eH, eM] = p.end.split(':').map(Number);
+        let diff = (eH * 60 + eM) - (sH * 60 + sM);
+        if (diff < 0) diff += 24 * 60;
+        dayHours += diff / 60;
+      });
+      return dayHours * (profile.hourlyRate || 0);
+    }
+  }
+
+  return targetValue;
+}
+
 export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDeleteGoal, onUpdateGoal }: GoalsProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -143,23 +173,20 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
 
   const dailyGoal = goals.find(g => g.type === 'diaria');
 
-  const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
   const monthStats = useMemo(() => {
-    const targetValue = dailyGoal?.targetValue || 0;
-    const schedule = profile?.workSchedule;
     return daysInMonth.map(day => {
       const dayRides = rides.filter(r => isSameDay(parseISO(r.date), day));
       const totalEarned = dayRides.reduce((acc, r) => acc + r.totalValue, 0);
       const hasData = dayRides.length > 0;
+      const schedule = profile?.workSchedule;
       const isWorkDay = schedule ? (schedule.find(d => d.day === dayNames[day.getDay()])?.active ?? false) : false;
       const isPastDay = isBefore(day, new Date()) || isSameDay(day, new Date());
-      const isAbsentDay = isWorkDay && !hasData && isPastDay && targetValue > 0;
+      const effectiveTarget = getDailyTarget(day, dailyGoal, profile);
+      const isAbsentDay = isWorkDay && !hasData && isPastDay && effectiveTarget > 0;
 
-      const effectiveTarget = targetValue;
       const isMet = hasData ? totalEarned >= effectiveTarget : false;
-      const deficit = (hasData && !isMet && targetValue > 0) ? effectiveTarget - totalEarned : (isAbsentDay ? effectiveTarget : 0);
-      const surplus = hasData && isMet && targetValue > 0 ? totalEarned - effectiveTarget : 0;
+      const deficit = (hasData && !isMet && effectiveTarget > 0) ? effectiveTarget - totalEarned : (isAbsentDay ? effectiveTarget : 0);
+      const surplus = hasData && isMet && effectiveTarget > 0 ? totalEarned - effectiveTarget : 0;
 
       return {
         day,
@@ -169,15 +196,13 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
         isWorkDay,
         isAbsentDay,
         deficit,
-        surplus
+        surplus,
+        effectiveTarget
       };
     });
-  }, [daysInMonth, rides, dailyGoal, profile?.workSchedule]);
+  }, [daysInMonth, rides, dailyGoal, profile]);
 
   const compensationMap = useMemo(() => {
-    const targetValue = dailyGoal?.targetValue || 0;
-    if (!targetValue) return new Map<number, { compensatedBy?: { day: number; amount: number }; compensated?: { day: number; amount: number } }>();
-
     const result = new Map<number, { compensatedBy?: { day: number; amount: number }; compensated?: { day: number; amount: number } }>();
     const pendingDeficits: { dayIndex: number; amount: number }[] = [];
 
@@ -210,7 +235,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
     });
 
     return result;
-  }, [monthStats, dailyGoal]);
+  }, [monthStats]);
 
   const metCount = monthStats.filter(s => s.hasData && s.isMet).length;
   const missedCount = monthStats.filter(s => s.hasData && !s.isMet).length;
@@ -392,7 +417,14 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 }
 
                 const expectedDaysThisMonth = countExpectedWorkDays(profile.workSchedule, monthStart, now);
-                const expectedValueThisMonth = expectedDaysThisMonth * dailyGoal.targetValue;
+                let expectedValueThisMonth = 0;
+                const dayCursor = new Date(monthStart);
+                while (isBefore(dayCursor, now) || isSameDay(dayCursor, now)) {
+                  if (profile.workSchedule.find(d => d.day === dayNames[dayCursor.getDay()])?.active) {
+                    expectedValueThisMonth += getDailyTarget(dayCursor, dailyGoal, profile);
+                  }
+                  dayCursor.setDate(dayCursor.getDate() + 1);
+                }
                 const earnedThisMonth = rides
                   .filter(r => {
                     const rideDate = parseISO(r.date);
@@ -605,6 +637,11 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   {stat.isAbsentDay ? (
                     <>
                       <span className="text-amber-400 font-bold">Faltou</span>
+                      {stat.effectiveTarget > 0 && (
+                        <span className="block text-amber-300 text-[10px]">
+                          Meta: R$ {stat.effectiveTarget.toFixed(2)}
+                        </span>
+                      )}
                       {comp?.compensatedBy && (
                         <span className="block text-blue-300 text-[10px]">
                           Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
@@ -613,7 +650,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                     </>
                   ) : stat.hasData ? (
                     <>
-                      R$ {stat.totalEarned.toFixed(2)}
+                      R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
                       {comp?.compensatedBy && (
                         <span className="block text-blue-300 text-[10px]">
                           Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
@@ -681,25 +718,15 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
           expectedDays = countExpectedWorkDays(profile.workSchedule, effectiveStart, now);
           workedDays = countWorkedDays(rides, effectiveStart, now);
 
-          let dailyTarget = goal.targetValue;
-          if (hourlyRate > 0 && goal.targetValue <= 0) {
-            const dayName = dayNames[now.getDay()];
-            const scheduleDay = profile.workSchedule.find(d => d.day === dayName);
-            if (scheduleDay?.active) {
-              let dayHours = 0;
-              scheduleDay.periods.forEach(p => {
-                if (!p.start || !p.end) return;
-                const [sH, sM] = p.start.split(':').map(Number);
-                const [eH, eM] = p.end.split(':').map(Number);
-                let diff = (eH * 60 + eM) - (sH * 60 + sM);
-                if (diff < 0) diff += 24 * 60;
-                dayHours += diff / 60;
-              });
-              dailyTarget = dayHours * hourlyRate;
+          // Soma das metas por dia (cada dia pode ter target diferente)
+          expectedValue = 0;
+          const dayIt = new Date(effectiveStart);
+          while (isBefore(dayIt, now) || isSameDay(dayIt, now)) {
+            if (profile.workSchedule.find(d => d.day === dayNames[dayIt.getDay()])?.active) {
+              expectedValue += getDailyTarget(dayIt, goal, profile);
             }
+            dayIt.setDate(dayIt.getDate() + 1);
           }
-
-          expectedValue = expectedDays * dailyTarget;
 
           earned = rides
             .filter(r => {
@@ -777,7 +804,10 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 {goal.type} {goal.connectedToSchedule ? '• Conectada à agenda' : ''} {goal.monthlyCycle ? '• Ciclo mensal' : ''}
               </span>
                 <h4 className="font-bold dark:text-white">
-                  Alvo: R$ {goal.targetValue > 0 ? goal.targetValue.toFixed(2) : (profile?.hourlyRate ? 'auto' : '0')}/dia
+                  {(() => {
+                    const td = getDailyTarget(now, goal, profile);
+                    return `Alvo: R$ ${td > 0 ? td.toFixed(2) : '0'}/dia`;
+                  })()}
                   {goal.connectedToSchedule && profile?.hourlyRate && goal.targetValue <= 0 && (
                     <span className="text-xs font-normal text-slate-400 ml-1">
                       (horas × R${profile.hourlyRate.toFixed(2)}/h)

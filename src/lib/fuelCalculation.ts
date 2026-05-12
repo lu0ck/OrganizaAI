@@ -94,11 +94,12 @@ export function calculateFuelBalance(
 
 /**
  * Calcula a média global de consumo
- * Fórmula: ΣDtotal / (ΣLnovos - Sfinal_atual)
+ * Fórmula: Média ponderada dos segmentos calibrados
+ * Σ(Ctrecho × Dtotal) / Σ(Dtotal) para abastecimentos com isCalibrated === true
  */
 export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumptionResult {
   const fuelExpenses = expenses
-    .filter(e => e.type === 'combustivel' && e.tripTotal !== undefined && e.liters !== undefined && e.enteredReserve === true)
+    .filter(e => e.type === 'combustivel' && e.tripTotal !== undefined && e.liters !== undefined)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (fuelExpenses.length === 0) {
@@ -118,9 +119,13 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
   const currentSaldo = fuelExpenses[fuelExpenses.length - 1]?.saldoAfterFueling || 0;
   const litersBurned = totalLitersAdded - currentSaldo;
 
-  const calibratedSegments = fuelExpenses.filter(e => e.isCalibrated).length;
+  // Média ponderada apenas dos segmentos calibrados
+  const calibratedExpenses = fuelExpenses.filter(
+    e => e.isCalibrated === true && e.tripTotal && e.tripTotal > 0 && e.segmentConsumption && e.segmentConsumption > 0
+  );
+  const validSegments = calibratedExpenses.length;
 
-  if (litersBurned <= 0 || calibratedSegments === 0) {
+  if (validSegments === 0) {
     return {
       totalKm,
       totalLitersAdded,
@@ -128,16 +133,24 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
       litersBurned,
       globalAverage: 0,
       status: 'insufficient_data',
-      validSegments: calibratedSegments
+      validSegments: 0
     };
   }
 
-  const globalAverage = totalKm / litersBurned;
+  // Weighted average: Σ(segmentConsumption × tripTotal) / Σ(tripTotal)
+  const weightedSum = calibratedExpenses.reduce(
+    (sum, e) => sum + (e.segmentConsumption || 0) * (e.tripTotal || 0), 0
+  );
+  const totalCalibratedKm = calibratedExpenses.reduce(
+    (sum, e) => sum + (e.tripTotal || 0), 0
+  );
+  const globalAverage = totalCalibratedKm > 0 ? weightedSum / totalCalibratedKm : 0;
 
+  // Plausibility check: 80%-120% contra a média simples
   const simpleAverage = totalLitersAdded > 0 ? totalKm / totalLitersAdded : 0;
-  const isPlausible = simpleAverage > 0
-    && globalAverage >= simpleAverage * 0.5
-    && globalAverage <= simpleAverage * 1.5;
+  const isPlausible = globalAverage > 0 && simpleAverage > 0
+    && globalAverage >= simpleAverage * 0.8
+    && globalAverage <= simpleAverage * 1.2;
 
   if (!isPlausible) {
     return {
@@ -147,7 +160,7 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
       litersBurned,
       globalAverage: 0,
       status: 'insufficient_data',
-      validSegments: calibratedSegments
+      validSegments
     };
   }
 
@@ -158,7 +171,7 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
     litersBurned,
     globalAverage,
     status: 'valid',
-    validSegments: calibratedSegments
+    validSegments
   };
 }
 

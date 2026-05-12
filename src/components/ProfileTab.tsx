@@ -128,7 +128,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
           <input
               type="number"
               step="0.01"
-              value={formData.vehicleOdometerKm || ''}
+              value={formData.vehicleOdometerKm !== undefined ? Number(formData.vehicleOdometerKm).toFixed(2) : ''}
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   setFormData({ ...formData, vehicleOdometerKm: value > 0 ? value : undefined });
@@ -154,7 +154,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
 {profile.currentKmPerLiter && profile.currentKmPerLiter > 0 ? (
           <p className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
             <TrendingUp size={12} />
-            Consumo real: <strong>{profile.currentKmPerLiter} km/l</strong>
+            Consumo real: <strong>{profile.currentKmPerLiter.toFixed(1)} km/l</strong>
           </p>
         ) : (
           <p className="mt-2 text-xs text-slate-400 flex items-center gap-1">
