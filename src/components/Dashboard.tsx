@@ -18,16 +18,19 @@ import {
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
+  Legend,
   ResponsiveContainer,
   Cell,
   PieChart,
   Pie
 } from 'recharts';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, differenceInDays } from 'date-fns';
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { RideEntry, Expense, Goal, UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import { calculateGlobalConsumption, getLastFuelExpense, calculateAutonomy } from '../lib/fuelCalculation';
@@ -320,6 +323,32 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
 
     return { categoryData, subCategoryData };
   }, [filteredData]);
+
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+
+  const monthlyData = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const monthLabels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    return monthLabels.map((name, idx) => {
+      const start = new Date(currentYear, idx, 1);
+      const end = endOfMonth(start);
+      const interval = { start, end };
+
+      const monthRides = rides.filter(r => isWithinInterval(parseISO(r.date), interval));
+      const monthExpenses = expenses.filter(e => isWithinInterval(parseISO(e.date), interval));
+
+      return {
+        month: name,
+        earnings: monthRides.reduce((acc, r) => acc + r.totalValue, 0),
+        expenses: monthExpenses.reduce((acc, e) => acc + e.value, 0),
+      };
+    });
+  }, [rides, expenses]);
+
+  const filteredMonthlyData = selectedMonth !== null
+    ? [monthlyData[selectedMonth]]
+    : monthlyData;
 
   const COLORS = ['#f43f5e', '#fb7185', '#fda4af', '#fecdd3', '#ffe4e6', '#f97316', '#eab308'];
   const INCOME_COLORS = ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#059669'];
@@ -909,6 +938,83 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
           </motion.div>
         </motion.div>
       </div>
+
+      {/* Monthly Earnings vs Expenses */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Ganhos vs Gastos Mensais</h3>
+            <p className="text-xs text-slate-400">{new Date().getFullYear()}</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setSelectedMonth(null)}
+              className={cn(
+                "px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap",
+                selectedMonth === null
+                  ? "bg-brand-600 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+              )}
+            >
+              Todos
+            </button>
+            {monthlyData.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSelectedMonth(idx)}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap",
+                  selectedMonth === idx
+                    ? "bg-brand-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+                )}
+              >
+                {monthlyData[idx].month}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-[280px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={filteredMonthlyData} barCategoryGap={selectedMonth !== null ? '30%' : '10%'}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+              <RechartsTooltip
+                formatter={(value: number, name: string) => [
+                  `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  name === 'earnings' ? 'Ganhos' : 'Gastos'
+                ]}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+              />
+              <Legend
+                formatter={(value: string) => value === 'earnings' ? 'Ganhos' : 'Gastos'}
+                wrapperStyle={{ fontSize: '12px', marginTop: '8px' }}
+              />
+              <Bar
+                dataKey="earnings"
+                fill="#10b981"
+                radius={[6, 6, 0, 0]}
+                maxBarSize={48}
+                animationDuration={1000}
+              />
+              <Bar
+                dataKey="expenses"
+                fill="#f43f5e"
+                radius={[6, 6, 0, 0]}
+                maxBarSize={48}
+                animationDuration={1000}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </motion.div>
 
     </motion.div>
   );
