@@ -400,7 +400,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ staggerChildren: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"
+        className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4"
       >
         <StatCard
           title="Ganhos Brutos"
@@ -925,7 +925,7 @@ function StatCard({ title, value, icon: Icon, color, isCurrency = false, isDecim
     <motion.div
       variants={item}
       whileHover={{ y: -4 }}
-      className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all"
+      className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all min-w-0"
     >
       <div className="flex items-center justify-between mb-3">
         <div className={cn("p-2.5 rounded-xl", color)}>

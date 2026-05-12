@@ -48,6 +48,7 @@ export interface Goal {
   createdAt?: string;
   connectedToSchedule?: boolean;
   monthlyCycle?: boolean;
+  useHourlyRate?: boolean; // Se true, calcula target de agenda × hourlyRate
 }
 
 export interface MaintenanceHistory {

@@ -66,8 +66,9 @@ function getDailyTarget(
 ): number {
   const targetValue = goal?.targetValue || 0;
   const connectedToSchedule = goal?.connectedToSchedule ?? false;
+  const useHourlyRate = goal?.useHourlyRate === true;
 
-  if (connectedToSchedule && profile?.workSchedule && profile?.hourlyRate && profile.hourlyRate > 0 && targetValue <= 0) {
+  if (connectedToSchedule && profile?.workSchedule && profile?.hourlyRate && profile.hourlyRate > 0 && (useHourlyRate || targetValue <= 0)) {
     const dayName = dayNames[day.getDay()];
     const scheduleDay = profile.workSchedule.find(d => d.day === dayName);
     if (scheduleDay?.active) {
@@ -96,7 +97,8 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
     targetValue: 0,
     startDate: format(new Date(), 'yyyy-MM-dd'),
     connectedToSchedule: true,
-    monthlyCycle: false
+    monthlyCycle: false,
+    useHourlyRate: false
   });
 
   const estimates = useMemo(() => {
@@ -249,11 +251,12 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
       startDate: formData.startDate || new Date().toISOString(),
       createdAt: new Date().toISOString(),
       connectedToSchedule: formData.connectedToSchedule ?? true,
-      monthlyCycle: formData.monthlyCycle ?? false
+      monthlyCycle: formData.monthlyCycle ?? false,
+      useHourlyRate: formData.useHourlyRate ?? false
     };
     onAddGoal(newGoal);
     setIsAdding(false);
-    setFormData({ type: 'diaria', targetValue: 0, startDate: format(new Date(), 'yyyy-MM-dd'), connectedToSchedule: true, monthlyCycle: false });
+    setFormData({ type: 'diaria', targetValue: 0, startDate: format(new Date(), 'yyyy-MM-dd'), connectedToSchedule: true, monthlyCycle: false, useHourlyRate: false });
   };
 
   const handleEdit = (goal: Goal) => {
@@ -314,8 +317,9 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 <input
                   type="number"
                   value={formData.targetValue}
+                  disabled={formData.useHourlyRate === true}
                   onChange={(e) => setFormData({ ...formData, targetValue: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Ex: 200.00"
                 />
               </div>
@@ -343,6 +347,22 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                       {formData.connectedToSchedule && profile?.workSchedule && (
                         <p className="text-[10px] text-slate-400 mt-1">
                           Dias configurados: {profile.workSchedule.filter(d => d.active).map(d => d.day).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.useHourlyRate ?? false}
+                          onChange={(e) => setFormData({ ...formData, useHourlyRate: e.target.checked })}
+                          className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        Calcular automático (horas agendadas × R$ {profile?.hourlyRate?.toFixed(2) || '?'}/h)
+                      </label>
+                      {formData.useHourlyRate && profile?.workSchedule && profile?.hourlyRate && (
+                        <p className="text-[10px] text-emerald-600 font-medium mt-1">
+                          Meta de hoje: R$ {getDailyTarget(new Date(), formData as Goal, profile).toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -590,7 +610,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
                 )}
               >
-                <span className="text-xs font-bold text-slate-500">{format(stat.day, 'd')}</span>
+                <span className="text-[clamp(0.5rem,2vw,0.75rem)] font-bold text-slate-500">{format(stat.day, 'd')}</span>
                 {stat.isAbsentDay && !isCompensated && (
                   <>
                     <span className="text-[10px] font-bold text-amber-600 leading-tight">R$0</span>
@@ -686,6 +706,9 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               <div className="w-3 h-3 rounded-full bg-blue-500" />
               <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Compensado</span>
             </div>
+            <p className="w-full text-center text-[10px] text-slate-400 mt-1">
+              * Compensação válida apenas dentro do mesmo mês
+            </p>
           </div>
           </div>
         </div>
@@ -780,7 +803,8 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 targetValue: goal.targetValue,
                 startDate: goal.startDate,
                 connectedToSchedule: goal.connectedToSchedule ?? true,
-                monthlyCycle: goal.monthlyCycle ?? false
+                monthlyCycle: goal.monthlyCycle ?? false,
+                useHourlyRate: goal.useHourlyRate ?? false
               });
                       }}
                       className="p-2 text-slate-300 hover:text-brand-500 transition-all"
@@ -806,13 +830,17 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 <h4 className="font-bold dark:text-white">
                   {(() => {
                     const td = getDailyTarget(now, goal, profile);
-                    return `Alvo: R$ ${td > 0 ? td.toFixed(2) : '0'}/dia`;
+                    if (td > 0) {
+                      if (goal.useHourlyRate) {
+                        return <>Alvo: R$ {td.toFixed(2)}/dia <span className="text-xs font-normal text-slate-400 ml-1">(horas × R${(profile?.hourlyRate || 0).toFixed(2)}/h)</span></>;
+                      }
+                      if (goal.targetValue > 0) {
+                        return `Alvo: R$ ${td.toFixed(2)}/dia`;
+                      }
+                      return `Alvo: R$ ${td.toFixed(2)}/dia`;
+                    }
+                    return 'Alvo: R$ 0/dia';
                   })()}
-                  {goal.connectedToSchedule && profile?.hourlyRate && goal.targetValue <= 0 && (
-                    <span className="text-xs font-normal text-slate-400 ml-1">
-                      (horas × R${profile.hourlyRate.toFixed(2)}/h)
-                    </span>
-                  )}
                 </h4>
                     </div>
                   </div>
@@ -825,8 +853,9 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                           <input
                             type="number"
                             value={formData.targetValue}
+                            disabled={formData.useHourlyRate === true}
                             onChange={(e) => setFormData({ ...formData, targetValue: Number(e.target.value) })}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 dark:text-white text-sm"
+                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 dark:text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                         </div>
                         <div className="space-y-2">
@@ -848,6 +877,20 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                     />
                     Conectar à agenda de trabalho
                   </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={formData.useHourlyRate ?? false}
+                      onChange={(e) => setFormData({ ...formData, useHourlyRate: e.target.checked })}
+                      className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    Calcular automático (horas agendadas × R$ {profile?.hourlyRate?.toFixed(2) || '?'}/h)
+                  </label>
+              {formData.useHourlyRate && profile?.workSchedule && profile?.hourlyRate && (
+                <p className="text-[10px] text-emerald-600 font-medium ml-1">
+                  Meta de hoje: R$ {getDailyTarget(new Date(), formData as Goal, profile).toFixed(2)}
+                </p>
+              )}
                   <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                     <input
                       type="checkbox"
@@ -866,7 +909,8 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                       targetValue: formData.targetValue || goal.targetValue,
                       startDate: formData.startDate || goal.startDate,
                       connectedToSchedule: formData.connectedToSchedule ?? true,
-                      monthlyCycle: formData.monthlyCycle ?? false
+                      monthlyCycle: formData.monthlyCycle ?? false,
+                      useHourlyRate: formData.useHourlyRate ?? false
                     });
                             }
                             setEditingGoalId(null);

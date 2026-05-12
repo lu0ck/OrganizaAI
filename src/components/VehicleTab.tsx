@@ -409,7 +409,7 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {!profile.vehicleOdometerKm && (
           <div className="col-span-2 sm:col-span-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 flex items-center gap-3">
             <AlertCircle size={20} className="text-amber-600 shrink-0" />

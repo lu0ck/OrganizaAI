@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle, TrendingUp, CreditCard } from 'lucide-react';
+import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle, TrendingUp, CreditCard, Info } from 'lucide-react';
 import { UserProfile, AppState } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -136,6 +136,10 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                 placeholder="Ex: 65000"
               />
+              <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-1">
+                <Info size={12} className="shrink-0" />
+                Atualizado automaticamente ao registrar um abastecimento
+              </p>
             </div>
 
                 <div className="grid grid-cols-2 gap-4">
