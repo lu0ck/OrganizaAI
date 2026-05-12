@@ -103,12 +103,31 @@ export interface UserProfile {
   hourlyRate?: number;
 }
 
+export interface ManualCompensation {
+  id: string;
+  monthKey: string; // "2026-05"
+  fromDay: string;  // ISO date — dia com débito
+  toDay: string;    // ISO date — dia que cobre
+  amount: number;
+  createdAt: string;
+}
+
+export interface MonthlyPlan {
+  id: string;
+  month: string; // "2026-01"
+  days: WorkDay[];
+  vacations: string[]; // ISO dates
+  notes?: string;
+}
+
 export interface AppState {
   profile: UserProfile | null;
   rides: RideEntry[];
   expenses: Expense[];
   goals: Goal[];
   maintenance: MaintenanceItem[];
+  manualCompensations: ManualCompensation[];
+  plans: MonthlyPlan[];
   theme: 'light' | 'dark';
   colorTheme: ColorTheme;
 }

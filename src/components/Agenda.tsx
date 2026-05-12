@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck } from 'lucide-react';
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
-import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod } from '../types';
+import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, isAfter } from 'date-fns';
+import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import InfoTooltip from './Tooltip';
@@ -12,9 +12,13 @@ interface AgendaProps {
   profile: UserProfile | null;
   onUpdateProfile: (profile: UserProfile) => void;
   sidebarCollapsed?: boolean;
+  plans?: MonthlyPlan[];
+  onAddPlan?: (plan: MonthlyPlan) => void;
+  onUpdatePlan?: (plan: MonthlyPlan) => void;
+  onDeletePlan?: (id: string) => void;
 }
 
-export default function Agenda({ rides, expenses, profile, onUpdateProfile, sidebarCollapsed }: AgendaProps) {
+export default function Agenda({ rides, expenses, profile, onUpdateProfile, sidebarCollapsed, plans = [], onAddPlan, onUpdatePlan, onDeletePlan }: AgendaProps) {
   const [simulation, setSimulation] = useState({
     avgPerHour: profile?.hourlyRate || 0,
     schedule: profile?.workSchedule || [
@@ -30,6 +34,9 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [isSaved, setIsSaved] = useState(false);
   const [copiedPeriods, setCopiedPeriods] = useState<WorkPeriod[] | null>(null);
   const [inputAvgPerHour, setInputAvgPerHour] = useState<string>('');
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+  const [editPlan, setEditPlan] = useState<MonthlyPlan | null>(null);
+  const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
 
   // Sync with profile when it loads
   React.useEffect(() => {
@@ -214,6 +221,119 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
       maxAvgRides
     };
   }, [rides]);
+
+  const userAverages = useMemo(() => {
+    const now = new Date();
+    const threeMonthsAgo = addMonths(now, -3);
+    const interval = { start: startOfMonth(threeMonthsAgo), end: endOfMonth(now) };
+
+    const recentRides = rides.filter(r => isWithinInterval(parseISO(r.date), interval));
+    const recentExpenses = expenses.filter(e => isWithinInterval(parseISO(e.date), interval));
+
+    const totalEarnings = recentRides.reduce((acc, r) => acc + r.totalValue, 0);
+    const totalKm = recentRides.reduce((acc, r) => acc + r.kmDriven, 0);
+    const totalDays = new Set(recentRides.map(r => r.date.split('T')[0])).size;
+    const totalFuel = recentExpenses.filter(e => e.type === 'combustivel').reduce((acc, e) => acc + e.value, 0);
+    const totalMaint = recentExpenses.filter(e => e.type === 'manutencao').reduce((acc, e) => acc + e.value, 0);
+
+    const avgDayEarnings = totalDays > 0 ? totalEarnings / totalDays : 0;
+    const avgDayKm = totalDays > 0 ? totalKm / totalDays : 0;
+    const avgDayFuel = totalDays > 0 ? totalFuel / totalDays : 0;
+    const avgDayMaint = totalDays > 0 ? totalMaint / totalDays : 0;
+
+    const totalHours = recentRides.reduce((acc, r) => {
+      if (!r.startTime || !r.endTime) return acc;
+      const [sH, sM] = r.startTime.split(':').map(Number);
+      const [eH, eM] = r.endTime.split(':').map(Number);
+      if (isNaN(sH)) return acc;
+      let diff = (eH * 60 + eM) - (sH * 60 + sM);
+      if (diff < 0) diff += 24 * 60;
+      return acc + diff / 60;
+    }, 0);
+
+    return {
+      earningsPerDay: avgDayEarnings,
+      kmPerDay: avgDayKm,
+      fuelPerDay: avgDayFuel,
+      maintPerDay: avgDayMaint,
+      hoursPerDay: totalHours > 0 && totalDays > 0 ? totalHours / totalDays : 0
+    };
+  }, [rides, expenses]);
+
+  const monthLabels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const currentYear = new Date().getFullYear();
+  const yearMonths = Array.from({ length: 12 }, (_, i) => ({
+    key: `${currentYear}-${String(i + 1).padStart(2, '0')}`,
+    label: monthLabels[i],
+    year: currentYear,
+    month: i,
+    start: new Date(currentYear, i, 1),
+    end: endOfMonth(new Date(currentYear, i, 1))
+  }));
+
+  const filteredMonths = planFilter === 'all' ? yearMonths
+    : planFilter === 'q1' ? yearMonths.slice(0, 3)
+    : planFilter === 'q2' ? yearMonths.slice(3, 6)
+    : planFilter === 'q3' ? yearMonths.slice(6, 9)
+    : yearMonths.slice(9, 12);
+
+  const planningProjection = useMemo(() => {
+    return filteredMonths.reduce((acc, ym) => {
+      const plan = plans.find(p => p.month === ym.key);
+      let workDays = 0;
+      let totalHours = 0;
+
+      if (plan) {
+        const daysInMonth = new Date(ym.year, ym.month + 1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const date = new Date(ym.year, ym.month, d);
+          const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][date.getDay()];
+          if (plan.vacations.includes(format(date, 'yyyy-MM-dd'))) continue;
+          const schedDay = plan.days.find(sd => sd.day === dayName);
+          if (schedDay?.active) {
+            workDays++;
+            schedDay.periods.forEach(p => {
+              if (!p.start || !p.end) return;
+              const [sH, sM] = p.start.split(':').map(Number);
+              const [eH, eM] = p.end.split(':').map(Number);
+              let diff = (eH * 60 + eM) - (sH * 60 + sM);
+              if (diff < 0) diff += 24 * 60;
+              totalHours += diff / 60;
+            });
+          }
+        }
+      } else {
+        const daysInMonth = new Date(ym.year, ym.month + 1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const date = new Date(ym.year, ym.month, d);
+          const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][date.getDay()];
+          const schedDay = profile?.workSchedule?.find(sd => sd.day === dayName);
+          if (schedDay?.active) {
+            workDays++;
+            schedDay.periods.forEach(p => {
+              if (!p.start || !p.end) return;
+              const [sH, sM] = p.start.split(':').map(Number);
+              const [eH, eM] = p.end.split(':').map(Number);
+              let diff = (eH * 60 + eM) - (sH * 60 + sM);
+              if (diff < 0) diff += 24 * 60;
+              totalHours += diff / 60;
+            });
+          }
+        }
+      }
+
+      const hourlyRate = profile?.hourlyRate || averages.perHour || 0;
+      const earnings = totalHours * hourlyRate;
+
+      acc.totalWorkDays += workDays;
+      acc.totalHours += totalHours;
+      acc.earnings += earnings;
+      acc.km += workDays * userAverages.kmPerDay;
+      acc.fuelCost += workDays * userAverages.fuelPerDay;
+      acc.maintCost += workDays * userAverages.maintPerDay;
+      return acc;
+    }, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0 });
+  }, [filteredMonths, plans, profile, averages, userAverages]);
 
   return (
     <motion.div 
@@ -560,6 +680,290 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
           </div>
         </div>
       </div>
+
+      {/* Planejamento Anual */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-bold dark:text-white">Planejamento Anual</h3>
+            <p className="text-xs text-slate-400">Planeje seus meses, férias e projete seus resultados</p>
+          </div>
+          <div className="flex gap-1.5">
+            {(['all', 'q1', 'q2', 'q3', 'q4'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setPlanFilter(f)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all",
+                  planFilter === f ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200"
+                )}
+              >
+                {f === 'all' ? 'Ano' : f === 'q1' ? '1º Tri' : f === 'q2' ? '2º Tri' : f === 'q3' ? '3º Tri' : '4º Tri'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {filteredMonths.map(ym => {
+            const plan = plans.find(p => p.month === ym.key);
+            const isExpanded = expandedMonth === ym.key;
+            return (
+              <motion.div
+                key={ym.key}
+                layout
+                className={cn(
+                  "rounded-2xl border transition-all",
+                  isExpanded ? "col-span-2 sm:col-span-3 md:col-span-4" : "",
+                  plan ? "border-brand-200 dark:border-brand-900/30 bg-brand-50/30 dark:bg-brand-950/10" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                )}
+              >
+                {isExpanded ? (
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-bold dark:text-white">{ym.label} {ym.year}</h4>
+                      <button
+                        onClick={() => { setExpandedMonth(null); setEditPlan(null); }}
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    {editPlan ? (
+                      <EditPlanForm
+                        plan={editPlan}
+                        monthKey={ym.key}
+                        monthLabel={ym.label}
+                        onSave={(updated) => {
+                          if (plan) onUpdatePlan?.(updated);
+                          else onAddPlan?.(updated);
+                          setExpandedMonth(null);
+                          setEditPlan(null);
+                        }}
+                        onCancel={() => { setExpandedMonth(null); setEditPlan(null); }}
+                      />
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-slate-500 text-sm mb-4">Nenhum plano criado para {ym.label}.</p>
+                        <button
+                          onClick={() => {
+                            const template: MonthlyPlan = {
+                              id: crypto.randomUUID(),
+                              month: ym.key,
+                              days: profile?.workSchedule ? profile.workSchedule.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })) : [],
+                              vacations: []
+                            };
+                            setEditPlan(template);
+                          }}
+                          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-all"
+                        >
+                          Criar plano do Perfil
+                        </button>
+                        <button
+                          onClick={() => {
+                            const empty: MonthlyPlan = {
+                              id: crypto.randomUUID(),
+                              month: ym.key,
+                              days: [
+                                { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+                                { day: 'Seg', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+                                { day: 'Ter', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+                                { day: 'Qua', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+                                { day: 'Qui', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+                                { day: 'Sex', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+                                { day: 'Sáb', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+                              ],
+                              vacations: []
+                            };
+                            setEditPlan(empty);
+                          }}
+                          className="ml-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all"
+                        >
+                          Começar do zero
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    className="p-4 cursor-pointer hover:shadow-md transition-all"
+                    onClick={() => { setExpandedMonth(ym.key); setEditPlan(plan ? { ...plan, days: plan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })), vacations: [...plan.vacations] } : null); }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold dark:text-white">{ym.label}</span>
+                      {plan && onDeletePlan && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onDeletePlan(plan.id); }}
+                          className="p-1 text-slate-300 hover:text-rose-500 transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                    {plan ? (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-emerald-600 font-bold">
+                          {plan.days.filter(d => d.active).length}d ativos
+                        </p>
+                        {plan.vacations.length > 0 && (
+                          <p className="text-[10px] text-amber-600 font-bold">{plan.vacations.length}d folga</p>
+                        )}
+                        <p className="text-[9px] text-slate-400 mt-1">Clique para editar</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">Não planejado</p>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {(filteredMonths.some(ym => plans.find(p => p.month === ym.key)) || planFilter !== 'all') && (
+          <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <h4 className="text-sm font-bold dark:text-white mb-4">Projeção {planFilter === 'all' ? 'Anual' : `${planFilter?.toUpperCase()}`}</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                <p className="text-[10px] text-emerald-600 font-bold uppercase">Ganhos</p>
+                <p className="text-lg font-bold dark:text-white">R$ {planningProjection.earnings.toFixed(0)}</p>
+              </div>
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-2xl border border-rose-100 dark:border-rose-900/30">
+                <p className="text-[10px] text-rose-600 font-bold uppercase">Gastos</p>
+                <p className="text-lg font-bold dark:text-white">R$ {(planningProjection.fuelCost + planningProjection.maintCost).toFixed(0)}</p>
+              </div>
+              <div className="p-3 bg-brand-50 dark:bg-brand-950/30 rounded-2xl border border-brand-100 dark:border-brand-900/30">
+                <p className="text-[10px] text-brand-600 font-bold uppercase">Lucro</p>
+                <p className="text-lg font-bold dark:text-white">R$ {(planningProjection.earnings - planningProjection.fuelCost - planningProjection.maintCost).toFixed(0)}</p>
+              </div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                <p className="text-[10px] text-blue-600 font-bold uppercase">KM</p>
+                <p className="text-lg font-bold dark:text-white">{planningProjection.km.toFixed(0)}</p>
+              </div>
+              <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-2xl border border-orange-100 dark:border-orange-900/30">
+                <p className="text-[10px] text-orange-600 font-bold uppercase">Combustível</p>
+                <p className="text-lg font-bold dark:text-white">R$ {planningProjection.fuelCost.toFixed(0)}</p>
+              </div>
+              <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-100 dark:border-purple-900/30">
+                <p className="text-[10px] text-purple-600 font-bold uppercase">Manutenção</p>
+                <p className="text-lg font-bold dark:text-white">R$ {planningProjection.maintCost.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-4 text-[10px] text-slate-500">
+              <span>{planningProjection.totalWorkDays} dias trabalhados</span>
+              <span>{planningProjection.totalHours.toFixed(1)} horas totais</span>
+              <span>R$ {profile?.hourlyRate?.toFixed(2) || averages.perHour.toFixed(2)}/h</span>
+              <span>Médias baseadas nos últimos 3 meses de dados reais</span>
+            </div>
+          </div>
+        )}
+      </div>
     </motion.div>
+  );
+}
+
+function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel }: {
+  plan: MonthlyPlan;
+  monthKey: string;
+  monthLabel: string;
+  onSave: (plan: MonthlyPlan) => void;
+  onCancel: () => void;
+}) {
+  const [localPlan, setLocalPlan] = useState<MonthlyPlan>(plan);
+  const [vacationInput, setVacationInput] = useState('');
+
+  const toggleDay = (idx: number) => {
+    const newDays = [...localPlan.days];
+    newDays[idx] = { ...newDays[idx], active: !newDays[idx].active };
+    setLocalPlan({ ...localPlan, days: newDays });
+  };
+
+  const addVacation = () => {
+    if (vacationInput && !localPlan.vacations.includes(vacationInput)) {
+      setLocalPlan({ ...localPlan, vacations: [...localPlan.vacations, vacationInput] });
+      setVacationInput('');
+    }
+  };
+
+  const removeVacation = (d: string) => {
+    setLocalPlan({ ...localPlan, vacations: localPlan.vacations.filter(v => v !== d) });
+  };
+
+  const copyFromProfile = () => {
+    const profileSchedule = JSON.parse(localStorage.getItem('organizaai_data_v2') || '{}');
+    const workSchedule = profileSchedule?.profile?.workSchedule;
+    if (workSchedule) {
+      setLocalPlan({
+        ...localPlan,
+        days: workSchedule.map((d: WorkDay) => ({ ...d, periods: d.periods.map((p: WorkPeriod) => ({ ...p })) }))
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+        {localPlan.days.map((day, i) => (
+          <button
+            key={day.day}
+            onClick={() => toggleDay(i)}
+            className={cn(
+              "py-2 px-1 rounded-xl text-xs font-bold border transition-all",
+              day.active
+                ? "bg-brand-600 text-white border-brand-700"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700"
+            )}
+          >
+            {day.day}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Férias / Folgas programadas</p>
+        <div className="flex gap-2 mb-2">
+          <input
+            type="date"
+            value={vacationInput}
+            onChange={(e) => setVacationInput(e.target.value)}
+            className="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none dark:text-white text-sm"
+          />
+          <button onClick={addVacation} className="px-3 py-1.5 bg-brand-600 text-white text-xs font-bold rounded-xl hover:bg-brand-700 transition-all">
+            <Plus size={14} />
+          </button>
+        </div>
+        {localPlan.vacations.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {localPlan.vacations.map(d => (
+              <span key={d} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold rounded-full">
+                {format(parseISO(d), 'dd/MM')}
+                <button onClick={() => removeVacation(d)} className="hover:text-rose-500"><X size={10} /></button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button
+          onClick={() => onSave({ ...localPlan, month: monthKey })}
+          className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold py-2 rounded-xl transition-all"
+        >
+          Salvar Plano
+        </button>
+        <button
+          onClick={copyFromProfile}
+          className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all flex items-center gap-1"
+        >
+          <Copy size={14} /> Copiar Perfil
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
   );
 }

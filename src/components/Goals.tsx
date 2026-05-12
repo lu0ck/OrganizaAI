@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Target, Plus, Trash2, TrendingUp, Calendar, CheckCircle2, Save, X, XCircle, ChevronLeft, ChevronRight, Info, Edit3, AlertTriangle } from 'lucide-react';
-import { Goal, RideEntry, Expense, UserProfile, WorkDay } from '../types';
+import { Goal, RideEntry, Expense, UserProfile, WorkDay, ManualCompensation } from '../types';
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, isSameDay, subMonths, addMonths, differenceInDays, isBefore, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '../lib/utils';
@@ -15,6 +15,9 @@ interface GoalsProps {
   onAddGoal: (goal: Goal) => void;
   onDeleteGoal: (id: string) => void;
   onUpdateGoal?: (goal: Goal) => void;
+  manualCompensations?: ManualCompensation[];
+  onAddManualCompensation?: (comp: ManualCompensation) => void;
+  onRemoveManualCompensation?: (id: string) => void;
 }
 
 function countExpectedWorkDays(
@@ -88,10 +91,13 @@ function getDailyTarget(
   return targetValue;
 }
 
-export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDeleteGoal, onUpdateGoal }: GoalsProps) {
+export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDeleteGoal, onUpdateGoal, manualCompensations = [], onAddManualCompensation, onRemoveManualCompensation }: GoalsProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [compModal, setCompModal] = useState<{ fromDay: Date; deficit: number } | null>(null);
+  const [compToDay, setCompToDay] = useState<number | null>(null);
+  const [compAmount, setCompAmount] = useState(0);
   const [formData, setFormData] = useState<Partial<Goal>>({
     type: 'diaria',
     targetValue: 0,
@@ -238,6 +244,9 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
 
     return result;
   }, [monthStats]);
+
+  const monthKey = format(currentMonth, 'yyyy-MM');
+  const monthManualComps = manualCompensations.filter(c => c.monthKey === monthKey);
 
   const metCount = monthStats.filter(s => s.hasData && s.isMet).length;
   const missedCount = monthStats.filter(s => s.hasData && !s.isMet).length;
@@ -594,67 +603,102 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
             {monthStats.map((stat, i) => {
               const comp = compensationMap.get(i);
               const isCompensated = !!comp?.compensatedBy;
+              const manualFrom = monthManualComps.find(c => isSameDay(parseISO(c.fromDay), stat.day));
+              const manualTo = monthManualComps.find(c => isSameDay(parseISO(c.toDay), stat.day));
+              const isManualCompensated = !!manualFrom;
+              const cellColor = isManualCompensated
+                ? "bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-900/30"
+                : stat.isAbsentDay && !isCompensated
+                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/30"
+                : isCompensated
+                ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30"
+                : !stat.hasData
+                ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
+                : stat.isMet
+                ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
+                : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30";
               return (
               <div
                 key={i}
                 className={cn(
                   "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group",
-                  stat.isAbsentDay && !isCompensated
-                  ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/30"
-                  : isCompensated
-                  ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30"
-                  : !stat.hasData
-                  ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
-                  : stat.isMet
-                  ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30"
-                  : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30"
+                  cellColor
                 )}
               >
                 <span className="text-[clamp(0.5rem,2vw,0.75rem)] font-bold text-slate-500">{format(stat.day, 'd')}</span>
-                {stat.isAbsentDay && !isCompensated && (
+                {isManualCompensated ? (
+                  <>
+                    <span className="text-[10px] font-bold text-sky-600 leading-tight">R$0</span>
+                    <CheckCircle2 size={10} className="text-sky-500" />
+                  </>
+                ) : stat.isAbsentDay && !isCompensated ? (
                   <>
                     <span className="text-[10px] font-bold text-amber-600 leading-tight">R$0</span>
                     <AlertTriangle size={10} className="text-amber-500" />
                   </>
-                )}
-                {stat.isAbsentDay && isCompensated && (
+                ) : stat.isAbsentDay && isCompensated ? (
                   <>
                     <span className="text-[10px] font-bold text-blue-600 leading-tight">R$0</span>
                     <CheckCircle2 size={10} className="text-blue-500" />
                   </>
-                )}
-                {!stat.isAbsentDay && stat.hasData && (
+                ) : !stat.isAbsentDay && stat.hasData ? (
                   <>
                     <span className={cn(
                       "text-[10px] font-bold leading-tight",
-                      isCompensated ? "text-blue-600" : stat.isMet ? "text-emerald-600" : "text-rose-600"
+                      isManualCompensated ? "text-sky-600" : isCompensated ? "text-blue-600" : stat.isMet ? "text-emerald-600" : "text-rose-600"
                     )}>
                       R${Math.round(stat.totalEarned)}
                     </span>
-                    {isCompensated
+                    {isManualCompensated
+                      ? <CheckCircle2 size={10} className="text-sky-500" />
+                      : isCompensated
                       ? <CheckCircle2 size={10} className="text-blue-500" />
                       : stat.isMet
                       ? <CheckCircle2 size={10} className="text-emerald-500" />
                       : <XCircle size={10} className="text-rose-500" />
                     }
                   </>
-                )}
-                {!stat.isAbsentDay && !stat.hasData && (
+                ) : !stat.isAbsentDay && !stat.hasData ? (
                   <span className="text-[8px] text-slate-300">—</span>
+                ) : null}
+                {manualFrom && (
+                  <span className="text-[7px] font-bold text-sky-600 leading-tight text-center mt-0.5 px-0.5">
+                    M.Comp. {format(parseISO(manualFrom.toDay), 'd/MM')}
+                  </span>
                 )}
-                {comp?.compensatedBy && (
+                {manualTo && (
+                  <span className="text-[7px] font-bold text-sky-600 leading-tight text-center mt-0.5 px-0.5">
+                    &rarr;Cobre {format(parseISO(manualTo.fromDay), 'd/MM')}
+                  </span>
+                )}
+                {!manualFrom && comp?.compensatedBy && (
                   <span className="text-[8px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
                     Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
                   </span>
                 )}
-                {comp?.compensated && (
+                {!manualTo && comp?.compensated && (
                   <span className="text-[8px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
                     &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
                   </span>
                 )}
 
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-10 shadow-xl">
-                  {stat.isAbsentDay ? (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-auto transition-all whitespace-nowrap z-10 shadow-xl">
+                  {isManualCompensated ? (
+                    <>
+                      <span className="text-sky-400 font-bold">Comp. Manual</span>
+                      <span className="block text-sky-300 text-[10px]">
+                        Coberto por {format(parseISO(manualFrom!.toDay), 'dd/MM')}: +R$ {manualFrom!.amount.toFixed(2)}
+                      </span>
+                      {onRemoveManualCompensation && (
+                        <button
+                          onClick={() => onRemoveManualCompensation(manualFrom!.id)}
+                          className="mt-1 px-2 py-0.5 bg-rose-600 text-white text-[10px] rounded-lg hover:bg-rose-700 transition-all w-full"
+                        >
+                          Desfazer
+                        </button>
+                      )}
+                    </>
+                  ) : stat.isAbsentDay ? (
                     <>
                       <span className="text-amber-400 font-bold">Faltou</span>
                       {stat.effectiveTarget > 0 && (
@@ -664,16 +708,58 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                       )}
                       {comp?.compensatedBy && (
                         <span className="block text-blue-300 text-[10px]">
-                          Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+                          Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
                         </span>
                       )}
+                      {onAddManualCompensation && (
+                        <button
+                          onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget }); setCompToDay(null); setCompAmount(stat.effectiveTarget); }}
+                          className="mt-1 px-2 py-0.5 bg-sky-600 text-white text-[10px] rounded-lg hover:bg-sky-700 transition-all w-full"
+                        >
+                          Compensar manualmente
+                        </button>
+                      )}
                     </>
-                  ) : stat.hasData ? (
+                  ) : stat.hasData && !stat.isMet ? (
                     <>
                       R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
                       {comp?.compensatedBy && (
                         <span className="block text-blue-300 text-[10px]">
-                          Compensado por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+                          Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+                        </span>
+                      )}
+                      {comp?.compensated && (
+                        <span className="block text-emerald-300 text-[10px]">
+                          Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
+                        </span>
+                      )}
+                      {onAddManualCompensation && (
+                        <button
+                          onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget - stat.totalEarned }); setCompToDay(null); setCompAmount(stat.effectiveTarget - stat.totalEarned); }}
+                          className="mt-1 px-2 py-0.5 bg-sky-600 text-white text-[10px] rounded-lg hover:bg-sky-700 transition-all w-full"
+                        >
+                          Compensar manualmente
+                        </button>
+                      )}
+                    </>
+                  ) : stat.hasData && stat.isMet && manualTo ? (
+                    <>
+                      R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
+                      {comp?.compensated && (
+                        <span className="block text-emerald-300 text-[10px]">
+                          Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
+                        </span>
+                      )}
+                      <span className="block text-sky-300 text-[10px]">
+                        Cobriu {format(parseISO(manualTo!.fromDay), 'dd/MM')}: -R$ {manualTo!.amount.toFixed(2)}
+                      </span>
+                    </>
+                  ) : stat.hasData && stat.isMet ? (
+                    <>
+                      R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
+                      {comp?.compensatedBy && (
+                        <span className="block text-blue-300 text-[10px]">
+                          Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
                         </span>
                       )}
                       {comp?.compensated && (
@@ -704,13 +790,86 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Compensado</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Comp. Automático</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-sky-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Comp. Manual</span>
             </div>
             <p className="w-full text-center text-[10px] text-slate-400 mt-1">
               * Compensação válida apenas dentro do mesmo mês
             </p>
           </div>
-          </div>
+
+          {compModal && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/30 rounded-2xl border border-sky-200 dark:border-sky-900/30"
+            >
+              <h4 className="text-sm font-bold text-sky-800 dark:text-sky-300 mb-3">
+                Compensar {format(compModal.fromDay, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase">Coberto pelo dia</label>
+                  <select
+                    value={compToDay ?? ''}
+                    onChange={(e) => setCompToDay(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-800 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 dark:text-white text-sm"
+                  >
+                    <option value="" disabled>Selecione um dia</option>
+                    {monthStats.map((s, idx) => (
+                      <option key={idx} value={idx}>
+                        {format(s.day, 'dd/MM')} {s.hasData ? `(R$ ${Math.round(s.totalEarned)})` : '(sem dados)'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase">Valor (R$)</label>
+                  <input
+                    type="number"
+                    value={compAmount}
+                    onChange={(e) => setCompAmount(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-800 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 dark:text-white text-sm"
+                    min={0}
+                    step={0.01}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (compToDay === null || compAmount <= 0) return;
+                      const toDate = monthStats[compToDay].day;
+                      onAddManualCompensation?.({
+                        id: crypto.randomUUID(),
+                        monthKey,
+                        fromDay: format(compModal.fromDay, 'yyyy-MM-dd'),
+                        toDay: format(toDate, 'yyyy-MM-dd'),
+                        amount: compAmount,
+                        createdAt: new Date().toISOString()
+                      });
+                      setCompModal(null);
+                      setCompToDay(null);
+                      setCompAmount(0);
+                    }}
+                    disabled={compToDay === null || compAmount <= 0}
+                    className="flex-1 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white text-sm font-bold py-2 rounded-xl transition-all"
+                  >
+                    Confirmar
+                  </button>
+                  <button
+                    onClick={() => { setCompModal(null); setCompToDay(null); setCompAmount(0); }}
+                    className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold py-2 rounded-xl hover:bg-slate-200 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
         </div>
 
 <div className="space-y-6">

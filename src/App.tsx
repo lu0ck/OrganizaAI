@@ -51,6 +51,8 @@ const initialState: AppState = {
   expenses: [],
   goals: [],
   maintenance: [],
+  manualCompensations: [],
+  plans: [],
   theme: 'dark',
   colorTheme: 'red'
 };
@@ -432,6 +434,9 @@ export default function App() {
               onAddGoal={(goal) => setState(prev => ({ ...prev, goals: [goal, ...prev.goals] }))}
               onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }))}
               onUpdateGoal={(goal) => setState(prev => ({ ...prev, goals: prev.goals.map(g => g.id === goal.id ? goal : g) }))}
+              manualCompensations={state.manualCompensations}
+              onAddManualCompensation={(comp) => setState(prev => ({ ...prev, manualCompensations: [comp, ...prev.manualCompensations] }))}
+              onRemoveManualCompensation={(id) => setState(prev => ({ ...prev, manualCompensations: prev.manualCompensations.filter(c => c.id !== id) }))}
             />
           )}
         {activeTab === 'motorcycle' && (
@@ -452,6 +457,10 @@ export default function App() {
             profile={state.profile}
             onUpdateProfile={(profile) => setState(prev => ({ ...prev, profile }))}
             sidebarCollapsed={collapsed}
+            plans={state.plans}
+            onAddPlan={(plan) => setState(prev => ({ ...prev, plans: [...prev.plans, plan] }))}
+            onUpdatePlan={(plan) => setState(prev => ({ ...prev, plans: prev.plans.map(p => p.id === plan.id ? plan : p) }))}
+            onDeletePlan={(id) => setState(prev => ({ ...prev, plans: prev.plans.filter(p => p.id !== id) }))}
           />
         )}
               {activeTab === 'reports' && (
