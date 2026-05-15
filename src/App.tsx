@@ -8,7 +8,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSidebar } from './hooks/useSidebar';
 import { useToast } from './hooks/useToast';
 import { recalculateFuelExpensesChain, calculateGlobalConsumption } from './lib/fuelCalculation';
-import { AppState, ColorTheme, MaintenanceItem, Expense } from './types';
+import { AppState, ColorTheme, MaintenanceItem, Expense, RideEntry } from './types';
 import { format, subDays } from 'date-fns';
 import { cn } from './lib/utils';
 
@@ -24,6 +24,7 @@ import ReportsTab from './components/ReportsTab';
 import Footer from './components/Footer';
 import Sidebar from './components/Sidebar';
 import ToastContainer from './components/Toast';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const mobileNavItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -53,105 +54,121 @@ const initialState: AppState = {
   maintenance: [],
   manualCompensations: [],
   plans: [],
+  customApps: [],
   theme: 'dark',
   colorTheme: 'red'
 };
 
 export default function App() {
   const [state, setState] = useLocalStorage<AppState>('organizaai_data_v2', initialState);
+  const safeState = {
+    ...state,
+    rides: Array.isArray(state.rides) ? state.rides : [],
+    expenses: Array.isArray(state.expenses) ? state.expenses : [],
+    goals: Array.isArray(state.goals) ? state.goals : [],
+    maintenance: Array.isArray(state.maintenance) ? state.maintenance : [],
+    manualCompensations: Array.isArray(state.manualCompensations) ? state.manualCompensations : [],
+    plans: Array.isArray(state.plans) ? state.plans : [],
+    customApps: Array.isArray(state.customApps) ? state.customApps : [],
+  };
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
   const { width, collapsed, isResizing, toggle, startResizing, stopResizing, handleResize } = useSidebar();
   const { toasts, showToast, removeToast } = useToast();
 
-  // Migration for Brake Pads
-  useEffect(() => {
-    const oldNames = ['Pastilha de Freio', 'Pastilhas de Freio', 'Pastilha de Freio Dianteira', 'Pastilha de Freio Traseira'];
-    const newNames = ['Pastilhas de Freio dianteira', 'Pastilhas de Freio traseira'];
-    
-    if (!state.maintenance || state.maintenance.length === 0) return;
+// Migration for Brake Pads
+useEffect(() => {
+  try {
+  const oldNames = ['Pastilha de Freio', 'Pastilhas de Freio', 'Pastilha de Freio Dianteira', 'Pastilha de Freio Traseira'];
+  const newNames = ['Pastilhas de Freio dianteira', 'Pastilhas de Freio traseira'];
 
-    const hasOldBrakePads = state.maintenance.some(m => oldNames.includes(m.name));
-    
-    // Check for duplicates of the new names
-    const counts = state.maintenance.reduce((acc, m) => {
-      acc[m.name] = (acc[m.name] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const hasDuplicates = newNames.some(name => counts[name] > 1);
+      if (!safeState.maintenance || safeState.maintenance.length === 0) return;
 
-    if (hasOldBrakePads || hasDuplicates) {
-      setState(prev => {
-        // 1. Filter out all old variations
-        let updatedMaintenance = prev.maintenance.filter(m => !oldNames.includes(m.name));
-        
-        // 2. Handle duplicates of new names (keep only the first one)
-        newNames.forEach(name => {
-          const items = updatedMaintenance.filter(m => m.name === name);
-          if (items.length > 1) {
-            // Keep the one with most history or just the first one
-            const first = items[0];
-            updatedMaintenance = updatedMaintenance.filter(m => m.name !== name);
-            updatedMaintenance.push(first);
-          }
-        });
+      const hasOldBrakePads = safeState.maintenance.some(m => oldNames.includes(m.name));
 
-        // 3. Ensure both new items exist
-        newNames.forEach(name => {
-          if (!updatedMaintenance.some(m => m.name === name)) {
-            updatedMaintenance.push({ 
-              id: crypto.randomUUID(), 
-              name: name, 
-              intervalKm: 5000, 
-              intervalDays: 90,
-              lastChangeKm: 0, 
-              lastChangeDate: format(subDays(new Date(), 90), 'yyyy-MM-dd'), 
-              estimatedCost: 40, 
-              position: name.includes('dianteira') ? 'dianteiro' : 'traseiro' 
-            });
-          }
-        });
-        
-        return { ...prev, maintenance: updatedMaintenance };
+      // Check for duplicates of the new names
+      const counts = safeState.maintenance.reduce((acc, m) => {
+    acc[m.name] = (acc[m.name] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const hasDuplicates = newNames.some(name => counts[name] > 1);
+
+  if (hasOldBrakePads || hasDuplicates) {
+  setState(prev => {
+  // 1. Filter out all old variations
+  let updatedMaintenance = prev.maintenance.filter(m => !oldNames.includes(m.name));
+
+  // 2. Handle duplicates of new names (keep only the first one)
+  newNames.forEach(name => {
+    const items = updatedMaintenance.filter(m => m.name === name);
+    if (items.length > 1) {
+      // Keep the one with most history or just the first one
+      const first = items[0];
+      updatedMaintenance = updatedMaintenance.filter(m => m.name !== name);
+      updatedMaintenance.push(first);
+    }
+  });
+
+  // 3. Ensure both new items exist
+  newNames.forEach(name => {
+    if (!updatedMaintenance.some(m => m.name === name)) {
+      updatedMaintenance.push({
+        id: crypto.randomUUID(),
+        name: name,
+        intervalKm: 5000,
+        intervalDays: 90,
+        lastChangeKm: 0,
+        lastChangeDate: format(subDays(new Date(), 90), 'yyyy-MM-dd'),
+        estimatedCost: 40,
+        position: name.includes('dianteira') ? 'dianteiro' : 'traseiro'
       });
     }
-  }, [state.maintenance, setState]);
+  });
+
+  return { ...prev, maintenance: updatedMaintenance };
+  });
+  }
+  } catch (error) {
+    console.error('Migration useEffect error:', error);
+    try { localStorage.setItem('organizaai_last_error', JSON.stringify({ message: 'Migration: ' + (error as Error)?.message, time: new Date().toISOString() })); } catch {}
+  }
+  }, [safeState.maintenance, setState]);
 
   // Recalcular abastecimentos em cascata ao iniciar
   useEffect(() => {
-    if (!state.profile || state.expenses.length === 0) return;
-    
-    const hasFuelExpenses = state.expenses.some(e => e.type === 'combustivel' && e.tripTotal);
+    if (!safeState.profile || safeState.expenses.length === 0) return;
+
+    const hasFuelExpenses = safeState.expenses.some(e => e.type === 'combustivel' && e.tripTotal);
     if (!hasFuelExpenses) return;
-    
+
     try {
-      const recalculatedExpenses = recalculateFuelExpensesChain(state.expenses, state.profile);
-      const hasChanges = recalculatedExpenses.some((e, i) => 
-        e.saldoAfterFueling !== state.expenses[i]?.saldoAfterFueling
+      const recalculatedExpenses = recalculateFuelExpensesChain(safeState.expenses, safeState.profile);
+      const hasChanges = recalculatedExpenses.some((e, i) =>
+        e.saldoAfterFueling !== safeState.expenses[i]?.saldoAfterFueling
       );
-      
+
       if (hasChanges) {
         setState(prev => ({ ...prev, expenses: recalculatedExpenses }));
       }
     } catch (error) {
       console.error('Error recalculating fuel expenses:', error);
     }
-  }, [state.expenses, state.profile]);
+  }, [safeState.expenses, safeState.profile]);
 
   // Atualizar consumo atual no perfil
   useEffect(() => {
-    if (!state.profile) return;
+    if (!safeState.profile) return;
 
     try {
-      const globalConsumption = calculateGlobalConsumption(state.expenses);
+      const globalConsumption = calculateGlobalConsumption(safeState.expenses);
 
       let currentKmPerLiter = 0;
 
       if (globalConsumption.status === 'valid' && globalConsumption.globalAverage > 0) {
         currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
       } else {
-        const fullTankExpenses = state.expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true);
+        const fullTankExpenses = safeState.expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true);
         const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
         const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
         if (totalLiters > 0 && fullTankKm > 0) {
@@ -159,7 +176,7 @@ export default function App() {
         }
       }
 
-      if (state.profile.currentKmPerLiter !== currentKmPerLiter) {
+      if (safeState.profile.currentKmPerLiter !== currentKmPerLiter) {
         setState(prev => ({
           ...prev,
           profile: { ...prev.profile!, currentKmPerLiter }
@@ -168,7 +185,7 @@ export default function App() {
     } catch (error) {
       console.error('Error updating consumption:', error);
     }
-  }, [state.expenses, state.profile]);
+  }, [safeState.expenses, safeState.profile]);
 
   const toggleTheme = () => {
     setState(prev => ({ ...prev, theme: prev.theme === 'light' ? 'dark' : 'light' }));
@@ -179,58 +196,61 @@ export default function App() {
   };
 
   // Handler para adicionar ride e atualizar odômetro
-  const handleAddRide = (ride: typeof state.rides[0]) => {
-    setState(prev => {
-      const newOdometerKm = Math.round(((prev.profile?.vehicleOdometerKm || 0) + ride.kmDriven) * 100) / 100;
+const handleAddRide = (ride: RideEntry) => {
+  setState(prev => {
+    const newOdometerKm = Math.round(((prev.profile?.vehicleOdometerKm || 0) + ride.kmDriven) * 100) / 100;
+    const prevRides = Array.isArray(prev.rides) ? prev.rides : [];
 
-      return {
-        ...prev,
-        rides: [ride, ...prev.rides],
-        profile: prev.profile
-          ? { ...prev.profile, vehicleOdometerKm: newOdometerKm }
-          : prev.profile
-      };
-    });
-  };
+    return {
+      ...prev,
+      rides: [ride, ...prevRides],
+      profile: prev.profile
+        ? { ...prev.profile, vehicleOdometerKm: newOdometerKm }
+        : prev.profile
+    };
+  });
+};
 
   // Handler para adicionar expense e atualizar odômetro (se for combustível)
-  const handleAddExpense = (expense: typeof state.expenses[0]) => {
+  const handleAddExpense = (expense: Expense) => {
     setState(prev => {
       let newProfile = prev.profile;
-      
+      const prevExpenses = Array.isArray(prev.expenses) ? prev.expenses : [];
+
       // Se for combustível com tripTotal, atualizar odômetro
-    if (expense.type === 'combustivel' && expense.tripTotal && prev.profile) {
+      if (expense.type === 'combustivel' && expense.tripTotal && prev.profile) {
         const newOdometerKm = Math.round(((prev.profile.vehicleOdometerKm || 0) + expense.tripTotal) * 100) / 100;
         newProfile = { ...prev.profile, vehicleOdometerKm: newOdometerKm };
-        
+
         // Recalcular em cascata após adicionar
-        const allExpenses = [expense, ...prev.expenses];
+        const allExpenses = [expense, ...prevExpenses];
         const recalculatedExpenses = recalculateFuelExpensesChain(allExpenses, newProfile);
-        
+
         return {
           ...prev,
           expenses: recalculatedExpenses,
           profile: newProfile
         };
       }
-      
+
       return {
         ...prev,
-        expenses: [expense, ...prev.expenses]
+        expenses: [expense, ...prevExpenses]
       };
     });
   };
 
   // Handler para deletar expense e recalcular
   const handleDeleteExpense = (id: string) => {
-    setState(prev => {
-      const newExpenses = prev.expenses.filter(e => e.id !== id);
-      
+setState(prev => {
+      const prevExpenses = Array.isArray(prev.expenses) ? prev.expenses : [];
+      const newExpenses = prevExpenses.filter(e => e.id !== id);
+
       if (prev.profile) {
         const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, prev.profile);
         return { ...prev, expenses: recalculatedExpenses };
       }
-      
+
       return { ...prev, expenses: newExpenses };
     });
   };
@@ -238,7 +258,8 @@ export default function App() {
   // Handler para editar expense
   const handleEditExpense = (updatedExpense: Expense) => {
     setState(prev => {
-      const oldExpense = prev.expenses.find(e => e.id === updatedExpense.id);
+      const prevExpenses = Array.isArray(prev.expenses) ? prev.expenses : [];
+      const oldExpense = prevExpenses.find(e => e.id === updatedExpense.id);
       let newProfile = prev.profile;
 
       if (oldExpense && prev.profile && oldExpense.type === 'combustivel' && updatedExpense.type === 'combustivel') {
@@ -250,7 +271,7 @@ export default function App() {
         }
       }
 
-      const newExpenses = prev.expenses.map(e =>
+      const newExpenses = prevExpenses.map(e =>
         e.id === updatedExpense.id ? updatedExpense : e
       );
 
@@ -265,10 +286,10 @@ export default function App() {
 
   // Calcular média de ganho por KM
   const avgPerKm = useMemo(() => {
-    const totalEarnings = state.rides.reduce((acc, r) => acc + r.totalValue, 0);
-    const totalKm = state.rides.reduce((acc, r) => acc + r.kmDriven, 0);
-    return totalKm > 0 ? totalEarnings / totalKm : 0;
-  }, [state.rides]);
+const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
+  const totalKm = safeState.rides.reduce((acc, r) => acc + r.kmDriven, 0);
+  return totalKm > 0 ? totalEarnings / totalKm : 0;
+  }, [safeState.rides]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -320,6 +341,7 @@ export default function App() {
 
   if (!state.profile) {
     return (
+      <ErrorBoundary>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
         <div className="absolute inset-0 z-0">
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-500/10 rounded-full blur-[120px] animate-pulse" />
@@ -329,10 +351,12 @@ export default function App() {
           <ProfileSetup onComplete={(profile) => setState(prev => ({ ...prev, profile }))} />
         </div>
       </div>
+      </ErrorBoundary>
     );
   }
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative overflow-x-hidden">
       {/* Animated Background Blobs */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -397,84 +421,86 @@ export default function App() {
               transition={{ duration: 0.2 }}
               className="w-full"
             >
-              {activeTab === 'dashboard' && (
-                <Dashboard 
-                  rides={state.rides} 
-                  expenses={state.expenses} 
-                  goals={state.goals} 
-                  profile={state.profile}
-                />
-              )}
-{activeTab === 'rides' && (
-            <EntryForm
-              onAdd={handleAddRide}
-              onDelete={(id) => setState(prev => ({ ...prev, rides: prev.rides.filter(r => r.id !== id) }))}
-              onEdit={(ride) => setState(prev => ({ ...prev, rides: prev.rides.map(r => r.id === ride.id ? ride : r) }))}
-              rides={state.rides}
-              profile={state.profile}
-              expenses={state.expenses}
-            />
-          )}
-          {activeTab === 'expenses' && (
-            <ExpensesForm
-              onAdd={handleAddExpense}
-              onDelete={handleDeleteExpense}
-              onEdit={handleEditExpense}
-              expenses={state.expenses}
-              profile={state.profile}
-              avgPerKm={avgPerKm}
-            />
-          )}
-{activeTab === 'goals' && (
-            <Goals
-              goals={state.goals}
-              rides={state.rides}
-              expenses={state.expenses}
-              profile={state.profile}
-              onAddGoal={(goal) => setState(prev => ({ ...prev, goals: [goal, ...prev.goals] }))}
-              onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }))}
-              onUpdateGoal={(goal) => setState(prev => ({ ...prev, goals: prev.goals.map(g => g.id === goal.id ? goal : g) }))}
-              manualCompensations={state.manualCompensations}
-              onAddManualCompensation={(comp) => setState(prev => ({ ...prev, manualCompensations: [comp, ...prev.manualCompensations] }))}
-              onRemoveManualCompensation={(id) => setState(prev => ({ ...prev, manualCompensations: prev.manualCompensations.filter(c => c.id !== id) }))}
-            />
-          )}
-        {activeTab === 'motorcycle' && (
-          <MotorcycleTab
-            rides={state.rides}
-            expenses={state.expenses}
-            maintenance={state.maintenance}
-            profile={state.profile}
-            onUpdateMaintenance={(m) => setState(prev => ({ ...prev, maintenance: m }))}
-            sidebarCollapsed={collapsed}
-            showToast={showToast}
-          />
-        )}
-        {activeTab === 'agenda' && (
-          <Agenda
-            rides={state.rides}
-            expenses={state.expenses}
-            profile={state.profile}
-            onUpdateProfile={(profile) => setState(prev => ({ ...prev, profile }))}
-            sidebarCollapsed={collapsed}
-            plans={state.plans}
-            onAddPlan={(plan) => setState(prev => ({ ...prev, plans: [...prev.plans, plan] }))}
-            onUpdatePlan={(plan) => setState(prev => ({ ...prev, plans: prev.plans.map(p => p.id === plan.id ? plan : p) }))}
-            onDeletePlan={(id) => setState(prev => ({ ...prev, plans: prev.plans.filter(p => p.id !== id) }))}
-          />
-        )}
-              {activeTab === 'reports' && (
-                <ReportsTab 
-                  rides={state.rides}
-                  expenses={state.expenses}
-                  profile={state.profile}
-                />
-              )}
-              {activeTab === 'profile' && (
-                <ProfileTab 
-                  profile={state.profile}
-                  onUpdate={(profile) => setState(prev => ({ ...prev, profile }))}
-                  fullState={state}
+{activeTab === 'dashboard' && (
+        <Dashboard
+          rides={safeState.rides}
+          expenses={safeState.expenses}
+          goals={safeState.goals}
+          profile={safeState.profile}
+        />
+      )}
+      {activeTab === 'rides' && (
+        <EntryForm
+          onAdd={handleAddRide}
+          onDelete={(id) => setState(prev => ({ ...prev, rides: Array.isArray(prev.rides) ? prev.rides.filter(r => r.id !== id) : [] }))}
+          onEdit={(ride) => setState(prev => ({ ...prev, rides: Array.isArray(prev.rides) ? prev.rides.map(r => r.id === ride.id ? ride : r) : [ride] }))}
+          rides={safeState.rides}
+          profile={safeState.profile}
+          expenses={safeState.expenses}
+          customApps={safeState.customApps}
+          onAddCustomApp={(name) => setState(prev => ({ ...prev, customApps: Array.isArray(prev.customApps) ? (prev.customApps.includes(name) ? prev.customApps : [...prev.customApps, name]) : [name] }))}
+        />
+      )}
+      {activeTab === 'expenses' && (
+        <ExpensesForm
+          onAdd={handleAddExpense}
+          onDelete={handleDeleteExpense}
+          onEdit={handleEditExpense}
+          expenses={safeState.expenses}
+          profile={safeState.profile}
+          avgPerKm={avgPerKm}
+        />
+      )}
+      {activeTab === 'goals' && (
+        <Goals
+          goals={safeState.goals}
+          rides={safeState.rides}
+          expenses={safeState.expenses}
+          profile={safeState.profile}
+          onAddGoal={(goal) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? [goal, ...prev.goals] : [goal] }))}
+          onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? prev.goals.filter(g => g.id !== id) : [] }))}
+          onUpdateGoal={(goal) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? prev.goals.map(g => g.id === goal.id ? goal : g) : [goal] }))}
+          manualCompensations={safeState.manualCompensations}
+          onAddManualCompensation={(comp) => setState(prev => ({ ...prev, manualCompensations: Array.isArray(prev.manualCompensations) ? [comp, ...prev.manualCompensations] : [comp] }))}
+          onRemoveManualCompensation={(id) => setState(prev => ({ ...prev, manualCompensations: Array.isArray(prev.manualCompensations) ? prev.manualCompensations.filter(c => c.id !== id) : [] }))}
+        />
+      )}
+      {activeTab === 'motorcycle' && (
+        <MotorcycleTab
+          rides={safeState.rides}
+          expenses={safeState.expenses}
+          maintenance={safeState.maintenance}
+          profile={safeState.profile}
+          onUpdateMaintenance={(m) => setState(prev => ({ ...prev, maintenance: m }))}
+          sidebarCollapsed={collapsed}
+          showToast={showToast}
+        />
+      )}
+      {activeTab === 'agenda' && (
+        <Agenda
+          rides={safeState.rides}
+          expenses={safeState.expenses}
+          profile={safeState.profile}
+          onUpdateProfile={(profile) => setState(prev => ({ ...prev, profile }))}
+          sidebarCollapsed={collapsed}
+          plans={safeState.plans}
+          onAddPlan={(plan) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? [...prev.plans, plan] : [plan] }))}
+          onUpdatePlan={(plan) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.map(p => p.id === plan.id ? plan : p) : [plan] }))}
+          onDeletePlan={(id) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.filter(p => p.id !== id) : [] }))}
+        />
+      )}
+      {activeTab === 'reports' && (
+        <ReportsTab
+          rides={safeState.rides}
+          expenses={safeState.expenses}
+          profile={safeState.profile}
+        />
+      )}
+      {activeTab === 'profile' && (
+        <ProfileTab
+          profile={safeState.profile}
+          onUpdate={(profile) => setState(prev => ({ ...prev, profile }))}
+          fullState={state}
                   onImportState={(newState) => setState(newState)}
                 />
               )}
@@ -513,7 +539,7 @@ export default function App() {
                     <Download size={18} /> Fazer Backup Agora
                   </button>
                   <button
-                    onClick={() => setShowBackupPrompt(false)}
+                    onClick={() => { localStorage.setItem('organizaai_last_backup', new Date().toISOString()); setShowBackupPrompt(false); }}
                     className="p-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all"
                   >
                     <CloseIcon size={20} />
@@ -525,5 +551,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </ErrorBoundary>
   );
 }

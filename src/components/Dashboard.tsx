@@ -31,7 +31,9 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInDays, addMonths } from 'date-fns';
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInDays, addMonths, eachDayOfInterval } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { getDailyTarget } from './Goals';
 import { RideEntry, Expense, Goal, UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import { calculateGlobalConsumption, getLastFuelExpense, calculateAutonomy } from '../lib/fuelCalculation';
@@ -180,8 +182,13 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
     const installmentsRemaining = profile?.vehicleInstallmentsRemaining || 0;
     const totalInstallmentDebt = installmentMonthly * installmentsRemaining;
 
-    const dailyGoal = goals.find(g => g.type === 'diaria');
-    const periodTarget = dailyGoal ? dailyGoal.targetValue * workedDays : 0;
+const dailyGoal = goals.find(g => g.type === 'diaria');
+let periodTarget = 0;
+if (dailyGoal) {
+  const interval = { start: filteredData.start, end: filteredData.end };
+  const allDays = eachDayOfInterval(interval);
+  periodTarget = allDays.reduce((sum, day) => sum + getDailyTarget(day, dailyGoal, profile), 0);
+}
 
     return {
       earnings: totalEarnings,
@@ -217,7 +224,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
       installmentsRemaining,
       totalInstallmentDebt,
       installmentMonthly,
-      dailyGoalTarget: dailyGoal?.targetValue || 0,
+      dailyGoalTarget: getDailyTarget(new Date(), dailyGoal, profile),
       periodTarget
     };
   }, [filteredData, profile, rides, expenses, goals]);
@@ -250,9 +257,9 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
       const date = new Date(now.getFullYear(), now.getMonth(), d);
       const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][date.getDay()];
       const sched = schedule.find(s => s.day === dayName);
-      if (sched?.active) {
-        workDays++;
-        sched.periods.forEach(p => {
+    if (sched?.active && sched.periods) {
+      workDays++;
+      sched.periods.forEach(p => {
           if (!p.start || !p.end) return;
           const [sH, sM] = p.start.split(':').map(Number);
           const [eH, eM] = p.end.split(':').map(Number);
@@ -315,7 +322,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
     const apps: Record<string, number> = {};
 
     filteredData.rides.forEach(r => {
-      r.appRides.forEach(app => {
+      (r.appRides || []).forEach(app => {
         modalities[app.modality] = (modalities[app.modality] || 0) + app.value;
         apps[app.appName] = (apps[app.appName] || 0) + app.value;
       });
@@ -587,7 +594,7 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white">Estimativa do Mês</h3>
-                <p className="text-[10px] text-slate-400">{format(new Date(), 'MMMM yyyy')}</p>
+                <p className="text-[10px] text-slate-400">{format(new Date(), 'MMMM yyyy', { locale: ptBR })}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -894,7 +901,8 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
                   <p className="text-xs font-bold text-slate-400 uppercase mb-3 tracking-widest">Por Aplicativo</p>
                   <div className="space-y-3">
                     {incomeDistribution.appData.map((app, i) => {
-                      const percentage = stats.earnings > 0 ? (app.value / stats.earnings) * 100 : 0;
+                      const totalAppValue = incomeDistribution.appData.reduce((s, a) => s + a.value, 0);
+                  const percentage = totalAppValue > 0 ? (app.value / totalAppValue) * 100 : 0;
                       return (
                         <div key={app.name} className="flex items-center justify-between group">
                           <div className="flex items-center gap-3">
@@ -915,7 +923,8 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
                   <p className="text-xs font-bold text-slate-400 uppercase mb-3 tracking-widest">Por Modalidade</p>
                   <div className="flex flex-wrap gap-4">
                     {incomeDistribution.modalityData.map((mod, i) => {
-                      const percentage = stats.earnings > 0 ? (mod.value / stats.earnings) * 100 : 0;
+                      const totalModValue = incomeDistribution.modalityData.reduce((s, m) => s + m.value, 0);
+                  const percentage = totalModValue > 0 ? (mod.value / totalModValue) * 100 : 0;
                       return (
                         <div key={mod.name} className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SUB_COLORS[i % SUB_COLORS.length] }} />

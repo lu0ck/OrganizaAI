@@ -30,14 +30,17 @@ export interface Expense {
   pricePerLiter?: number;
   fuelType?: 'gasolina' | 'alcool' | 'gnv';
   // Método da Reserva - campos de entrada
-  tripTotal?: number; // KM desde último abastecimento (obrigatório)
-  tripOnReserve?: number; // KM rodados na reserva (0 se não entrou)
-  enteredReserve?: boolean; // Se entrou na reserva
+  tripTotal?: number;
+  tripOnReserve?: number;
+  enteredReserve?: boolean;
+  fullTank?: boolean;
   // Campos calculados automaticamente
-  saldoBeforeFueling?: number; // Litros no tanque antes de abastecer
-  saldoAfterFueling?: number; // Litros no tanque após abastecer
-  segmentConsumption?: number; // km/l deste trecho
-  isCalibrated?: boolean; // Se usou reserva como calibração física
+  saldoBeforeFueling?: number;
+  saldoAfterFueling?: number;
+  segmentConsumption?: number;
+  isCalibrated?: boolean;
+  fuelBurned?: number;
+  calibrationType?: 'exact' | 'estimate';
 }
 
 export interface Goal {
@@ -112,12 +115,24 @@ export interface ManualCompensation {
   createdAt: string;
 }
 
+export interface VacationEntry {
+  date: string;
+  type: 'ferias' | 'folga';
+}
+
 export interface MonthlyPlan {
   id: string;
-  month: string; // "2026-01"
+  month: string;
   days: WorkDay[];
-  vacations: string[]; // ISO dates
+  vacations: VacationEntry[];
   notes?: string;
+  customHourlyRate?: number;
+  customFuelCost?: number;
+  customMaintCost?: number;
+  actualEarnings?: number;
+  actualFuelCost?: number;
+  actualMaintCost?: number;
+  actualOtherCost?: number;
 }
 
 export interface AppState {
@@ -128,6 +143,7 @@ export interface AppState {
   maintenance: MaintenanceItem[];
   manualCompensations: ManualCompensation[];
   plans: MonthlyPlan[];
+  customApps: string[];
   theme: 'light' | 'dark';
   colorTheme: ColorTheme;
 }

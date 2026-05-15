@@ -6,6 +6,9 @@ import { cn } from '../lib/utils';
 
 import { motion, AnimatePresence } from 'motion/react';
 
+const PRESET_APPS = ['99Pop', 'Uber', 'iFood', 'Rappi', 'Loggi'];
+const CUSTOM_APP_VALUE = '__custom__';
+
 interface EntryFormProps {
   onAdd: (ride: RideEntry) => void;
   onDelete: (id: string) => void;
@@ -13,11 +16,14 @@ interface EntryFormProps {
   rides: RideEntry[];
   profile: UserProfile;
   expenses: Expense[];
+  customApps?: string[];
+  onAddCustomApp?: (name: string) => void;
 }
 
-export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, expenses }: EntryFormProps) {
+export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, expenses, customApps = [], onAddCustomApp }: EntryFormProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [customAppInputs, setCustomAppInputs] = useState<Record<number, string>>({});
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '00:00',
@@ -29,6 +35,37 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
       { appName: '99Pop', modality: 'passageiro' as AppModality, count: 0, value: 0 }
     ]
   });
+
+  const allAppOptions = [...PRESET_APPS, ...customApps];
+
+  const getSelectValue = (appName: string, index: number) => {
+    if (allAppOptions.includes(appName)) return appName;
+    return CUSTOM_APP_VALUE;
+  };
+
+  const handleAppSelect = (index: number, value: string) => {
+    if (value === CUSTOM_APP_VALUE) {
+      setCustomAppInputs(prev => ({ ...prev, [index]: '' }));
+      updateAppRow(index, 'appName', '');
+    } else {
+      setCustomAppInputs(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+      updateAppRow(index, 'appName', value);
+    }
+  };
+
+  const handleCustomAppConfirm = (index: number, name: string) => {
+    const trimmed = name.trim();
+    if (trimmed) {
+      updateAppRow(index, 'appName', trimmed);
+      if (!allAppOptions.includes(trimmed)) {
+        onAddCustomApp?.(trimmed);
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +109,8 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
       const currentTotal = Number(prev.totalValue) || 0;
       const firstAppValue = prev.appRides.length > 0 ? Number(prev.appRides[0].value) || 0 : 0;
       const remainingValue = currentTotal - firstAppValue;
+      const newIdx = prev.appRides.length;
+      setCustomAppInputs(prev2 => ({ ...prev2, [newIdx]: '' }));
       return {
         ...prev,
         appRides: [...prev.appRides, { appName: '', modality: 'passageiro', count: 0, value: remainingValue > 0 ? remainingValue : 0 }]
@@ -229,18 +268,33 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
               </button>
             </div>
             
-            {formData.appRides.map((row, index) => (
-              <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 relative group">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do App</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Uber"
-                    value={row.appName}
-                    onChange={(e) => updateAppRow(index, 'appName', e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-sm"
-                  />
-                </div>
+  {formData.appRides.map((row, index) => (
+          <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 relative group">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do App</label>
+              <select
+                value={getSelectValue(row.appName, index)}
+                onChange={(e) => handleAppSelect(index, e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-sm"
+              >
+                {allAppOptions.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+                <option value={CUSTOM_APP_VALUE}>+ Outro...</option>
+              </select>
+              {getSelectValue(row.appName, index) === CUSTOM_APP_VALUE && (
+                <input
+                  type="text"
+                  placeholder="Nome do app"
+                  value={customAppInputs[index] || ''}
+                  onChange={(e) => setCustomAppInputs(prev => ({ ...prev, [index]: e.target.value }))}
+                  onBlur={(e) => handleCustomAppConfirm(index, e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomAppConfirm(index, (e.target as HTMLInputElement).value); } }}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-brand-300 dark:border-brand-700 rounded-lg outline-none dark:text-white text-sm mt-1 focus:ring-2 focus:ring-brand-500"
+                  autoFocus
+                />
+              )}
+            </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Modalidade</label>
                   <select
@@ -337,27 +391,35 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
             <p className="text-xs text-slate-500">Corridas</p>
             <p className="font-bold text-slate-900 dark:text-white">{ride.numRides}</p>
           </div>
-          <button
-            onClick={() => {
-              setEditingId(ride.id);
-              setIsAdding(true);
-              setFormData({
-                date: ride.date,
-                startTime: ride.startTime,
-                endTime: ride.endTime,
-                kmDriven: String(ride.kmDriven),
-                totalValue: String(ride.totalValue),
-                region: ride.region,
-        appRides: ride.appRides.length > 0 ? ride.appRides.map(r => ({
-        appName: r.appName,
-        modality: r.modality,
-        count: String(r.count),
-        value: String(r.value)
-      })) : [
-        { appName: '99Pop', modality: 'passageiro', count: '0', value: '0' }
-      ]
-              });
-            }}
+            <button
+              onClick={() => {
+                setEditingId(ride.id);
+                setIsAdding(true);
+                const appRidesData = ride.appRides.length > 0 ? ride.appRides.map(r => ({
+                  appName: r.appName,
+                  modality: r.modality,
+                  count: String(r.count),
+                  value: String(r.value)
+                })) : [
+                  { appName: '99Pop', modality: 'passageiro', count: '0', value: '0' }
+                ];
+                const newCustomInputs: Record<number, string> = {};
+                appRidesData.forEach((r, i) => {
+                  if (!allAppOptions.includes(r.appName) && r.appName) {
+                    newCustomInputs[i] = r.appName;
+                  }
+                });
+                setCustomAppInputs(newCustomInputs);
+                setFormData({
+                  date: ride.date,
+                  startTime: ride.startTime,
+                  endTime: ride.endTime,
+                  kmDriven: String(ride.kmDriven),
+                  totalValue: String(ride.totalValue),
+                  region: ride.region,
+                  appRides: appRidesData
+                });
+              }}
             className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
           >
             <Pencil size={18} />

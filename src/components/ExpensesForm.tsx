@@ -34,7 +34,8 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
     fuelType: 'gasolina' as Expense['fuelType'],
     tripTotal: '',
     enteredReserve: false,
-    tripOnReserve: ''
+    tripOnReserve: '',
+    fullTank: false
   });
 
   const expenseTypes = [
@@ -71,23 +72,27 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
       const tripOnReserve = formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : 0;
       const liters = Number(formData.liters);
       
-      const result = calculateFuelBalance(
-        tripTotal,
-        tripOnReserve,
-        liters,
-        profile,
-        lastFuelExpense
-      );
-      
-      calculatedFields = {
-        tripTotal,
-        tripOnReserve,
-        enteredReserve: formData.enteredReserve,
-        saldoBeforeFueling: result.saldoBeforeFueling,
-        saldoAfterFueling: result.saldoAfterFueling,
-        segmentConsumption: result.segmentConsumption,
-        isCalibrated: result.isCalibrated
-      };
+    const result = calculateFuelBalance(
+      tripTotal,
+      tripOnReserve,
+      liters,
+      profile,
+      lastFuelExpense,
+      formData.fullTank
+    );
+
+    calculatedFields = {
+      tripTotal,
+      tripOnReserve,
+      enteredReserve: formData.enteredReserve,
+      fullTank: formData.fullTank,
+      saldoBeforeFueling: result.saldoBeforeFueling,
+      saldoAfterFueling: result.saldoAfterFueling,
+      segmentConsumption: result.segmentConsumption,
+      isCalibrated: result.isCalibrated,
+      fuelBurned: result.fuelBurned,
+      calibrationType: result.calibrationType
+    };
     }
     
     const newExpense: Expense = {
@@ -123,7 +128,8 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
       fuelType: 'gasolina',
       tripTotal: '',
       enteredReserve: false,
-      tripOnReserve: ''
+      tripOnReserve: '',
+      fullTank: false
     });
   };
 
@@ -307,9 +313,22 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                         placeholder="Ex: 25.500"
                       />
                     </div>
-                  </div>
+            </div>
 
-                  <div className="space-y-4 pt-4 border-t border-orange-100 dark:border-orange-900/30">
+            <div className="flex items-center gap-3 py-2">
+              <input
+                type="checkbox"
+                id="fullTank"
+                checked={formData.fullTank}
+                onChange={(e) => setFormData({ ...formData, fullTank: e.target.checked })}
+                className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+              />
+              <label htmlFor="fullTank" className="text-sm font-medium text-orange-800 dark:text-orange-300 cursor-pointer">
+                Encheu o tanque completo?
+              </label>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-orange-100 dark:border-orange-900/30">
                     {/* Campo Trip Total - Obrigatório */}
                     <div className="space-y-3">
                       <div className="space-y-2">
@@ -424,29 +443,49 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
           </div>
         ) : (
 <div className="grid gap-4">
-              {filteredExpenses.map((expense, expenseIndex) => {
-                const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
-                const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
-                const hasSegmentConsumption = expense.type === 'combustivel' && expense.segmentConsumption && expense.segmentConsumption > 0;
-                return (
-    <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", typeInfo.color)}>
-            <typeInfo.icon size={24} />
-          </div>
-          <div>
-            <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
-            <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
-          </div>
-        </div>
+  {filteredExpenses.map((expense, expenseIndex) => {
+        const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
+        const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
+        const isFuel = expense.type === 'combustivel';
+        const hasConsumption = isFuel && expense.segmentConsumption && expense.segmentConsumption > 0;
+        return (
+          <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", typeInfo.color)}>
+                  <typeInfo.icon size={24} />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
+                  <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
+                  {isFuel && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {expense.calibrationType === 'exact' && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded uppercase">Calibrado</span>
+                      )}
+                      {expense.calibrationType === 'estimate' && (
+                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded uppercase">Estimado</span>
+                      )}
+                      {isFuel && expense.isCalibrated && !expense.calibrationType && (
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase">Calibrado</span>
+                      )}
+                      {isFuel && !expense.isCalibrated && expense.segmentConsumption && (
+                        <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded uppercase">Estimado</span>
+                      )}
+                      {expense.fullTank && (
+                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded uppercase">Tanque cheio</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Valor</p>
-            <p className="font-bold text-rose-600">R$ {expense.value.toFixed(2)}</p>
-          </div>
-            {expense.liters && (
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Valor</p>
+                  <p className="font-bold text-rose-600">R$ {expense.value.toFixed(2)}</p>
+                </div>
+                {expense.liters && (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Litros</p>
                     <p className="font-bold text-slate-900 dark:text-white">
@@ -457,7 +496,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     )}
                   </div>
                 )}
-                {expense.type === 'combustivel' && expense.pricePerLiter && (
+                {isFuel && expense.pricePerLiter && (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Preço/L</p>
                     <p className="font-bold text-slate-900 dark:text-white">
@@ -465,7 +504,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </p>
                   </div>
                 )}
-                {hasSegmentConsumption && (
+                {hasConsumption && (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Consumo</p>
                     <p className="font-bold text-slate-900 dark:text-white">
@@ -473,15 +512,36 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </p>
                   </div>
                 )}
-          {expense.tripTotal && (
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Trip</p>
-              <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
-              {expense.isCalibrated && (
-                <span className="text-[10px] font-bold text-emerald-500 uppercase">Calibrado</span>
-              )}
-            </div>
-          )}
+                {isFuel && expense.tripTotal ? (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Trip</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
+                  </div>
+                ) : null}
+                {isFuel && expense.fuelBurned !== undefined && expense.fuelBurned > 0 && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Queimado</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {expense.fuelBurned!.toFixed(2)}L
+                    </p>
+                  </div>
+                )}
+                {isFuel && expense.saldoBeforeFueling !== undefined && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Saldo antes</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {expense.saldoBeforeFueling!.toFixed(1)}L
+                    </p>
+                  </div>
+                )}
+                {isFuel && expense.saldoAfterFueling !== undefined && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Saldo após</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {expense.saldoAfterFueling!.toFixed(1)}L
+                    </p>
+                  </div>
+                )}
           <button
             onClick={() => {
               setEditingId(expense.id);
@@ -495,9 +555,10 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                 liters: expense.liters ? String(expense.liters) : '',
                 pricePerLiter: expense.pricePerLiter ? String(expense.pricePerLiter) : '',
                 fuelType: expense.fuelType || 'gasolina',
-                tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
-                enteredReserve: expense.enteredReserve || false,
-                tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : ''
+          tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
+          enteredReserve: expense.enteredReserve || false,
+          tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : '',
+          fullTank: expense.fullTank || false
               });
             }}
             className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"

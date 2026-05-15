@@ -1,7 +1,6 @@
 import React from 'react';
-import { Gauge, TrendingUp, Fuel, Route, Droplets, DollarSign } from 'lucide-react';
+import { Gauge, Fuel, Droplets, DollarSign } from 'lucide-react';
 import { Expense } from '../types';
-import { cn } from '../lib/utils';
 import { format, parseISO } from 'date-fns';
 import { calculateGlobalConsumption } from '../lib/fuelCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -26,6 +25,7 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0].payload;
+  const pricePerLiter = data.liters > 0 ? data.value / data.liters : 0;
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-xl min-w-[180px]">
       <p className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">{data.fullDate}</p>
@@ -37,15 +37,15 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
       )}
       <div className="flex items-center gap-1.5 mb-1">
         <DollarSign size={10} className="text-emerald-500" />
-        <span className="text-[11px] text-slate-600 dark:text-slate-400">R$ {data.value.toFixed(2)}</span>
+        <span className="text-[11px] text-slate-600 dark:text-slate-400">R$ {pricePerLiter.toFixed(2)}/L</span>
       </div>
       <div className="flex items-center gap-1.5 mb-1">
-        <Route size={10} className="text-blue-500" />
-        <span className="text-[11px] text-slate-600 dark:text-slate-400">{data.trip} km</span>
+        <DollarSign size={10} className="text-blue-500" />
+        <span className="text-[11px] text-slate-600 dark:text-slate-400">R$ {data.value.toFixed(2)}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <Gauge size={10} className="text-emerald-600" />
-        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">{data.kmPerLiter.toFixed(1)} km/l</span>
+        <Droplets size={10} className="text-brand-500" />
+        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">{data.liters.toFixed(1)} L</span>
       </div>
     </div>
   );
@@ -121,41 +121,32 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar">
-            {fuelExpenses.slice().reverse().slice(0, 15).map((expense) => {
-              const isCalibrated = expense.isCalibrated;
-              const segmentKmPerLiter = expense.segmentConsumption || (expense.tripTotal && expense.liters ? expense.tripTotal / expense.liters : 0);
-              const isAboveAvg = globalConsumption.status === 'valid' && segmentKmPerLiter >= globalConsumption.globalAverage;
+      <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar">
+        {fuelExpenses.slice().reverse().slice(0, 15).map((expense) => {
+          const pricePerLiter = (expense.liters && expense.liters > 0) ? (expense.value || 0) / expense.liters : 0;
 
-              return (
-                <div key={expense.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
-                      isCalibrated ? "bg-emerald-100 dark:bg-emerald-950/30" : "bg-amber-100 dark:bg-amber-950/30"
-                    )}>
-                      {isCalibrated ? <TrendingUp size={14} className="text-emerald-600" /> : <Route size={14} className="text-amber-600" />}
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        {expense.fuelType ? fuelTypeLabels[expense.fuelType] || expense.fuelType : ''} {expense.fuelType ? '• ' : ''}{expense.tripTotal?.toLocaleString() || 0} km
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-600 dark:text-slate-400">R$ {(expense.value || 0).toFixed(2)}</p>
-                    <p className={cn("font-bold text-sm", isAboveAvg ? "text-emerald-600" : "text-amber-600")}>
-                      {segmentKmPerLiter.toFixed(1)} km/l
-                    </p>
-                    {isCalibrated && (
-                      <p className="text-[9px] text-emerald-500 font-medium">calibrado</p>
-                    )}
-                  </div>
+          return (
+            <div key={expense.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-orange-100 dark:bg-orange-950/30">
+                  <Fuel size={14} className="text-orange-600" />
                 </div>
-              );
-            })}
-          </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    {expense.fuelType ? fuelTypeLabels[expense.fuelType] || expense.fuelType : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-600 dark:text-slate-400">R$ {pricePerLiter.toFixed(2)}/L</p>
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">R$ {(expense.value || 0).toFixed(2)}</p>
+                <p className="text-[10px] text-slate-500">{(expense.liters || 0).toFixed(1)} L</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
         </>
       ) : (
         <div className="flex flex-col items-center justify-center py-8 text-center">

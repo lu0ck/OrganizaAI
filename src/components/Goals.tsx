@@ -62,7 +62,7 @@ function countWorkedDays(rides: RideEntry[], startDate: Date, endDate: Date): nu
 
 const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function getDailyTarget(
+export function getDailyTarget(
   day: Date,
   goal: Goal | undefined,
   profile: UserProfile | null | undefined
@@ -74,7 +74,7 @@ function getDailyTarget(
   if (connectedToSchedule && profile?.workSchedule && profile?.hourlyRate && profile.hourlyRate > 0 && (useHourlyRate || targetValue <= 0)) {
     const dayName = dayNames[day.getDay()];
     const scheduleDay = profile.workSchedule.find(d => d.day === dayName);
-    if (scheduleDay?.active) {
+    if (scheduleDay?.active && scheduleDay.periods) {
       let dayHours = 0;
       scheduleDay.periods.forEach(p => {
         if (!p.start || !p.end) return;
@@ -671,16 +671,16 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                     &rarr;Cobre {format(parseISO(manualTo.fromDay), 'd/MM')}
                   </span>
                 )}
-                {!manualFrom && comp?.compensatedBy && (
-                  <span className="text-[8px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
-                    Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
-                  </span>
-                )}
-                {!manualTo && comp?.compensated && (
-                  <span className="text-[8px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
-                    &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
-                  </span>
-                )}
+{!manualFrom && comp?.compensatedBy && monthStats[comp.compensatedBy.day] && (
+          <span className="text-[8px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
+            Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
+          </span>
+        )}
+        {!manualTo && comp?.compensated && monthStats[comp.compensated.day] && (
+          <span className="text-[8px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
+            &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
+          </span>
+        )}
 
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-auto transition-all whitespace-nowrap z-10 shadow-xl">
                   {isManualCompensated ? (
@@ -706,12 +706,12 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                           Meta: R$ {stat.effectiveTarget.toFixed(2)}
                         </span>
                       )}
-                      {comp?.compensatedBy && (
-                        <span className="block text-blue-300 text-[10px]">
-                          Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
-                        </span>
-                      )}
-                      {onAddManualCompensation && (
+{comp?.compensatedBy && monthStats[comp.compensatedBy.day] && (
+          <span className="block text-blue-300 text-[10px]">
+            Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+          </span>
+        )}
+        {onAddManualCompensation && (
                         <button
                           onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget }); setCompCheckedDays(new Set()); compRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
                           className="mt-1 px-2 py-0.5 bg-sky-600 text-white text-[10px] rounded-lg hover:bg-sky-700 transition-all w-full"
@@ -723,17 +723,17 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   ) : stat.hasData && !stat.isMet ? (
                     <>
                       R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
-                      {comp?.compensatedBy && (
-                        <span className="block text-blue-300 text-[10px]">
-                          Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
-                        </span>
-                      )}
-                      {comp?.compensated && (
-                        <span className="block text-emerald-300 text-[10px]">
-                          Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
-                        </span>
-                      )}
-                      {onAddManualCompensation && (
+      {comp?.compensatedBy && monthStats[comp.compensatedBy.day] && (
+          <span className="block text-blue-300 text-[10px]">
+            Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+          </span>
+        )}
+        {comp?.compensated && monthStats[comp.compensated.day] && (
+          <span className="block text-emerald-300 text-[10px]">
+            Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
+          </span>
+        )}
+        {onAddManualCompensation && (
                         <button
                           onClick={() => { setCompModal({ fromDay: stat.day, deficit: stat.effectiveTarget - stat.totalEarned }); setCompCheckedDays(new Set()); compRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
                           className="mt-1 px-2 py-0.5 bg-sky-600 text-white text-[10px] rounded-lg hover:bg-sky-700 transition-all w-full"
@@ -745,28 +745,28 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   ) : stat.hasData && stat.isMet && manualTo ? (
                     <>
                       R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
-                      {comp?.compensated && (
-                        <span className="block text-emerald-300 text-[10px]">
-                          Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
-                        </span>
-                      )}
-                      <span className="block text-sky-300 text-[10px]">
-                        Cobriu {format(parseISO(manualTo!.fromDay), 'dd/MM')}: -R$ {manualTo!.amount.toFixed(2)}
-                      </span>
-                    </>
-                  ) : stat.hasData && stat.isMet ? (
-                    <>
-                      R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
-                      {comp?.compensatedBy && (
-                        <span className="block text-blue-300 text-[10px]">
-                          Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
-                        </span>
-                      )}
-                      {comp?.compensated && (
-                        <span className="block text-emerald-300 text-[10px]">
-                          Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
-                        </span>
-                      )}
+    {comp?.compensated && monthStats[comp.compensated.day] && (
+          <span className="block text-emerald-300 text-[10px]">
+            Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
+          </span>
+        )}
+        <span className="block text-sky-300 text-[10px]">
+          Cobriu {format(parseISO(manualTo!.fromDay), 'dd/MM')}: -R$ {manualTo!.amount.toFixed(2)}
+        </span>
+      </>
+    ) : stat.hasData && stat.isMet ? (
+      <>
+      R$ {stat.totalEarned.toFixed(2)} / R$ {stat.effectiveTarget.toFixed(2)}
+      {comp?.compensatedBy && monthStats[comp.compensatedBy.day] && (
+          <span className="block text-blue-300 text-[10px]">
+            Comp. automático por {format(monthStats[comp.compensatedBy.day].day, 'dd/MM')}: +R$ {comp.compensatedBy.amount.toFixed(2)}
+          </span>
+        )}
+        {comp?.compensated && monthStats[comp.compensated.day] && (
+          <span className="block text-emerald-300 text-[10px]">
+            Compensou {format(monthStats[comp.compensated.day].day, 'dd/MM')}: R$ {comp.compensated.amount.toFixed(2)}
+          </span>
+        )}
                     </>
                   ) : 'Folga'}
                 </div>
@@ -815,9 +815,10 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 Déficit: R$ {compModal.deficit.toFixed(2)} — Selecione dias para cobrir
               </p>
               <div className="mb-3">
-                {monthStats.map((s, idx) => {
-                  const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((acc, c) => acc + c.amount, 0);
-                  const surplus = s.hasData ? Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual) : 0;
+{monthStats.map((s, idx) => {
+        const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((acc, c) => acc + c.amount, 0);
+        const autoComp = compensationMap.get(idx)?.compensated?.amount || 0;
+        const surplus = s.hasData ? Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual - autoComp) : 0;
                   const checked = compCheckedDays.has(idx);
                   return (
                     <label key={idx} className={cn(
@@ -850,11 +851,12 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               </div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold text-sky-800 dark:text-sky-300">
-                  Total selecionado: R$ {Array.from(compCheckedDays).reduce((acc, idx) => {
-                    const s = monthStats[idx];
-                    const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((a, c) => a + c.amount, 0);
-                    return acc + Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual);
-                  }, 0).toFixed(2)}
+Total selecionado: R$ {(Array.from(compCheckedDays) as number[]).reduce((acc, idx) => {
+      const s = monthStats[idx];
+      const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((a, c) => a + c.amount, 0);
+      const autoComp = compensationMap.get(idx)?.compensated?.amount || 0;
+      return acc + Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual - autoComp);
+    }, 0).toFixed(2)}
                 </span>
               </div>
               <div className="flex gap-2">
@@ -862,12 +864,13 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   onClick={() => {
                     if (compCheckedDays.size === 0) return;
                     let remaining = compModal.deficit;
-                    const sorted = Array.from(compCheckedDays).sort((a, b) => a - b);
-                    for (const idx of sorted) {
-                      if (remaining <= 0) break;
-                      const s = monthStats[idx];
-                      const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((a, c) => a + c.amount, 0);
-                      const maxAvail = Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual);
+                    const sorted = (Array.from(compCheckedDays) as number[]).sort((a, b) => a - b);
+for (const idx of sorted) {
+          if (remaining <= 0) break;
+          const s = monthStats[idx];
+          const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((a, c) => a + c.amount, 0);
+          const autoComp = compensationMap.get(idx)?.compensated?.amount || 0;
+          const maxAvail = Math.max(0, s.totalEarned - s.effectiveTarget - usedAsToManual - autoComp);
                       const amount = Math.min(maxAvail, remaining);
                       if (amount > 0) {
                         onAddManualCompensation?.({
