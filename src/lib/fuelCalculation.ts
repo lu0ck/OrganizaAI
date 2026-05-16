@@ -202,15 +202,12 @@ export function recalculateFuelExpensesChain(
         expense.fullTank
       );
 
-      const updatedExpense: Expense = {
-        ...expense,
-        saldoBeforeFueling: result.saldoBeforeFueling,
-        saldoAfterFueling: result.saldoAfterFueling,
-        segmentConsumption: result.segmentConsumption,
-        isCalibrated: result.isCalibrated,
-        fuelBurned: result.fuelBurned,
-        calibrationType: result.calibrationType
-      };
+        const updatedExpense: Expense = {
+          ...expense,
+          saldoAfterFueling: result.saldoAfterFueling,
+          segmentConsumption: result.segmentConsumption,
+          isCalibrated: result.isCalibrated,
+        };
 
       previousExpense = updatedExpense;
       return updatedExpense;

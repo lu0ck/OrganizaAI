@@ -86,12 +86,9 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
       tripOnReserve,
       enteredReserve: formData.enteredReserve,
       fullTank: formData.fullTank,
-      saldoBeforeFueling: result.saldoBeforeFueling,
       saldoAfterFueling: result.saldoAfterFueling,
       segmentConsumption: result.segmentConsumption,
       isCalibrated: result.isCalibrated,
-      fuelBurned: result.fuelBurned,
-      calibrationType: result.calibrationType
     };
     }
     
@@ -458,25 +455,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                 <div>
                   <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
                   <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
-                  {isFuel && (
-                    <div className="flex flex-wrap gap-1.5 mt-1">
-                      {expense.calibrationType === 'exact' && (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded uppercase">Calibrado</span>
-                      )}
-                      {expense.calibrationType === 'estimate' && (
-                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded uppercase">Estimado</span>
-                      )}
-                      {isFuel && expense.isCalibrated && !expense.calibrationType && (
-                        <span className="text-[10px] font-bold text-emerald-500 uppercase">Calibrado</span>
-                      )}
-                      {isFuel && !expense.isCalibrated && expense.segmentConsumption && (
-                        <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded uppercase">Estimado</span>
-                      )}
-                      {expense.fullTank && (
-                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded uppercase">Tanque cheio</span>
-                      )}
-                    </div>
-                  )}
+
                 </div>
               </div>
 
@@ -518,30 +497,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
                   </div>
                 ) : null}
-                {isFuel && expense.fuelBurned !== undefined && expense.fuelBurned > 0 && (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Queimado</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {expense.fuelBurned!.toFixed(2)}L
-                    </p>
-                  </div>
-                )}
-                {isFuel && expense.saldoBeforeFueling !== undefined && (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Saldo antes</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {expense.saldoBeforeFueling!.toFixed(1)}L
-                    </p>
-                  </div>
-                )}
-                {isFuel && expense.saldoAfterFueling !== undefined && (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Saldo após</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {expense.saldoAfterFueling!.toFixed(1)}L
-                    </p>
-                  </div>
-                )}
+
           <button
             onClick={() => {
               setEditingId(expense.id);

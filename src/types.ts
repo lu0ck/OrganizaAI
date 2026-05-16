@@ -35,12 +35,9 @@ export interface Expense {
   enteredReserve?: boolean;
   fullTank?: boolean;
   // Campos calculados automaticamente
-  saldoBeforeFueling?: number;
   saldoAfterFueling?: number;
   segmentConsumption?: number;
   isCalibrated?: boolean;
-  fuelBurned?: number;
-  calibrationType?: 'exact' | 'estimate';
 }
 
 export interface Goal {

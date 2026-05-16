@@ -473,7 +473,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
 
           <div className="space-y-6">
             <div className="flex items-center justify-between"><h3 className="text-lg font-bold dark:text-white">Agenda de Trabalho</h3><p className="text-xs text-slate-500">Clique no dia para ativar/desativar</p></div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {simulation.schedule.map((item, i) => (
                 <div key={item.day} className={cn("relative p-4 rounded-2xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-lg shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
                   <div className="text-center mb-3">
@@ -754,7 +754,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
         {(localPlan.days || []).map((day, i) => (
           <div key={day.day} className="space-y-2">
             <button onClick={() => toggleDay(i)} className={cn("w-full py-2 px-1 rounded-xl text-xs font-bold border transition-all", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}</button>
