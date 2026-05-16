@@ -80,14 +80,14 @@ export function calculateFuelBalance(
     saldoBeforeFueling = Math.max(R - fuelBurnedOnReserve, 0);
   } else if (tripOnReserve > 0 && !prevFullTank) {
     isCalibrated = false;
-    segmentConsumption = historicalAverage && historicalAverage > 0 ? historicalAverage : null;
+    segmentConsumption = historicalAverage && historicalAverage > 0 ? historicalAverage : (profile.kmPerLiter || null);
     const Santerior = previousExpense.saldoAfterFueling;
     const estimatedFuelBurned = Santerior !== undefined ? Santerior - R : T - R;
     saldoBeforeFueling = Math.max(R - (segmentConsumption ? tripOnReserve / segmentConsumption : 0), 0);
     if (saldoBeforeFueling < 0) saldoBeforeFueling = 0;
   } else {
     isCalibrated = false;
-    segmentConsumption = historicalAverage && historicalAverage > 0 ? historicalAverage : null;
+    segmentConsumption = historicalAverage && historicalAverage > 0 ? historicalAverage : (profile.kmPerLiter || null);
     const Santerior = previousExpense.saldoAfterFueling;
     if (Santerior !== undefined && segmentConsumption) {
       const fuelBurned = tripTotal / segmentConsumption;
@@ -246,10 +246,10 @@ export function recalculateFuelExpensesChain(
         );
 
         const prevIdx = previousExpense ? result.indexOf(previousExpense) : -1;
-        if (prevIdx >= 0 && calcResult.segmentConsumption !== null) {
+        if (prevIdx >= 0) {
           result[prevIdx] = {
             ...result[prevIdx],
-            segmentConsumption: calcResult.segmentConsumption,
+            segmentConsumption: calcResult.segmentConsumption ?? result[prevIdx].segmentConsumption ?? null,
             isCalibrated: calcResult.isCalibrated,
             calculatedTripTotal: calcResult.tripTotal,
             calculatedTripOnReserve: calcResult.tripOnReserve,

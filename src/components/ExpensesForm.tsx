@@ -413,15 +413,15 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
             </div>
             <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2">
               <Filter size={16} className="text-slate-400" />
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="bg-transparent text-sm outline-none dark:text-white cursor-pointer"
-              >
-                <option value="all">Todos os Tipos</option>
-                {expenseTypes.map(t => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
-                ))}
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="bg-transparent text-sm outline-none text-slate-900 dark:text-white cursor-pointer"
+                >
+                  <option value="all" className="text-slate-900 bg-white">Todos os Tipos</option>
+                  {expenseTypes.map(t => (
+                    <option key={t.id} value={t.id} className="text-slate-900 bg-white">{t.label}</option>
+                  ))}
               </select>
             </div>
           </div>
@@ -437,9 +437,9 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
   {filteredExpenses.map((expense, expenseIndex) => {
         const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
         const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
-        const isFuel = expense.type === 'combustivel';
-        const isLastOfFuelType = lastFuelExpenseIds.has(expense.id);
-        const hasConsumption = isFuel && !isLastOfFuelType && expense.segmentConsumption && expense.segmentConsumption > 0;
+            const isFuel = expense.type === 'combustivel';
+            const isLastOfFuelType = lastFuelExpenseIds.has(expense.id);
+            const hasDeslocamento = isFuel && !isLastOfFuelType && (expense.calculatedTripTotal !== undefined && expense.calculatedTripTotal !== null);
         return (
           <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -478,21 +478,21 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </p>
                   </div>
                 )}
-                {hasConsumption && (
+                {hasDeslocamento && expense.segmentConsumption && expense.segmentConsumption > 0 ? (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Consumo</p>
                     <p className="font-bold text-slate-900 dark:text-white">
-                      {expense.segmentConsumption!.toFixed(1)} km/l
+                      {expense.segmentConsumption.toFixed(1)} km/l
                     </p>
                   </div>
-                )}
-                {hasConsumption && expense.calculatedTripTotal ? (
+                ) : null}
+                {hasDeslocamento ? (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Trip</p>
                     <p className="font-bold text-slate-900 dark:text-white">{expense.calculatedTripTotal} km</p>
                   </div>
                 ) : null}
-                {hasConsumption && expense.calculatedTripOnReserve && expense.calculatedTripOnReserve > 0 ? (
+                {hasDeslocamento && expense.calculatedTripOnReserve && expense.calculatedTripOnReserve > 0 ? (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Reserva</p>
                     <p className="font-bold text-orange-600 dark:text-orange-400">{expense.calculatedTripOnReserve} km</p>
