@@ -4,7 +4,7 @@ import { Expense, UserProfile } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
 import FuelCalculator from './FuelCalculator';
-import { calculateFuelBalance, getLastFuelExpense, hasValidFuelData } from '../lib/fuelCalculation';
+import { hasValidFuelData } from '../lib/fuelCalculation';
 
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -58,39 +58,33 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses, filterType, searchTerm]);
 
-  const lastFuelExpense = getLastFuelExpense(expenses);
+  const lastFuelExpenseIds = useMemo(() => {
+    const ids = new Set<string>();
+    const fuelByType = expenses.filter(e => e.type === 'combustivel');
+    const types = new Set(fuelByType.map(e => e.fuelType || 'gasolina'));
+    types.forEach(ft => {
+      const oftype = fuelByType.filter(e => (e.fuelType || 'gasolina') === ft)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      if (oftype.length > 0) ids.add(oftype[0].id);
+    });
+    return ids;
+  }, [expenses]);
+
   const hasValidConfig = hasValidFuelData(profile);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    let calculatedFields = {};
-    
-    // Se for combustível, calcular campos
-    if (formData.type === 'combustivel' && formData.tripTotal && formData.liters) {
-      const tripTotal = Number(formData.tripTotal);
-      const tripOnReserve = formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : 0;
-      const liters = Number(formData.liters);
-      
-    const result = calculateFuelBalance(
-      tripTotal,
-      tripOnReserve,
-      liters,
-      profile,
-      lastFuelExpense,
-      formData.fullTank
-    );
 
+  let calculatedFields: Partial<Expense> = {};
+
+  if (formData.type === 'combustivel') {
     calculatedFields = {
-      tripTotal,
-      tripOnReserve,
-      enteredReserve: formData.enteredReserve,
-      fullTank: formData.fullTank,
-      saldoAfterFueling: result.saldoAfterFueling,
-      segmentConsumption: result.segmentConsumption,
-      isCalibrated: result.isCalibrated,
+      tripTotal: Number(formData.tripTotal) || undefined,
+      tripOnReserve: formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : undefined,
+      enteredReserve: formData.enteredReserve || undefined,
+      fullTank: formData.fullTank || undefined,
     };
-    }
+  }
     
     const newExpense: Expense = {
       id: editingId || crypto.randomUUID(),
@@ -444,7 +438,8 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
         const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
         const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
         const isFuel = expense.type === 'combustivel';
-        const hasConsumption = isFuel && expense.segmentConsumption && expense.segmentConsumption > 0;
+        const isLastOfFuelType = lastFuelExpenseIds.has(expense.id);
+        const hasConsumption = isFuel && !isLastOfFuelType && expense.segmentConsumption && expense.segmentConsumption > 0;
         return (
           <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -491,12 +486,23 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </p>
                   </div>
                 )}
-                {isFuel && expense.tripTotal ? (
+                {hasConsumption && expense.calculatedTripTotal ? (
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Trip</p>
-                    <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{expense.calculatedTripTotal} km</p>
                   </div>
                 ) : null}
+                {hasConsumption && expense.calculatedTripOnReserve && expense.calculatedTripOnReserve > 0 ? (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Reserva</p>
+                    <p className="font-bold text-orange-600 dark:text-orange-400">{expense.calculatedTripOnReserve} km</p>
+                  </div>
+                ) : null}
+                {isFuel && isLastOfFuelType && (
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 italic">Aguardando próximo abastecimento</p>
+                  </div>
+                )}
 
           <button
             onClick={() => {

@@ -147,30 +147,30 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
     const variableCostPerKm = filteredKm > 0 ? (filteredFuel + filteredMaintenance) / filteredKm : 0;
     const totalCostPerKm = filteredKm > 0 ? (totalExpenses + totalFixedCosts) / filteredKm : 0;
 
-    const globalConsumption = calculateGlobalConsumption(expenses);
-    const fullTankExpenses = expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true);
-    const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
-    const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
-    const simpleAverage = totalLiters > 0 ? fullTankKm / totalLiters : 0;
-    const kmPerLiter = globalConsumption.status === 'valid' && globalConsumption.globalAverage > 0
-      ? globalConsumption.globalAverage
-      : simpleAverage || profile?.kmPerLiter || 0;
+  const globalConsumption = calculateGlobalConsumption(expenses);
+  const fullTankExpenses = expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true);
+  const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
+  const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
+  const simpleAverage = totalLiters > 0 ? fullTankKm / totalLiters : 0;
+  const kmPerLiter = globalConsumption.status === 'valid' && globalConsumption.globalAverage && globalConsumption.globalAverage > 0
+    ? globalConsumption.globalAverage
+    : simpleAverage || profile?.kmPerLiter || 0;
 
-    const lastFuelExpense = getLastFuelExpense(expenses);
-    const kmSinceLastFuel = lastFuelExpense
-      ? rides.filter(r => {
-          const rideDate = parseISO(r.date);
-          const fuelDate = parseISO(lastFuelExpense.date);
-          return rideDate > fuelDate;
-        }).reduce((acc, r) => acc + r.kmDriven, 0)
-      : 0;
-    const estimatedBalance = lastFuelExpense && kmPerLiter > 0
-      ? Math.max(0, (lastFuelExpense.saldoAfterFueling || 0) - (kmSinceLastFuel / kmPerLiter))
-      : lastFuelExpense?.saldoAfterFueling || 0;
+  const lastFuelExpense = getLastFuelExpense(expenses);
+  const kmSinceLastFuel = lastFuelExpense
+    ? rides.filter(r => {
+        const rideDate = parseISO(r.date);
+        const fuelDate = parseISO(lastFuelExpense.date);
+        return rideDate > fuelDate;
+      }).reduce((acc, r) => acc + r.kmDriven, 0)
+    : 0;
+  const estimatedBalance = lastFuelExpense && kmPerLiter > 0
+    ? Math.max(0, (lastFuelExpense.saldoAfterFueling || 0) - (kmSinceLastFuel / kmPerLiter))
+    : lastFuelExpense?.saldoAfterFueling || 0;
 
-    const autonomy = lastFuelExpense && globalConsumption.status === 'valid'
-      ? calculateAutonomy(estimatedBalance, globalConsumption.globalAverage)
-      : lastFuelExpense && kmPerLiter > 0
+  const autonomy = lastFuelExpense && globalConsumption.status === 'valid' && globalConsumption.globalAverage
+    ? calculateAutonomy(estimatedBalance, globalConsumption.globalAverage)
+    : lastFuelExpense && kmPerLiter > 0
       ? calculateAutonomy(estimatedBalance, kmPerLiter)
       : null;
 

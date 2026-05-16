@@ -2,12 +2,11 @@ import { Expense, UserProfile } from '../types';
 
 export interface FuelCalculationResult {
   usefulDistance: number;
-  segmentConsumption: number;
-  saldoBeforeFueling: number;
+  segmentConsumption: number | null;
   saldoAfterFueling: number;
   isCalibrated: boolean;
-  fuelBurned: number;
-  calibrationType?: 'exact' | 'estimate';
+  tripTotal: number;
+  tripOnReserve: number;
 }
 
 export interface GlobalConsumptionResult {
@@ -15,7 +14,7 @@ export interface GlobalConsumptionResult {
   totalLitersAdded: number;
   currentSaldo: number;
   litersBurned: number;
-  globalAverage: number;
+  globalAverage: number | null;
   status: 'valid' | 'insufficient_data' | 'no_fuel_data';
   validSegments: number;
 }
@@ -25,67 +24,76 @@ export interface AutonomyResult {
   percentRemaining: number;
 }
 
+const FUEL_TYPES = ['gasolina', 'alcool', 'gnv'] as const;
+type FuelType = typeof FUEL_TYPES[number];
+
+const FUEL_TYPE_LABELS: Record<FuelType, string> = {
+  gasolina: 'Gasolina',
+  alcool: 'Álcool',
+  gnv: 'GNV',
+};
+
+export function getFuelTypeLabel(ft: FuelType | string): string {
+  return FUEL_TYPE_LABELS[ft as FuelType] || ft;
+}
+
+export function getFuelTypes(): readonly FuelType[] {
+  return FUEL_TYPES;
+}
+
 export function calculateFuelBalance(
   tripTotal: number,
   tripOnReserve: number,
   litersAdded: number,
   profile: UserProfile,
   previousExpense?: Expense,
-  fullTank?: boolean
+  fullTank?: boolean,
+  historicalAverage?: number
 ): FuelCalculationResult {
   const T = profile.totalTankSize || 50;
   const R = profile.reserveSize || 5;
-  const Cref = previousExpense?.segmentConsumption || profile.kmPerLiter || 10;
-
   const usefulDistance = tripTotal - tripOnReserve;
 
   if (!previousExpense) {
     const saldoAfterFueling = fullTank ? T : Math.min(litersAdded, T);
     return {
       usefulDistance,
-      segmentConsumption: Cref,
-      saldoBeforeFueling: 0,
+      segmentConsumption: null,
       saldoAfterFueling,
       isCalibrated: false,
-      fuelBurned: 0,
-      calibrationType: undefined
+      tripTotal,
+      tripOnReserve,
     };
   }
 
-  let segmentConsumption: number;
-  let saldoBeforeFueling: number;
-  let isCalibrated: boolean;
-  let fuelBurned: number;
-  let calibrationType: 'exact' | 'estimate' | undefined;
-
-  const Santerior = previousExpense.saldoAfterFueling;
   const prevFullTank = previousExpense.fullTank === true;
 
-  if (tripOnReserve > 0) {
+  let segmentConsumption: number | null;
+  let isCalibrated: boolean;
+  let saldoBeforeFueling: number;
+
+  if (tripOnReserve > 0 && prevFullTank) {
     isCalibrated = true;
-
-    if (prevFullTank) {
-      fuelBurned = T - R;
-      calibrationType = 'exact';
-    } else {
-      fuelBurned = (Santerior !== undefined ? Santerior : T) - R;
-      if (fuelBurned < 0) fuelBurned = 0;
-      calibrationType = 'estimate';
-    }
-
-    segmentConsumption = fuelBurned > 0 ? usefulDistance / fuelBurned : Cref;
-
-    const fuelBurnedOnReserve = segmentConsumption > 0 ? tripOnReserve / segmentConsumption : 0;
+    const litrosUsadosAntesReserva = T - R;
+    segmentConsumption = usefulDistance > 0 ? usefulDistance / litrosUsadosAntesReserva : null;
+    const fuelBurnedOnReserve = segmentConsumption ? tripOnReserve / segmentConsumption : 0;
     saldoBeforeFueling = Math.max(R - fuelBurnedOnReserve, 0);
+  } else if (tripOnReserve > 0 && !prevFullTank) {
+    isCalibrated = false;
+    segmentConsumption = historicalAverage && historicalAverage > 0 ? historicalAverage : null;
+    const Santerior = previousExpense.saldoAfterFueling;
+    const estimatedFuelBurned = Santerior !== undefined ? Santerior - R : T - R;
+    saldoBeforeFueling = Math.max(R - (segmentConsumption ? tripOnReserve / segmentConsumption : 0), 0);
+    if (saldoBeforeFueling < 0) saldoBeforeFueling = 0;
   } else {
     isCalibrated = false;
-    calibrationType = undefined;
-    segmentConsumption = Cref;
-    fuelBurned = segmentConsumption > 0 ? tripTotal / segmentConsumption : 0;
-    saldoBeforeFueling = (Santerior !== undefined ? Santerior : T) - fuelBurned;
-    if (saldoBeforeFueling < 0) {
-      saldoBeforeFueling = 0;
-      fuelBurned = Santerior !== undefined ? Santerior : T;
+    segmentConsumption = historicalAverage && historicalAverage > 0 ? historicalAverage : null;
+    const Santerior = previousExpense.saldoAfterFueling;
+    if (Santerior !== undefined && segmentConsumption) {
+      const fuelBurned = tripTotal / segmentConsumption;
+      saldoBeforeFueling = Math.max(Santerior - fuelBurned, 0);
+    } else {
+      saldoBeforeFueling = Santerior !== undefined ? Santerior : T;
     }
   }
 
@@ -94,17 +102,49 @@ export function calculateFuelBalance(
   return {
     usefulDistance,
     segmentConsumption,
-    saldoBeforeFueling,
     saldoAfterFueling,
     isCalibrated,
-    fuelBurned,
-    calibrationType
+    tripTotal,
+    tripOnReserve,
   };
 }
 
-export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumptionResult {
+export function calculateHistoricalAverage(expenses: Expense[], fuelType?: FuelType): number | null {
+  const calibrated = expenses.filter(
+    e => e.type === 'combustivel'
+      && e.isCalibrated === true
+      && e.segmentConsumption
+      && e.segmentConsumption > 0
+      && e.tripTotal
+      && e.tripTotal > 0
+      && (fuelType ? e.fuelType === fuelType : true)
+  );
+
+  if (calibrated.length === 0) return null;
+
+  const weightedSum = calibrated.reduce(
+    (sum, e) => sum + (e.segmentConsumption || 0) * (e.tripTotal || 0),
+    0
+  );
+  const totalKm = calibrated.reduce(
+    (sum, e) => sum + (e.tripTotal || 0),
+    0
+  );
+
+  return totalKm > 0 ? weightedSum / totalKm : null;
+}
+
+export function calculateGlobalConsumption(
+  expenses: Expense[],
+  fuelType?: FuelType
+): GlobalConsumptionResult {
   const fuelExpenses = expenses
-    .filter(e => e.type === 'combustivel' && e.tripTotal !== undefined && e.liters !== undefined)
+    .filter(e =>
+      e.type === 'combustivel'
+      && e.tripTotal !== undefined
+      && e.liters !== undefined
+      && (fuelType ? e.fuelType === fuelType : true)
+    )
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (fuelExpenses.length === 0) {
@@ -113,9 +153,9 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
       totalLitersAdded: 0,
       currentSaldo: 0,
       litersBurned: 0,
-      globalAverage: 0,
+      globalAverage: null,
       status: 'no_fuel_data',
-      validSegments: 0
+      validSegments: 0,
     };
   }
 
@@ -135,9 +175,9 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
       totalLitersAdded,
       currentSaldo,
       litersBurned,
-      globalAverage: 0,
+      globalAverage: null,
       status: 'insufficient_data',
-      validSegments: 0
+      validSegments: 0,
     };
   }
 
@@ -149,7 +189,7 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
     (sum, e) => sum + (e.tripTotal || 0),
     0
   );
-  const globalAverage = totalCalibratedKm > 0 ? weightedSum / totalCalibratedKm : 0;
+  const globalAverage = totalCalibratedKm > 0 ? weightedSum / totalCalibratedKm : null;
 
   return {
     totalKm,
@@ -158,7 +198,7 @@ export function calculateGlobalConsumption(expenses: Expense[]): GlobalConsumpti
     litersBurned,
     globalAverage,
     status: 'valid',
-    validSegments
+    validSegments,
   };
 }
 
@@ -169,7 +209,7 @@ export function calculateAutonomy(
   const kmAutonomy = saldo * averageConsumption;
   return {
     kmAutonomy,
-    percentRemaining: 0
+    percentRemaining: 0,
   };
 }
 
@@ -177,51 +217,81 @@ export function recalculateFuelExpensesChain(
   expenses: Expense[],
   profile: UserProfile
 ): Expense[] {
-  const fuelExpenses = expenses
-    .filter(e => e.type === 'combustivel')
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const result = [...expenses];
 
-  let previousExpense: Expense | undefined;
+  for (const ft of FUEL_TYPES) {
+    const indices = result
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => e.type === 'combustivel' && e.fuelType === ft)
+      .sort((a, b) => new Date(a.e.date).getTime() - new Date(b.e.date).getTime());
 
-  return expenses.map(expense => {
-    if (expense.type !== 'combustivel') {
-      return expense;
-    }
+    let previousExpense: Expense | undefined;
 
-    const tripTotal = expense.tripTotal || 0;
-    const tripOnReserve = expense.tripOnReserve || 0;
-    const liters = expense.liters || 0;
+    for (const { i } of indices) {
+      const expense = result[i];
+      const tripTotal = expense.tripTotal || 0;
+      const tripOnReserve = expense.tripOnReserve || 0;
+      const liters = expense.liters || 0;
 
-    if (tripTotal > 0 && liters > 0) {
-      const result = calculateFuelBalance(
-        tripTotal,
-        tripOnReserve,
-        liters,
-        profile,
-        previousExpense,
-        expense.fullTank
-      );
+      if (tripTotal > 0 && liters > 0) {
+        const histAvg = calculateHistoricalAverage(result, ft);
+        const calcResult = calculateFuelBalance(
+          tripTotal,
+          tripOnReserve,
+          liters,
+          profile,
+          previousExpense,
+          expense.fullTank,
+          histAvg ?? undefined
+        );
 
-        const updatedExpense: Expense = {
+        const prevIdx = previousExpense ? result.indexOf(previousExpense) : -1;
+        if (prevIdx >= 0 && calcResult.segmentConsumption !== null) {
+          result[prevIdx] = {
+            ...result[prevIdx],
+            segmentConsumption: calcResult.segmentConsumption,
+            isCalibrated: calcResult.isCalibrated,
+            calculatedTripTotal: calcResult.tripTotal,
+            calculatedTripOnReserve: calcResult.tripOnReserve,
+          };
+        }
+
+        result[i] = {
           ...expense,
-          saldoAfterFueling: result.saldoAfterFueling,
-          segmentConsumption: result.segmentConsumption,
-          isCalibrated: result.isCalibrated,
+          saldoAfterFueling: calcResult.saldoAfterFueling,
         };
 
-      previousExpense = updatedExpense;
-      return updatedExpense;
+        previousExpense = result[i];
+      } else {
+        previousExpense = expense;
+      }
     }
+  }
 
-    previousExpense = expense;
-    return expense;
-  });
+  return result;
 }
 
-export function getLastFuelExpense(expenses: Expense[]): Expense | undefined {
+export function getLastFuelExpense(
+  expenses: Expense[],
+  fuelType?: FuelType
+): Expense | undefined {
   return expenses
-    .filter(e => e.type === 'combustivel' && e.saldoAfterFueling !== undefined)
+    .filter(e =>
+      e.type === 'combustivel'
+      && e.saldoAfterFueling !== undefined
+      && (fuelType ? e.fuelType === fuelType : true)
+    )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+}
+
+export function getActiveFuelTypes(expenses: Expense[]): FuelType[] {
+  const types = new Set<FuelType>();
+  expenses.forEach(e => {
+    if (e.type === 'combustivel' && e.fuelType) {
+      types.add(e.fuelType as FuelType);
+    }
+  });
+  return FUEL_TYPES.filter(ft => types.has(ft));
 }
 
 export function hasValidFuelData(profile: UserProfile): boolean {

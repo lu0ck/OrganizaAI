@@ -84,11 +84,11 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
             </p>
           </div>
         </div>
-        {globalConsumption.status === 'valid' && (
-          <div className="flex gap-4 text-sm">
-            <div className="text-center">
-              <p className="text-[10px] text-slate-500 uppercase font-bold">Média</p>
-              <p className="font-bold text-emerald-600">{globalConsumption.globalAverage.toFixed(1)}</p>
+    {globalConsumption.status === 'valid' && globalConsumption.globalAverage && (
+      <div className="flex gap-4 text-sm">
+        <div className="text-center">
+          <p className="text-[10px] text-slate-500 uppercase font-bold">Média</p>
+          <p className="font-bold text-emerald-600">{globalConsumption.globalAverage.toFixed(1)}</p>
             </div>
             <div className="text-center">
               <p className="text-[10px] text-slate-500 uppercase font-bold">KM Total</p>
@@ -113,8 +113,8 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} domain={['dataMin - 2', 'dataMax + 2']} unit=" km/l" />
                 <RechartsTooltip content={<CustomTooltip />} />
-                {globalConsumption.status === 'valid' && (
-                  <ReferenceLine y={globalConsumption.globalAverage} stroke="#10b981" strokeDasharray="5 5" strokeOpacity={0.5} />
+      {globalConsumption.status === 'valid' && globalConsumption.globalAverage && (
+        <ReferenceLine y={globalConsumption.globalAverage} stroke="#10b981" strokeDasharray="5 5" strokeOpacity={0.5} />
                 )}
                 <Area type="monotone" dataKey="kmPerLiter" stroke="#10b981" strokeWidth={2} fill="url(#colorConsumption)" />
               </AreaChart>

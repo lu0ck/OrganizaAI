@@ -135,27 +135,6 @@ useEffect(() => {
   }
   }, [safeState.maintenance, setState]);
 
-  // Recalcular abastecimentos em cascata ao iniciar
-  useEffect(() => {
-    if (!safeState.profile || safeState.expenses.length === 0) return;
-
-    const hasFuelExpenses = safeState.expenses.some(e => e.type === 'combustivel' && e.tripTotal);
-    if (!hasFuelExpenses) return;
-
-    try {
-      const recalculatedExpenses = recalculateFuelExpensesChain(safeState.expenses, safeState.profile);
-      const hasChanges = recalculatedExpenses.some((e, i) =>
-        e.saldoAfterFueling !== safeState.expenses[i]?.saldoAfterFueling
-      );
-
-      if (hasChanges) {
-        setState(prev => ({ ...prev, expenses: recalculatedExpenses }));
-      }
-    } catch (error) {
-      console.error('Error recalculating fuel expenses:', error);
-    }
-  }, [safeState.expenses, safeState.profile]);
-
   // Atualizar consumo atual no perfil
   useEffect(() => {
     if (!safeState.profile) return;
@@ -165,8 +144,8 @@ useEffect(() => {
 
       let currentKmPerLiter = 0;
 
-      if (globalConsumption.status === 'valid' && globalConsumption.globalAverage > 0) {
-        currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
+    if (globalConsumption.status === 'valid' && globalConsumption.globalAverage && globalConsumption.globalAverage > 0) {
+      currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
       } else {
         const fullTankExpenses = safeState.expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true);
         const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);

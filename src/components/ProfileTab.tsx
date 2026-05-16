@@ -125,17 +125,18 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                 KM Atual do Odômetro
                 <span className="block text-[10px] text-slate-400 font-normal">Quilometragem total do veículo (usado para controle de manutenção)</span>
               </label>
-          <input
-              type="number"
-              step="0.01"
-              value={formData.vehicleOdometerKm !== undefined ? Number(formData.vehicleOdometerKm).toFixed(2) : ''}
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  setFormData({ ...formData, vehicleOdometerKm: value > 0 ? value : undefined });
-                }}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
-                placeholder="Ex: 65000"
-              />
+        <input
+          type="text"
+          inputMode="numeric"
+          value={formData.vehicleOdometerKm !== undefined ? String(formData.vehicleOdometerKm) : ''}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/[^0-9]/g, '');
+            const value = raw ? Number(raw) : undefined;
+            setFormData({ ...formData, vehicleOdometerKm: value && value > 0 ? value : undefined });
+          }}
+          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+          placeholder="Ex: 65000"
+        />
               <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-1">
                 <Info size={12} className="shrink-0" />
                 Atualizado automaticamente ao registrar um abastecimento
