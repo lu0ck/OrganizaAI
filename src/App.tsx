@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bike, Car, Download, AlertCircle, X as CloseIcon,
@@ -164,9 +164,31 @@ useEffect(() => {
     } catch (error) {
       console.error('Error updating consumption:', error);
     }
-  }, [safeState.expenses, safeState.profile]);
+}, [safeState.expenses, safeState.profile]);
 
-  const toggleTheme = () => {
+  const fuelChainRecalcRef = useRef(false);
+
+  useEffect(() => {
+    if (!safeState.profile || fuelChainRecalcRef.current) return;
+    fuelChainRecalcRef.current = true;
+    try {
+      const recalculated = recalculateFuelExpensesChain(safeState.expenses, safeState.profile);
+      const hasChanges = recalculated.some((re, i) => {
+        const orig = safeState.expenses[i];
+        return re.calculatedTripTotal !== orig.calculatedTripTotal
+          || re.calculatedTripOnReserve !== orig.calculatedTripOnReserve
+          || re.segmentConsumption !== orig.segmentConsumption
+          || re.saldoAfterFueling !== orig.saldoAfterFueling;
+      });
+      if (hasChanges) {
+        setState(prev => ({ ...prev, expenses: recalculated }));
+      }
+    } catch (error) {
+      console.error('Error recalculating fuel chain on load:', error);
+    }
+  }, []);
+
+const toggleTheme = () => {
     setState(prev => ({ ...prev, theme: prev.theme === 'light' ? 'dark' : 'light' }));
   };
 
@@ -250,9 +272,11 @@ setState(prev => {
         }
       }
 
-      const newExpenses = prevExpenses.map(e =>
-        e.id === updatedExpense.id ? updatedExpense : e
-      );
+  const newExpenses = prevExpenses.map(e => {
+    if (e.id !== updatedExpense.id) return e;
+    const { segmentConsumption, calculatedTripTotal, calculatedTripOnReserve, isCalibrated, saldoAfterFueling } = e;
+    return { ...updatedExpense, segmentConsumption, calculatedTripTotal, calculatedTripOnReserve, isCalibrated, saldoAfterFueling };
+  });
 
       if (newProfile) {
         const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, newProfile);

@@ -97,25 +97,27 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
       };
     });
 
-    const totalLiters = expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true).reduce((acc, e) => acc + (e.liters || 0), 0);
-    const simpleAverage = totalLiters > 0
-      ? expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true).reduce((acc, e) => acc + (e.tripTotal || 0), 0) / totalLiters
-      : 0;
-    const kmPerLiter = profile.kmPerLiter || simpleAverage || 0;
+  const totalLiters = expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true).reduce((acc, e) => acc + (e.liters || 0), 0);
+  const simpleAverage = totalLiters > 0
+    ? expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true).reduce((acc, e) => acc + (e.tripTotal || 0), 0) / totalLiters
+    : 0;
+  const kmPerLiter = profile.kmPerLiter || simpleAverage || 0;
+  const globalConsumption = calculateGlobalConsumption(expenses);
 
-    return {
-      totalKm,
-      currentOdometerKm,
-      totalFuelValue,
-      totalLiters,
-      totalMaintenance,
-      kmPerLiter,
-      costPerKm,
-      avgKmPerDay,
-      maintenanceCount: maintenanceExpenses.length,
-      activeFuelTypes,
-      perTypeStats,
-    };
+  return {
+    totalKm,
+    currentOdometerKm,
+    totalFuelValue,
+    totalLiters,
+    totalMaintenance,
+    kmPerLiter,
+    costPerKm,
+    avgKmPerDay,
+    maintenanceCount: maintenanceExpenses.length,
+    activeFuelTypes,
+    perTypeStats,
+    globalConsumption,
+  };
   }, [rides, expenses, profile]);
 
   const handleEdit = (item: MaintenanceItem) => {
