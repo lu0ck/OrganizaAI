@@ -775,7 +775,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
         </div>
 
         <div>
-          <p className="text-[9px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Calendar size={10} /> Férias/Folgas — clique no dia</p>
+          <p className="text-[9px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Calendar size={10} /> Férias/Folgas — clique: trabalho → folga → férias → trabalho</p>
           <div className="flex gap-1.5 mb-1">
             <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={8} /> Folga</span>
             <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={8} /> Férias</span>
@@ -797,14 +797,14 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
                   key={day}
                   onClick={() => toggleVacation(dateStr)}
                   className={cn(
-                    "aspect-square flex flex-col items-center justify-center rounded-sm text-[8px] font-bold border transition-all",
+                    "h-6 flex flex-col items-center justify-center rounded-sm text-[8px] font-bold border transition-all",
                     vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
                     vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
                     isWork ? "bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" :
                     "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
                   )}
                 >
-                  <span>{day}</span>
+                  <span>{day}{vType === 'folga' ? ' F' : vType === 'ferias' ? ' Fe' : ''}</span>
                 </button>
               );
             })}
