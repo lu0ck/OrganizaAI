@@ -64,7 +64,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
     const types = new Set(fuelByType.map(e => e.fuelType || 'gasolina'));
     types.forEach(ft => {
       const oftype = fuelByType
-        .filter(e => (e.fuelType || 'gasolina') === ft && e.tripTotal && e.tripTotal > 0 && e.liters && e.liters > 0)
+        .filter(e => (e.fuelType || 'gasolina') === ft)
         .sort((a, b) => {
           const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
           if (dateDiff !== 0) return dateDiff;

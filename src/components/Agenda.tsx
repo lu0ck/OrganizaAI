@@ -473,22 +473,22 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
 
           <div className="space-y-6">
             <div className="flex items-center justify-between"><h3 className="text-lg font-bold dark:text-white">Agenda de Trabalho</h3><p className="text-xs text-slate-500">Clique no dia para ativar/desativar</p></div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-2">
           {simulation.schedule.map((item, i) => (
-            <div key={item.day} className={cn("relative p-1.5 rounded-xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-md shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
-              <div className="text-center mb-1">
-                <p className={cn("text-[10px] font-bold", item.active ? "text-brand-600" : "text-slate-400")}>{item.day}</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase">{item.active ? 'Ativo' : 'Folga'}</p>
-                <div className="flex justify-center gap-1 mt-1">
-                  <button onClick={(e) => copyDay(i, e)} title="Copiar escala" className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-brand-600"><Copy size={10} /></button>
-                  {copiedPeriods && <button onClick={(e) => pasteDay(i, e)} title="Colar escala" className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-emerald-600"><ClipboardCheck size={10} /></button>}
+            <div key={item.day} className={cn("relative p-3 rounded-2xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-lg shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
+              <div className="text-center mb-2">
+                <p className={cn("text-xs font-bold", item.active ? "text-brand-600" : "text-slate-400")}>{item.day}</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase">{item.active ? 'Ativo' : 'Folga'}</p>
+                <div className="flex justify-center gap-1.5 mt-1.5">
+                  <button onClick={(e) => copyDay(i, e)} title="Copiar escala" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-brand-600"><Copy size={11} /></button>
+                  {copiedPeriods && <button onClick={(e) => pasteDay(i, e)} title="Colar escala" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-emerald-600"><ClipboardCheck size={11} /></button>}
                 </div>
               </div>
-              <div className="space-y-0.5" onClick={(e) => e.stopPropagation()}>
+              <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                 {item.active ? (<>
-                  <div className="space-y-0.5">{(item.periods || []).map((period, pIdx) => (<div key={pIdx}><div className="flex items-center justify-between"><span className="text-[7px] font-bold text-slate-400 uppercase">T{pIdx + 1}</span>{(item.periods || []).length > 1 && <button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={8} /></button>}</div><div className="flex flex-col gap-px"><input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="text-[8px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /><input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="text-[8px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /></div></div>))}</div>
-                  <button onClick={() => addPeriod(i)} className="w-full mt-1 py-0 flex items-center justify-center gap-0.5 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[7px] font-bold"><Plus size={8} /> Novo</button>
-                </>) : (<div className="h-12 flex items-center justify-center"><X size={16} className="text-slate-200 dark:text-slate-700" /></div>)}
+                  <div className="space-y-1">{(item.periods || []).map((period, pIdx) => (<div key={pIdx} className="space-y-0.5"><div className="flex items-center justify-between"><span className="text-[9px] font-bold text-slate-400 uppercase">T{pIdx + 1}</span>{(item.periods || []).length > 1 && <button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={9} /></button>}</div><div className="flex flex-col gap-0.5"><input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 p-1 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /><input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 p-1 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /></div></div>))}</div>
+                  <button onClick={() => addPeriod(i)} className="w-full mt-1.5 py-0.5 flex items-center justify-center gap-0.5 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded-lg border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[9px] font-bold"><Plus size={9} /> Novo</button>
+                </>) : (<div className="h-16 flex items-center justify-center"><X size={18} className="text-slate-200 dark:text-slate-700" /></div>)}
               </div>
             </div>
           ))}
@@ -753,7 +753,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
   while (calendarDays.length % 7 !== 0) calendarDays.push(null);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
         <div className="grid grid-cols-7 gap-1">
           {(localPlan.days || []).map((day, i) => (
             <div key={day.day} className="space-y-0.5">
@@ -812,37 +812,37 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
         </div>
 
       {isPast && (
-        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3">
-          <p className="text-[10px] font-bold text-slate-500 uppercase">Dados Reais do Mês</p>
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-2 space-y-1.5">
+          <p className="text-[9px] font-bold text-slate-500 uppercase">Dados Reais do Mês</p>
           {realData?.hasData ? (
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-              <p className="text-[10px] text-emerald-600 font-bold mb-2">Baseado em {realData.rideDays} corridas e despesas registradas</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+              <p className="text-[9px] text-emerald-600 font-bold mb-1">Baseado em {realData.rideDays} corridas</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[9px]">
                 <div><span className="text-slate-400">Ganhos</span><p className="font-bold dark:text-white">R$ {realData.earnings.toFixed(0)}</p></div>
-                <div><span className="text-slate-400">Combustível</span><p className="font-bold dark:text-white">R$ {realData.fuelCost.toFixed(0)}</p></div>
-                <div><span className="text-slate-400">Manutenção</span><p className="font-bold dark:text-white">R$ {realData.maintCost.toFixed(0)}</p></div>
+                <div><span className="text-slate-400">Comb.</span><p className="font-bold dark:text-white">R$ {realData.fuelCost.toFixed(0)}</p></div>
+                <div><span className="text-slate-400">Manut.</span><p className="font-bold dark:text-white">R$ {realData.maintCost.toFixed(0)}</p></div>
                 <div><span className="text-slate-400">Outros</span><p className="font-bold dark:text-white">R$ {realData.otherCost.toFixed(0)}</p></div>
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              <p className="text-[10px] text-slate-400 mb-1">Nenhum dado real registrado. Informe manualmente:</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="space-y-1.5">
+              <p className="text-[9px] text-slate-400">Sem dados reais. Informe manualmente:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Ganhos (R$)</label>
-                  <input type="number" step="0.01" min="0" value={localPlan.actualEarnings ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualEarnings: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500" />
+                  <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Ganhos (R$)</label>
+                  <input type="number" step="0.01" min="0" value={localPlan.actualEarnings ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualEarnings: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-[10px] font-bold focus:ring-1 focus:ring-brand-500" />
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Combustível (R$)</label>
-                  <input type="number" step="0.01" min="0" value={localPlan.actualFuelCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualFuelCost: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500" />
+                  <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Comb. (R$)</label>
+                  <input type="number" step="0.01" min="0" value={localPlan.actualFuelCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualFuelCost: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-[10px] font-bold focus:ring-1 focus:ring-brand-500" />
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Manutenção (R$)</label>
-                  <input type="number" step="0.01" min="0" value={localPlan.actualMaintCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualMaintCost: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500" />
+                  <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Manut. (R$)</label>
+                  <input type="number" step="0.01" min="0" value={localPlan.actualMaintCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualMaintCost: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-[10px] font-bold focus:ring-1 focus:ring-brand-500" />
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Outros (R$)</label>
-                  <input type="number" step="0.01" min="0" value={localPlan.actualOtherCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualOtherCost: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500" />
+                  <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Outros (R$)</label>
+                  <input type="number" step="0.01" min="0" value={localPlan.actualOtherCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, actualOtherCost: isNaN(v!) ? undefined : v }); }} placeholder="0" className="w-full px-2 py-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-[10px] font-bold focus:ring-1 focus:ring-brand-500" />
                 </div>
               </div>
             </div>
@@ -850,58 +850,58 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
         </div>
       )}
 
-      <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3">
-        <p className="text-[10px] font-bold text-slate-500 uppercase">Estimativa Financeira do Mês</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-2 space-y-1.5">
+        <p className="text-[9px] font-bold text-slate-500 uppercase">Estimativa Financeira</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
           <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Valor / hora (R$)</label>
-            <input type="number" step="0.01" min="0" value={localPlan.customHourlyRate ?? (defaultHourlyRate > 0 ? defaultHourlyRate : '')} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customHourlyRate: isNaN(v!) ? undefined : v }); }} placeholder={defaultHourlyRate > 0 ? defaultHourlyRate.toFixed(2) : '0'} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none dark:text-white text-sm font-bold focus:ring-1 focus:ring-brand-500" />
+            <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Valor/hora (R$)</label>
+            <input type="number" step="0.01" min="0" value={localPlan.customHourlyRate ?? (defaultHourlyRate > 0 ? defaultHourlyRate : '')} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customHourlyRate: isNaN(v!) ? undefined : v }); }} placeholder={defaultHourlyRate > 0 ? defaultHourlyRate.toFixed(2) : '0'} className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Combustível (R$/mês)</label>
-            <input type="number" step="0.01" min="0" value={localPlan.customFuelCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customFuelCost: isNaN(v!) ? undefined : v }); }} placeholder={(monthProjection.workDays * userAverages.fuelPerDay).toFixed(0)} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none dark:text-white text-sm font-bold focus:ring-1 focus:ring-brand-500" />
+            <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Combustível (R$/mês)</label>
+            <input type="number" step="0.01" min="0" value={localPlan.customFuelCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customFuelCost: isNaN(v!) ? undefined : v }); }} placeholder={(monthProjection.workDays * userAverages.fuelPerDay).toFixed(0)} className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Manutenção (R$/mês)</label>
-            <input type="number" step="0.01" min="0" value={localPlan.customMaintCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customMaintCost: isNaN(v!) ? undefined : v }); }} placeholder={(monthProjection.workDays * userAverages.maintPerDay).toFixed(0)} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none dark:text-white text-sm font-bold focus:ring-1 focus:ring-brand-500" />
+            <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Manutenção (R$/mês)</label>
+            <input type="number" step="0.01" min="0" value={localPlan.customMaintCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customMaintCost: isNaN(v!) ? undefined : v }); }} placeholder={(monthProjection.workDays * userAverages.maintPerDay).toFixed(0)} className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500" />
           </div>
         </div>
 
         {(userAverages.earningsPerDay > 0 || userAverages.kmPerDay > 0) && (
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1"><Info size={10} /> Médias do seu histórico (3 meses)</p>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px]">
-              <div><span className="text-slate-400">Ganho/dia</span><p className="font-bold dark:text-white">R$ {userAverages.earningsPerDay.toFixed(0)}</p></div>
-              <div><span className="text-slate-400">Horas/dia</span><p className="font-bold dark:text-white">{userAverages.hoursPerDay.toFixed(1)}h</p></div>
-              <div><span className="text-slate-400">KM/dia</span><p className="font-bold dark:text-white">{userAverages.kmPerDay.toFixed(0)}</p></div>
-              <div><span className="text-slate-400">Comb./dia</span><p className="font-bold dark:text-white">R$ {userAverages.fuelPerDay.toFixed(0)}</p></div>
-              <div><span className="text-slate-400">Manut./dia</span><p className="font-bold dark:text-white">R$ {userAverages.maintPerDay.toFixed(0)}</p></div>
+          <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+            <p className="text-[8px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1"><Info size={8} /> Médias 3 meses</p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[9px]">
+              <div><span className="text-slate-400">Ganho/d</span><p className="font-bold dark:text-white">R$ {userAverages.earningsPerDay.toFixed(0)}</p></div>
+              <div><span className="text-slate-400">Horas/d</span><p className="font-bold dark:text-white">{userAverages.hoursPerDay.toFixed(1)}h</p></div>
+              <div><span className="text-slate-400">KM/d</span><p className="font-bold dark:text-white">{userAverages.kmPerDay.toFixed(0)}</p></div>
+              <div><span className="text-slate-400">Comb./d</span><p className="font-bold dark:text-white">R$ {userAverages.fuelPerDay.toFixed(0)}</p></div>
+              <div><span className="text-slate-400">Manut./d</span><p className="font-bold dark:text-white">R$ {userAverages.maintPerDay.toFixed(0)}</p></div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/30"><p className="text-[9px] text-emerald-600 font-bold uppercase">Ganho Estimado</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.earnings.toFixed(0)}</p><p className="text-[8px] text-slate-400">{monthProjection.workDays}d &middot; {monthProjection.totalHours.toFixed(1)}h</p></div>
-          <div className="p-2.5 bg-orange-50 dark:bg-orange-950/30 rounded-xl border border-orange-100 dark:border-orange-900/30"><p className="text-[9px] text-orange-600 font-bold uppercase">Combustível</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.fuelCost.toFixed(0)}</p>{localPlan.customFuelCost == null && <p className="text-[8px] text-slate-400">{monthProjection.km.toFixed(0)} km</p>}</div>
-          <div className="p-2.5 bg-purple-50 dark:bg-purple-950/30 rounded-xl border border-purple-100 dark:border-purple-900/30"><p className="text-[9px] text-purple-600 font-bold uppercase">Manutenção</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.maintCost.toFixed(0)}</p></div>
-          <div className="p-2.5 bg-rose-50 dark:bg-rose-950/30 rounded-xl border border-rose-100 dark:border-rose-900/30"><p className="text-[9px] text-rose-600 font-bold uppercase">Custos Fixos</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.fixedCosts.toFixed(0)}</p><p className="text-[8px] text-slate-400">IPVA+seguro+parcela</p></div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-100 dark:border-emerald-900/30"><p className="text-[8px] text-emerald-600 font-bold uppercase">Ganho</p><p className="text-xs font-bold dark:text-white">R$ {monthProjection.earnings.toFixed(0)}</p><p className="text-[7px] text-slate-400">{monthProjection.workDays}d &middot; {monthProjection.totalHours.toFixed(1)}h</p></div>
+          <div className="p-2 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-100 dark:border-orange-900/30"><p className="text-[8px] text-orange-600 font-bold uppercase">Combustível</p><p className="text-xs font-bold dark:text-white">R$ {monthProjection.fuelCost.toFixed(0)}</p>{localPlan.customFuelCost == null && <p className="text-[7px] text-slate-400">{monthProjection.km.toFixed(0)} km</p>}</div>
+          <div className="p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-100 dark:border-purple-900/30"><p className="text-[8px] text-purple-600 font-bold uppercase">Manutenção</p><p className="text-xs font-bold dark:text-white">R$ {monthProjection.maintCost.toFixed(0)}</p></div>
+          <div className="p-2 bg-rose-50 dark:bg-rose-950/30 rounded-lg border border-rose-100 dark:border-rose-900/30"><p className="text-[8px] text-rose-600 font-bold uppercase">Fixos</p><p className="text-xs font-bold dark:text-white">R$ {monthProjection.fixedCosts.toFixed(0)}</p><p className="text-[7px] text-slate-400">IPVA+seg+parc</p></div>
         </div>
 
-        <div className={cn("p-3 rounded-xl border", monthProjection.netProfit >= 0 ? "bg-brand-50 dark:bg-brand-950/30 border-brand-100 dark:border-brand-900/30" : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30")}>
-          <div className="flex items-center justify-between"><p className={cn("text-[10px] font-bold uppercase", monthProjection.netProfit >= 0 ? "text-brand-600" : "text-rose-600")}>Lucro Líquido Estimado</p><p className={cn("text-lg font-bold", monthProjection.netProfit >= 0 ? "text-brand-700 dark:text-brand-400" : "text-rose-700 dark:text-rose-400")}>R$ {monthProjection.netProfit.toFixed(0)}</p></div>
-          <p className="text-[8px] text-slate-400 mt-0.5">R$ {monthProjection.earnings.toFixed(0)} - R$ {monthProjection.fuelCost.toFixed(0)} - R$ {monthProjection.maintCost.toFixed(0)} - R$ {monthProjection.fixedCosts.toFixed(0)}</p>
+        <div className={cn("p-2 rounded-lg border", monthProjection.netProfit >= 0 ? "bg-brand-50 dark:bg-brand-950/30 border-brand-100 dark:border-brand-900/30" : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30")}>
+          <div className="flex items-center justify-between"><p className={cn("text-[9px] font-bold uppercase", monthProjection.netProfit >= 0 ? "text-brand-600" : "text-rose-600")}>Lucro Líq.</p><p className={cn("text-sm font-bold", monthProjection.netProfit >= 0 ? "text-brand-700 dark:text-brand-400" : "text-rose-700 dark:text-rose-400")}>R$ {monthProjection.netProfit.toFixed(0)}</p></div>
+          <p className="text-[7px] text-slate-400 mt-0.5">R$ {monthProjection.earnings.toFixed(0)} - R$ {monthProjection.fuelCost.toFixed(0)} - R$ {monthProjection.maintCost.toFixed(0)} - R$ {monthProjection.fixedCosts.toFixed(0)}</p>
         </div>
       </div>
 
       <div>
-        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Observações</label>
-        <textarea value={localPlan.notes || ''} onChange={e => setLocalPlan({ ...localPlan, notes: e.target.value })} placeholder="Notas sobre este plano..." rows={2} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none dark:text-white text-sm resize-none focus:ring-1 focus:ring-brand-500" />
+        <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Observações</label>
+        <textarea value={localPlan.notes || ''} onChange={e => setLocalPlan({ ...localPlan, notes: e.target.value })} placeholder="Notas..." rows={2} className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-xs resize-none focus:ring-1 focus:ring-brand-500" />
       </div>
 
-      <div className="flex gap-2 pt-2">
-        <button onClick={() => { onSave({ ...localPlan, month: monthKey }); }} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold py-2 rounded-xl transition-all">Salvar Plano</button>
-        <button onClick={copyFromProfile} className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all flex items-center gap-1"><Copy size={14} /> Copiar Perfil</button>
-        <button onClick={onCancel} className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all">Cancelar</button>
+      <div className="flex gap-1.5 pt-1">
+        <button onClick={() => { onSave({ ...localPlan, month: monthKey }); }} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold py-1.5 rounded-lg transition-all">Salvar</button>
+        <button onClick={copyFromProfile} className="px-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all flex items-center gap-1"><Copy size={12} /> Perfil</button>
+        <button onClick={onCancel} className="px-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all">Cancelar</button>
       </div>
     </div>
   );
