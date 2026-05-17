@@ -218,26 +218,26 @@ const handleAddRide = (ride: RideEntry) => {
       let newProfile = prev.profile;
       const prevExpenses = Array.isArray(prev.expenses) ? prev.expenses : [];
 
-      // Se for combustível com tripTotal, atualizar odômetro
-      if (expense.type === 'combustivel' && expense.tripTotal && prev.profile) {
-        const newOdometerKm = Math.round(((prev.profile.vehicleOdometerKm || 0) + expense.tripTotal) * 100) / 100;
-        newProfile = { ...prev.profile, vehicleOdometerKm: newOdometerKm };
+    const allExpenses = [expense, ...prevExpenses];
 
-        // Recalcular em cascata após adicionar
-        const allExpenses = [expense, ...prevExpenses];
-        const recalculatedExpenses = recalculateFuelExpensesChain(allExpenses, newProfile);
+    if (expense.type === 'combustivel' && expense.tripTotal && prev.profile) {
+      const newOdometerKm = Math.round(((prev.profile.vehicleOdometerKm || 0) + expense.tripTotal) * 100) / 100;
+      newProfile = { ...prev.profile, vehicleOdometerKm: newOdometerKm };
+    }
 
-        return {
-          ...prev,
-          expenses: recalculatedExpenses,
-          profile: newProfile
-        };
-      }
-
+    if (expense.type === 'combustivel' && prev.profile) {
+      const recalculatedExpenses = recalculateFuelExpensesChain(allExpenses, newProfile);
       return {
         ...prev,
-        expenses: [expense, ...prevExpenses]
+        expenses: recalculatedExpenses,
+        profile: newProfile
       };
+    }
+
+    return {
+      ...prev,
+      expenses: allExpenses
+    };
     });
   };
 

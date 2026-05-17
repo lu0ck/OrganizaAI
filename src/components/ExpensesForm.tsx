@@ -63,7 +63,8 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
     const fuelByType = expenses.filter(e => e.type === 'combustivel');
     const types = new Set(fuelByType.map(e => e.fuelType || 'gasolina'));
     types.forEach(ft => {
-      const oftype = fuelByType.filter(e => (e.fuelType || 'gasolina') === ft)
+      const oftype = fuelByType
+        .filter(e => (e.fuelType || 'gasolina') === ft && e.tripTotal && e.tripTotal > 0 && e.liters && e.liters > 0)
         .sort((a, b) => {
           const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
           if (dateDiff !== 0) return dateDiff;
@@ -443,7 +444,9 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
         const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
             const isFuel = expense.type === 'combustivel';
             const isLastOfFuelType = lastFuelExpenseIds.has(expense.id);
-            const hasDeslocamento = isFuel && !isLastOfFuelType && (expense.calculatedTripTotal !== undefined && expense.calculatedTripTotal !== null);
+            const displayTripTotal = expense.calculatedTripTotal ?? expense.tripTotal;
+            const displayTripOnReserve = expense.calculatedTripOnReserve ?? expense.tripOnReserve;
+            const hasDeslocamento = isFuel && !isLastOfFuelType && displayTripTotal != null && displayTripTotal > 0;
         return (
           <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -482,26 +485,26 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </p>
                   </div>
                 )}
-                {hasDeslocamento && expense.segmentConsumption && expense.segmentConsumption > 0 ? (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Consumo</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {expense.segmentConsumption.toFixed(1)} km/l
-                    </p>
-                  </div>
-                ) : null}
-                {hasDeslocamento ? (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Trip</p>
-                    <p className="font-bold text-slate-900 dark:text-white">{expense.calculatedTripTotal} km</p>
-                  </div>
-                ) : null}
-                {hasDeslocamento && expense.calculatedTripOnReserve && expense.calculatedTripOnReserve > 0 ? (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Reserva</p>
-                    <p className="font-bold text-orange-600 dark:text-orange-400">{expense.calculatedTripOnReserve} km</p>
-                  </div>
-                ) : null}
+            {hasDeslocamento && expense.segmentConsumption && expense.segmentConsumption > 0 ? (
+              <div className="text-right">
+                <p className="text-xs text-slate-500">Consumo</p>
+                <p className="font-bold text-slate-900 dark:text-white">
+                  {expense.segmentConsumption.toFixed(1)} km/l
+                </p>
+              </div>
+            ) : null}
+            {hasDeslocamento ? (
+              <div className="text-right">
+                <p className="text-xs text-slate-500">Trip</p>
+                <p className="font-bold text-slate-900 dark:text-white">{displayTripTotal} km</p>
+              </div>
+            ) : null}
+            {hasDeslocamento && displayTripOnReserve && displayTripOnReserve > 0 ? (
+              <div className="text-right">
+                <p className="text-xs text-slate-500">Reserva</p>
+                <p className="font-bold text-orange-600 dark:text-orange-400">{displayTripOnReserve} km</p>
+              </div>
+            ) : null}
                 {isFuel && isLastOfFuelType && (
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 italic">Aguardando próximo abastecimento</p>

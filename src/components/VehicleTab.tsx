@@ -20,12 +20,13 @@ interface MotorcycleTabProps {
 }
 
 export default function MotorcycleTab({ rides, expenses, maintenance, profile, onUpdateMaintenance, sidebarCollapsed, showToast }: MotorcycleTabProps) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
-  const [isAddingHistory, setIsAddingHistory] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterPosition, setFilterPosition] = useState<string>('all');
+const [isAdding, setIsAdding] = useState(false);
+const [editingId, setEditingId] = useState<string | null>(null);
+const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+const [isAddingHistory, setIsAddingHistory] = useState<string | null>(null);
+const [searchTerm, setSearchTerm] = useState('');
+const [filterPosition, setFilterPosition] = useState<string>('all');
+const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<MaintenanceItem>>({
     name: '',
     intervalKm: 1000,
@@ -443,49 +444,24 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
             </div>
           </div>
         )}
-          <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative group">
-              <div className="absolute top-3 right-3 z-20">
-                <div className="relative">
-                  <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center cursor-help text-slate-400 hover:text-brand-600 transition-colors">
-                    <Info size={12} />
-                  </div>
-                  <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-50">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Últimos abastecimentos</p>
-                    {expenses
-                      .filter(e => e.type === 'combustivel' && e.enteredReserve && e.tripTotal)
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .slice(0, 5)
-                      .map((e, idx) => (
-                        <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-50 dark:border-slate-800 last:border-0">
-                          <span className="text-[10px] text-slate-600 dark:text-slate-400">{format(parseISO(e.date), 'dd/MM')}</span>
-                          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{e.tripTotal} km</span>
-                          <span className="text-[10px] font-bold text-emerald-600">{e.segmentConsumption ? `${e.segmentConsumption.toFixed(1)} km/l` : '—'}</span>
-                        </div>
-                      ))
-                    }
-                    {expenses.filter(e => e.type === 'combustivel' && e.enteredReserve && e.tripTotal).length === 0 && (
-                      <p className="text-[10px] text-slate-400">Nenhum abastecimento de tanque cheio</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500 mb-1">Consumo Médio</p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
-                  {motoStats.kmPerLiter.toFixed(1)}
-                  <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1">KM/L</span>
-                </p>
-                {motoStats.globalConsumption.status === 'valid' ? (
-                  <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
-                    Real
-                  </span>
-                ) : (
-                  <span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
-                    Est.
-                  </span>
-                )}
-              </div>
-            </div>
+<div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<p className="text-xs sm:text-sm text-slate-500 mb-1">Consumo Médio</p>
+<div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+<p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
+{motoStats.kmPerLiter.toFixed(1)}
+<span className="text-xs sm:text-sm font-normal text-slate-400 ml-1">KM/L</span>
+</p>
+{motoStats.globalConsumption.status === 'valid' ? (
+<span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+Real
+</span>
+) : (
+<span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+Est.
+</span>
+)}
+</div>
+</div>
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative">
           <InfoTooltip 
             content="Fórmula: (Gastos com combustível + Manutenção) ÷ KM rodados." 
@@ -885,176 +861,121 @@ export default function MotorcycleTab({ rides, expenses, maintenance, profile, o
           </div>
         </div>
 
-      <div className={cn(
-        "bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-[240px]",
-        sidebarCollapsed && "lg:min-w-[280px]"
-      )}>
-        <h3 className="text-base font-bold mb-4 dark:text-white">Dicas de Economia</h3>
-        <div className="space-y-3">
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex gap-3">
-            <TrendingUp className="text-emerald-600 shrink-0" size={20} />
-            <div>
-              <p className="font-bold text-sm text-emerald-800 dark:text-emerald-300">Calibragem dos Pneus</p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400">Mantenha calibrados para economizar até 5% de combustível.</p>
-            </div>
-          </div>
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex gap-3">
-            <Settings className="text-blue-600 shrink-0" size={20} />
-            <div>
-              <p className="font-bold text-sm text-blue-800 dark:text-blue-300">Lubrificação da Corrente</p>
-              <p className="text-xs text-blue-700 dark:text-blue-400">A cada 500km para aumentar a vida útil do kit.</p>
-            </div>
-          </div>
-          <div className="p-3 bg-brand-50 dark:bg-brand-950/20 rounded-2xl border border-brand-100 dark:border-brand-900/30 flex gap-3">
-            <AlertCircle className="text-brand-600 shrink-0" size={20} />
-            <div>
-              <p className="font-bold text-sm text-brand-800 dark:text-brand-300">Filtro de Ar</p>
-              <p className="text-xs text-brand-700 dark:text-brand-400">Garante mistura correta e evita perda de potência.</p>
-            </div>
-      </div>
-    </div>
-  </div>
+<div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<h3 className="text-sm font-bold mb-3 dark:text-white">Dicas de Economia</h3>
+<div className="space-y-2">
+<div className="p-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
+<TrendingUp className="text-emerald-600 shrink-0" size={14} />
+<p className="text-xs text-emerald-700 dark:text-emerald-400"><span className="font-bold">Pneus calibrados</span> — economiza até 5%</p>
+</div>
+<div className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900/30 flex items-center gap-2">
+<Settings className="text-blue-600 shrink-0" size={14} />
+<p className="text-xs text-blue-700 dark:text-blue-400"><span className="font-bold">Corrente lubrificada</span> — a cada 500km</p>
+</div>
+<div className="p-2 bg-brand-50 dark:bg-brand-950/20 rounded-lg border border-brand-100 dark:border-brand-900/30 flex items-center gap-2">
+<AlertCircle className="text-brand-600 shrink-0" size={14} />
+<p className="text-xs text-brand-700 dark:text-brand-400"><span className="font-bold">Filtro de ar limpo</span> — evita perda de potência</p>
+</div>
+</div>
+</div>
 
-      {/* Cards de Combustível - Por Tipo */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {motoStats.perTypeStats.map((ftStat) => (
-          <React.Fragment key={ftStat.fuelType}>
-            {/* Saldo no Tanque */}
-            {ftStat.lastFuelExpense && (
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-w-[240px]">
-                <div className="mb-3">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950/30 flex items-center justify-center text-brand-600 shrink-0">
-                      <Droplets size={20} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold dark:text-white">Saldo no Tanque</p>
-                      <p className="text-xs text-slate-500">
-                        {ftStat.fuelType === 'gnv' ? 'GNV' : ftStat.label} — {ftStat.kmSinceLastFuel > 0
-                          ? `Estimado (${ftStat.kmSinceLastFuel} km desde último abast.)`
-                          : format(parseISO(ftStat.lastFuelExpense.date), 'dd/MM/yyyy')
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-end gap-2 overflow-hidden">
-                  <p className="text-2xl sm:text-3xl font-bold text-brand-600 truncate">
-                    {ftStat.estimatedCurrentBalance.toFixed(1)}
-                  </p>
-                  <p className="text-lg text-slate-400 mb-1">{ftStat.fuelType === 'gnv' ? 'm³' : 'litros'}</p>
-                </div>
-                {profile.totalTankSize && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-slate-500 mb-1">
-                      <span>0{ftStat.fuelType === 'gnv' ? 'm³' : 'L'}</span>
-                      <span>{profile.totalTankSize}{ftStat.fuelType === 'gnv' ? 'm³' : 'L'}</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          (ftStat.estimatedCurrentBalance / profile.totalTankSize) < 0.2
-                            ? "bg-rose-500"
-                            : "bg-brand-500"
-                        )}
-                        style={{
-                          width: `${Math.min((ftStat.estimatedCurrentBalance / profile.totalTankSize) * 100, 100)}%`
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Consumo do Trecho */}
-            {ftStat.lastFuelExpense?.segmentConsumption && (
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-w-[240px]">
-                <div className="mb-3">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center text-orange-600 shrink-0">
-                      <Activity size={20} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold dark:text-white">Consumo — {ftStat.label}</p>
-                      <p className="text-xs text-slate-500">{ftStat.lastFuelExpense.tripTotal} km</p>
-                    </div>
-                  </div>
-                  {ftStat.lastFuelExpense.isCalibrated ? (
-                    <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-full inline-block mt-1">
-                      Calibrado
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-full inline-block mt-1">
-                      Estimado
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-end gap-2 overflow-hidden">
-                  <p className="text-2xl sm:text-3xl font-bold text-orange-600 truncate">
-                    {ftStat.lastFuelExpense.segmentConsumption.toFixed(1)}
-                  </p>
-                  <p className="text-lg text-slate-400 mb-1">km/l</p>
-                </div>
-              </div>
-            )}
-
-            {/* Média Global Real por Tipo */}
-            {ftStat.globalConsumption.status === 'valid' && ftStat.globalConsumption.globalAverage && (
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-w-[240px]">
-                <div className="mb-3">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 shrink-0">
-                      <TrendingUp size={20} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold dark:text-white">Média Global — {ftStat.label}</p>
-                      <p className="text-xs text-slate-500">{ftStat.globalConsumption.validSegments} trechos calibrados</p>
-                    </div>
-                  </div>
-                  <InfoTooltip content="Média real considerando saldo no tanque. Fórmula: (T - R) / (Trip - Trip Reserva) quando calibrado." />
-                </div>
-                <div className="flex items-end gap-2 overflow-hidden">
-                  <p className="text-2xl sm:text-3xl font-bold text-emerald-600 truncate">
-                    {ftStat.globalConsumption.globalAverage.toFixed(1)}
-                  </p>
-                  <p className="text-lg text-slate-400 mb-1">km/l</p>
-                </div>
-              </div>
-            )}
-
-            {/* Sem dados para este tipo */}
-            {!ftStat.lastFuelExpense && (
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-w-[240px] opacity-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
-                    <Fuel size={20} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold dark:text-white">{ftStat.label}</p>
-                    <p className="text-xs text-slate-500">Sem dados suficientes</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </React.Fragment>
-        ))}
-
-        {motoStats.activeFuelTypes.length === 0 && (
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden opacity-50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
-                <Fuel size={20} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold dark:text-white">Combustível</p>
-                <p className="text-xs text-slate-500">Sem dados suficientes</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+{/* Cards de Combustível - Selecionar Tipo */}
+{motoStats.perTypeStats.length > 0 && (() => {
+const currentFt = selectedFuelType && motoStats.perTypeStats.find(s => s.fuelType === selectedFuelType)
+? selectedFuelType
+: (motoStats.perTypeStats[0]?.fuelType || null);
+const ftStat = motoStats.perTypeStats.find(s => s.fuelType === currentFt);
+if (!ftStat) return null;
+return (
+<div className="space-y-4">
+{motoStats.perTypeStats.length > 1 && (
+<div className="flex items-center gap-2">
+<Fuel size={16} className="text-slate-500" />
+<div className="flex gap-1">
+{motoStats.perTypeStats.map(s => (
+<button
+key={s.fuelType}
+onClick={() => setSelectedFuelType(s.fuelType)}
+className={cn(
+"px-3 py-1 rounded-lg text-xs font-bold transition-all border",
+s.fuelType === currentFt
+? "bg-brand-600 text-white border-brand-700"
+: "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
+)}
+>
+{s.label}
+</button>
+))}
+</div>
+</div>
+)}
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+{ftStat.lastFuelExpense ? (
+<>
+<div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<div className="flex items-center gap-2 mb-2">
+<div className="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-950/30 flex items-center justify-center text-brand-600 shrink-0">
+<Droplets size={16} />
+</div>
+<p className="text-xs font-bold text-slate-500">Saldo no Tanque</p>
+</div>
+<p className="text-2xl font-bold text-brand-600">{ftStat.estimatedCurrentBalance.toFixed(1)}<span className="text-sm text-slate-400 ml-1">{ftStat.fuelType === 'gnv' ? 'm³' : 'L'}</span></p>
+{ftStat.kmSinceLastFuel > 0 && <p className="text-[10px] text-slate-400 mt-1">Estimado ({ftStat.kmSinceLastFuel} km desde último abast.)</p>}
+{profile.totalTankSize && (
+<div className="mt-2">
+<div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div className={cn("h-full rounded-full transition-all", (ftStat.estimatedCurrentBalance / profile.totalTankSize) < 0.2 ? "bg-rose-500" : "bg-brand-500")} style={{ width: `${Math.min((ftStat.estimatedCurrentBalance / profile.totalTankSize) * 100, 100)}%` }} />
+</div>
+</div>
+)}
+</div>
+<div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<div className="flex items-center gap-2 mb-2">
+<div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center text-orange-600 shrink-0">
+<Activity size={16} />
+</div>
+<p className="text-xs font-bold text-slate-500">Consumo</p>
+</div>
+{ftStat.lastFuelExpense.segmentConsumption ? (
+<>
+<p className="text-2xl font-bold text-orange-600">{ftStat.lastFuelExpense.segmentConsumption.toFixed(1)}<span className="text-sm text-slate-400 ml-1">km/l</span></p>
+<span className={cn("px-1.5 py-0.5 text-[10px] font-bold rounded-full inline-block mt-1", ftStat.lastFuelExpense.isCalibrated ? "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700" : "bg-slate-100 dark:bg-slate-800 text-slate-500")}>
+{ftStat.lastFuelExpense.isCalibrated ? 'Calibrado' : 'Estimado'}
+</span>
+</>
+) : (
+<p className="text-sm text-slate-400 italic">Aguardando próximo abastecimento</p>
+)}
+</div>
+<div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<div className="flex items-center gap-2 mb-2">
+<div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 shrink-0">
+<TrendingUp size={16} />
+</div>
+<p className="text-xs font-bold text-slate-500">Média Global</p>
+</div>
+{ftStat.globalConsumption.status === 'valid' && ftStat.globalConsumption.globalAverage ? (
+<>
+<p className="text-2xl font-bold text-emerald-600">{ftStat.globalConsumption.globalAverage.toFixed(1)}<span className="text-sm text-slate-400 ml-1">km/l</span></p>
+<p className="text-[10px] text-slate-400 mt-1">{ftStat.globalConsumption.validSegments} trechos calibrados</p>
+</>
+) : (
+<p className="text-sm text-slate-400 italic">Sem dados calibrados</p>
+)}
+</div>
+</>
+) : (
+<div className="col-span-full bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm opacity-50">
+<div className="flex items-center gap-3">
+<Fuel size={20} className="text-slate-400" />
+<p className="text-sm text-slate-500">{ftStat.label} — Sem dados suficientes</p>
+</div>
+</div>
+)}
+</div>
+</div>
+);
+})()}
 
 {/* Histórico de Manutenção */}
 {maintenance.some(m => m.history && m.history.length > 0) && (

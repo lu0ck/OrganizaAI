@@ -424,75 +424,75 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
 
       <div className={cn("grid grid-cols-1 lg:grid-cols-4 gap-8", sidebarCollapsed && "lg:grid-cols-5")}>
         <div className={cn("lg:col-span-3 space-y-8", sidebarCollapsed && "lg:col-span-4")}>
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-            <h3 className="text-lg font-bold mb-6 dark:text-white flex items-center gap-2">
-              <Calculator size={20} className="text-brand-600" /> Simulador de Ganhos e Gastos
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              <div className="space-y-6">
-                <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-xs font-bold text-slate-400 uppercase mb-4 tracking-wider">Resumo da Escala</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><p className="text-sm font-medium text-slate-500 dark:text-slate-400">Dias Ativos</p><p className="text-2xl font-bold text-brand-600">{simulationStats.activeDays} dias/sem</p></div>
-                    <div><p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Horas</p><p className="text-2xl font-bold text-brand-600">{simulationStats.totalHoursPerWeek.toFixed(1)}h/sem</p></div>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Ganhos por Hora (R$)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">R$</span>
-                    <input type="number" value={inputAvgPerHour} onChange={(e) => { const val = e.target.value; setInputAvgPerHour(val); setSimulation({ ...simulation, avgPerHour: Number(val) || 0 }); }} className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white" placeholder={averages.perHour.toFixed(2)} />
-                  </div>
-                  <p className="text-xs text-slate-500 flex items-center gap-1"><Info size={12} /> Sua média real é R$ {averages.perHour.toFixed(2)}/h</p>
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <h3 className="text-base font-bold mb-4 dark:text-white flex items-center gap-2">
+            <Calculator size={18} className="text-brand-600" /> Simulador de Ganhos e Gastos
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-3">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                <p className="text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-wider">Resumo da Escala</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Dias Ativos</p><p className="text-lg font-bold text-brand-600">{simulationStats.activeDays} dias/sem</p></div>
+                  <div><p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Total Horas</p><p className="text-lg font-bold text-brand-600">{simulationStats.totalHoursPerWeek.toFixed(1)}h/sem</p></div>
                 </div>
               </div>
             </div>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-slate-700 dark:text-slate-300">Ganhos por Hora (R$)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">R$</span>
+                  <input type="number" value={inputAvgPerHour} onChange={(e) => { const val = e.target.value; setInputAvgPerHour(val); setSimulation({ ...simulation, avgPerHour: Number(val) || 0 }); }} className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white text-sm" placeholder={averages.perHour.toFixed(2)} />
+                </div>
+                <p className="text-[9px] text-slate-500 flex items-center gap-1"><Info size={10} /> Sua média real é R$ {averages.perHour.toFixed(2)}/h</p>
+              </div>
+            </div>
+          </div>
             <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2"><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Projeção Semanal</span><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-2xl border border-emerald-100/50 dark:border-emerald-900/20"><p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-1">Ganhos Semanais</p><p className="text-lg font-bold text-slate-900 dark:text-white">R$ {simulationStats.weekly.toFixed(2)}</p></div>
-                <div className="p-4 bg-rose-50/50 dark:bg-rose-950/10 rounded-2xl border border-rose-100/50 dark:border-rose-900/20">
-                  <div className="flex items-center justify-between mb-1"><p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase">Gastos Semanais</p><div className="group relative"><Info size={12} className="text-rose-400 cursor-help" /><div className="absolute bottom-full right-0 mb-2 w-56 p-3 bg-slate-800 text-white text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl leading-relaxed"><p className="font-bold mb-1 border-b border-slate-700 pb-1">Composição Semanal:</p><div className="flex justify-between mb-1"><span>Custos Fixos:</span><span className="font-bold">R$ {simulationStats.fixedWeekly.toFixed(2)}</span></div><div className="flex justify-between"><span>Variáveis:</span><span className="font-bold">R$ {(simulationStats.weekly * averages.expenseRatio).toFixed(2)}</span></div></div></div></div>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">R$ {simulationStats.estimatedWeeklyExpenses.toFixed(2)}</p>
-                </div>
-                <div className="p-4 bg-brand-50 dark:bg-brand-950/20 rounded-2xl border border-brand-100 dark:border-brand-900/30"><p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold uppercase mb-1">Lucro Semanal</p><p className="text-lg font-bold text-brand-700 dark:text-brand-300">R$ {simulationStats.weeklyNet.toFixed(2)}</p></div>
-              </div>
-              <div className="flex items-center gap-2 mt-6 mb-2"><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Projeção Mensal (4 sem)</span><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-6 bg-emerald-50 dark:bg-emerald-950/30 rounded-3xl border border-emerald-100 dark:border-emerald-900/30"><p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mb-1">Ganhos Mensais</p><p className="text-2xl font-bold text-slate-900 dark:text-white">R$ {simulationStats.monthly.toFixed(2)}</p></div>
-                <div className="p-6 bg-rose-50 dark:bg-rose-950/30 rounded-3xl border border-rose-100 dark:border-rose-900/30">
-                  <div className="flex items-center justify-between mb-1"><p className="text-xs text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider">Gastos Mensais</p><div className="group relative"><Info size={14} className="text-rose-400 cursor-help" /><div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-800 text-white text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl leading-relaxed"><p className="font-bold mb-1 border-b border-slate-700 pb-1">Composição dos Gastos Mensais:</p><div className="flex justify-between mb-1"><span>Custos Fixos (IPVA/Seguro/Lic.):</span><span className="font-bold">R$ {simulationStats.fixedMonthly.toFixed(2)}</span></div><div className="flex justify-between"><span>Gastos Variáveis (Histórico):</span><span className="font-bold">R$ {(simulationStats.monthly * averages.expenseRatio).toFixed(2)}</span></div><p className="mt-2 text-[9px] text-slate-400 italic">Os gastos variáveis são baseados na sua média histórica.</p></div></div></div>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">R$ {simulationStats.estimatedExpenses.toFixed(2)}</p>
-                </div>
-                <div className="p-6 bg-brand-600 rounded-3xl shadow-lg shadow-brand-200 dark:shadow-none"><p className="text-xs text-brand-100 font-bold uppercase tracking-wider mb-1">Lucro Mensal</p><p className="text-2xl font-bold text-white">R$ {simulationStats.monthlyNet.toFixed(2)}</p></div>
-              </div>
+      <div className="flex items-center gap-2 mb-2"><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Projeção Semanal</span><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div></div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="p-2.5 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-xl border border-emerald-100/50 dark:border-emerald-900/20"><p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-0.5">Ganhos Semanais</p><p className="text-base font-bold text-slate-900 dark:text-white">R$ {simulationStats.weekly.toFixed(2)}</p></div>
+        <div className="p-2.5 bg-rose-50/50 dark:bg-rose-950/10 rounded-xl border border-rose-100/50 dark:border-rose-900/20">
+          <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-rose-600 dark:text-rose-400 font-bold uppercase">Gastos Semanais</p><div className="group relative"><Info size={10} className="text-rose-400 cursor-help" /><div className="absolute bottom-full right-0 mb-2 w-56 p-3 bg-slate-800 text-white text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl leading-relaxed"><p className="font-bold mb-1 border-b border-slate-700 pb-1">Composição Semanal:</p><div className="flex justify-between mb-1"><span>Custos Fixos:</span><span className="font-bold">R$ {simulationStats.fixedWeekly.toFixed(2)}</span></div><div className="flex justify-between"><span>Variáveis:</span><span className="font-bold">R$ {(simulationStats.weekly * averages.expenseRatio).toFixed(2)}</span></div></div></div></div>
+          <p className="text-base font-bold text-slate-900 dark:text-white">R$ {simulationStats.estimatedWeeklyExpenses.toFixed(2)}</p>
+        </div>
+        <div className="p-2.5 bg-brand-50 dark:bg-brand-950/20 rounded-xl border border-brand-100 dark:border-brand-900/30"><p className="text-[9px] text-brand-600 dark:text-brand-400 font-bold uppercase mb-0.5">Lucro Semanal</p><p className="text-base font-bold text-brand-700 dark:text-brand-300">R$ {simulationStats.weeklyNet.toFixed(2)}</p></div>
+      </div>
+      <div className="flex items-center gap-2 mt-4 mb-2"><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Projeção Mensal (4 sem)</span><div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div></div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-100 dark:border-emerald-900/30"><p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mb-0.5">Ganhos Mensais</p><p className="text-xl font-bold text-slate-900 dark:text-white">R$ {simulationStats.monthly.toFixed(2)}</p></div>
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-2xl border border-rose-100 dark:border-rose-900/30">
+          <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider">Gastos Mensais</p><div className="group relative"><Info size={12} className="text-rose-400 cursor-help" /><div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-800 text-white text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl leading-relaxed"><p className="font-bold mb-1 border-b border-slate-700 pb-1">Composição dos Gastos Mensais:</p><div className="flex justify-between mb-1"><span>Custos Fixos (IPVA/Seguro/Lic.):</span><span className="font-bold">R$ {simulationStats.fixedMonthly.toFixed(2)}</span></div><div className="flex justify-between"><span>Gastos Variáveis (Histórico):</span><span className="font-bold">R$ {(simulationStats.monthly * averages.expenseRatio).toFixed(2)}</span></div><p className="mt-2 text-[9px] text-slate-400 italic">Os gastos variáveis são baseados na sua média histórica.</p></div></div></div>
+          <p className="text-xl font-bold text-slate-900 dark:text-white">R$ {simulationStats.estimatedExpenses.toFixed(2)}</p>
+        </div>
+        <div className="p-3 bg-brand-600 rounded-2xl shadow-lg shadow-brand-200 dark:shadow-none"><p className="text-[9px] text-brand-100 font-bold uppercase tracking-wider mb-0.5">Lucro Mensal</p><p className="text-xl font-bold text-white">R$ {simulationStats.monthlyNet.toFixed(2)}</p></div>
+      </div>
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="flex items-center justify-between"><h3 className="text-lg font-bold dark:text-white">Agenda de Trabalho</h3><p className="text-xs text-slate-500">Clique no dia para ativar/desativar</p></div>
-            <div className="grid grid-cols-7 gap-3">
-              {simulation.schedule.map((item, i) => (
-                <div key={item.day} className={cn("relative p-4 rounded-2xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-lg shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
-                  <div className="text-center mb-3">
-                    <p className={cn("text-sm font-bold", item.active ? "text-brand-600" : "text-slate-400")}>{item.day}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">{item.active ? 'Ativo' : 'Folga'}</p>
-                    <div className="flex justify-center gap-2 mt-2">
-                      <button onClick={(e) => copyDay(i, e)} title="Copiar escala" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-brand-600"><Copy size={12} /></button>
-                      {copiedPeriods && <button onClick={(e) => pasteDay(i, e)} title="Colar escala" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-emerald-600"><ClipboardCheck size={12} /></button>}
-                    </div>
-                  </div>
-                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                    {item.active ? (<>
-                      <div className="space-y-2">{(item.periods || []).map((period, pIdx) => (<div key={pIdx} className="space-y-1"><div className="flex items-center justify-between"><span className="text-[10px] font-bold text-slate-400 uppercase">Turno {pIdx + 1}</span>{(item.periods || []).length > 1 && <button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={10} /></button>}</div><div className="flex flex-col gap-1"><input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 p-1 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /><input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 p-1 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /></div></div>))}</div>
-                      <button onClick={() => addPeriod(i)} className="w-full mt-2 py-1 flex items-center justify-center gap-1 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded-lg border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[10px] font-bold"><Plus size={10} /> Novo</button>
-                    </>) : (<div className="h-20 flex items-center justify-center"><X size={20} className="text-slate-200 dark:text-slate-700" /></div>)}
-                  </div>
+        <div className="grid grid-cols-7 gap-1">
+          {simulation.schedule.map((item, i) => (
+            <div key={item.day} className={cn("relative p-1.5 rounded-xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-md shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
+              <div className="text-center mb-1">
+                <p className={cn("text-[10px] font-bold", item.active ? "text-brand-600" : "text-slate-400")}>{item.day}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase">{item.active ? 'Ativo' : 'Folga'}</p>
+                <div className="flex justify-center gap-1 mt-1">
+                  <button onClick={(e) => copyDay(i, e)} title="Copiar escala" className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-brand-600"><Copy size={10} /></button>
+                  {copiedPeriods && <button onClick={(e) => pasteDay(i, e)} title="Colar escala" className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-emerald-600"><ClipboardCheck size={10} /></button>}
                 </div>
-              ))}
+              </div>
+              <div className="space-y-0.5" onClick={(e) => e.stopPropagation()}>
+                {item.active ? (<>
+                  <div className="space-y-0.5">{(item.periods || []).map((period, pIdx) => (<div key={pIdx}><div className="flex items-center justify-between"><span className="text-[7px] font-bold text-slate-400 uppercase">T{pIdx + 1}</span>{(item.periods || []).length > 1 && <button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={8} /></button>}</div><div className="flex flex-col gap-px"><input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="text-[8px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /><input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="text-[8px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /></div></div>))}</div>
+                  <button onClick={() => addPeriod(i)} className="w-full mt-1 py-0 flex items-center justify-center gap-0.5 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[7px] font-bold"><Plus size={8} /> Novo</button>
+                </>) : (<div className="h-12 flex items-center justify-center"><X size={16} className="text-slate-200 dark:text-slate-700" /></div>)}
+              </div>
             </div>
+          ))}
+        </div>
           </div>
         </div>
 
@@ -754,65 +754,62 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-7 gap-2">
-        {(localPlan.days || []).map((day, i) => (
-          <div key={day.day} className="space-y-2">
-            <button onClick={() => toggleDay(i)} className={cn("w-full py-2 px-1 rounded-xl text-xs font-bold border transition-all", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}</button>
-            {day.active && (
-              <div className="space-y-1" onClick={e => e.stopPropagation()}>
-                {(day.periods || []).map((period, pIdx) => (
-                  <div key={pIdx} className="space-y-0.5">
-                    <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-slate-400 uppercase">Turno {pIdx + 1}</span>{(day.periods || []).length > 1 && <button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={8} /></button>}</div>
-                    <input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="w-full text-[9px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                    <input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="w-full text-[9px] font-bold bg-slate-50 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                  </div>
-                ))}
-                <button onClick={() => addPeriod(i)} className="w-full py-0.5 flex items-center justify-center gap-0.5 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[8px] font-bold"><Plus size={8} /> Turno</button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div>
-        <p className="text-[10px] font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Calendar size={10} /> Férias / Folgas — clique no dia para alternar</p>
-        <div className="flex gap-2 mb-2">
-          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full"><Sun size={10} /> Folga</span>
-          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-2 py-0.5 rounded-full"><Palmtree size={10} /> Férias</span>
-          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500">Clique: nada → folga → férias → nada</span>
-        </div>
         <div className="grid grid-cols-7 gap-1">
-          {weekDayNames.map((dn, i) => (
-            <div key={i} className="text-center text-[9px] font-bold text-slate-400 py-1">{dn}</div>
+          {(localPlan.days || []).map((day, i) => (
+            <div key={day.day} className="space-y-0.5">
+              <button onClick={() => toggleDay(i)} className={cn("w-full py-0.5 px-0.5 rounded text-[8px] font-bold border transition-all", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}</button>
+              {day.active && (
+                <div className="space-y-0" onClick={e => e.stopPropagation()}>
+                  {(day.periods || []).map((period, pIdx) => (
+                    <div key={pIdx}>
+                      {(day.periods || []).length > 1 && <div className="flex items-center justify-between"><span className="text-[6px] font-bold text-slate-400">T{pIdx + 1}</span><button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={6} /></button></div>}
+                      <input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="w-full text-[7px] bg-slate-50 dark:bg-slate-800 p-0 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+                      <input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="w-full text-[7px] bg-slate-50 dark:bg-slate-800 p-0 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+                    </div>
+                  ))}
+                  <button onClick={() => addPeriod(i)} className="w-full py-0 flex items-center justify-center gap-0 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[6px] font-bold"><Plus size={6} />+</button>
+                </div>
+              )}
+            </div>
           ))}
-          {calendarDays.map((day, i) => {
-            if (day === null) return <div key={`empty-${i}`} />;
-            const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
-            const vType = getVacationType(localPlan.vacations || [], dateStr);
-            const dayOfWeek = new Date(yr, mo - 1, day).getDay();
-            const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dayOfWeek];
-            const schedDay = (localPlan.days || []).find(sd => sd.day === dayName);
-            const isWork = schedDay?.active && !vType;
-            return (
-              <button
-                key={day}
-                onClick={() => toggleVacation(dateStr)}
-                className={cn(
-                  "aspect-square flex flex-col items-center justify-center rounded-lg text-[10px] font-bold border transition-all",
-                  vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
-                  vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
-                  isWork ? "bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" :
-                  "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
-                )}
-              >
-                <span>{day}</span>
-                {vType === 'ferias' && <Palmtree size={8} />}
-                {vType === 'folga' && <Sun size={8} />}
-              </button>
-            );
-          })}
         </div>
-      </div>
+
+        <div>
+          <p className="text-[9px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Calendar size={10} /> Férias/Folgas — clique no dia</p>
+          <div className="flex gap-1.5 mb-1">
+            <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={8} /> Folga</span>
+            <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={8} /> Férias</span>
+          </div>
+          <div className="grid grid-cols-7 gap-px">
+            {weekDayNames.map((dn, i) => (
+              <div key={i} className="text-center text-[8px] font-bold text-slate-400">{dn}</div>
+            ))}
+            {calendarDays.map((day, i) => {
+              if (day === null) return <div key={`empty-${i}`} />;
+              const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
+              const vType = getVacationType(localPlan.vacations || [], dateStr);
+              const dayOfWeek = new Date(yr, mo - 1, day).getDay();
+              const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dayOfWeek];
+              const schedDay = (localPlan.days || []).find(sd => sd.day === dayName);
+              const isWork = schedDay?.active && !vType;
+              return (
+                <button
+                  key={day}
+                  onClick={() => toggleVacation(dateStr)}
+                  className={cn(
+                    "aspect-square flex flex-col items-center justify-center rounded-sm text-[8px] font-bold border transition-all",
+                    vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
+                    vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
+                    isWork ? "bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" :
+                    "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
+                  )}
+                >
+                  <span>{day}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
       {isPast && (
         <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3">

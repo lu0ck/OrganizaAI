@@ -117,7 +117,7 @@ export function calculateHistoricalAverage(expenses: Expense[], fuelType?: FuelT
       && e.segmentConsumption > 0
       && e.tripTotal
       && e.tripTotal > 0
-      && (fuelType ? e.fuelType === fuelType : true)
+      && (fuelType ? (e.fuelType || 'gasolina') === fuelType : true)
   );
 
   if (calibrated.length === 0) return null;
@@ -143,9 +143,9 @@ export function calculateGlobalConsumption(
       e.type === 'combustivel'
       && e.tripTotal !== undefined
       && e.liters !== undefined
-      && (fuelType ? e.fuelType === fuelType : true)
-    )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      && (fuelType ? (e.fuelType || 'gasolina') === fuelType : true)
+  )
+  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (fuelExpenses.length === 0) {
     return {
@@ -222,7 +222,7 @@ export function recalculateFuelExpensesChain(
   for (const ft of FUEL_TYPES) {
     const indices = result
       .map((e, i) => ({ e, i }))
-      .filter(({ e }) => e.type === 'combustivel' && e.fuelType === ft)
+      .filter(({ e }) => e.type === 'combustivel' && (e.fuelType || 'gasolina') === ft)
       .sort((a, b) => new Date(a.e.date).getTime() - new Date(b.e.date).getTime());
 
     let previousExpense: Expense | undefined;
@@ -279,9 +279,9 @@ export function getLastFuelExpense(
     .filter(e =>
       e.type === 'combustivel'
       && e.saldoAfterFueling !== undefined
-      && (fuelType ? e.fuelType === fuelType : true)
-    )
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      && (fuelType ? (e.fuelType || 'gasolina') === fuelType : true)
+  )
+  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 }
 
 export function getActiveFuelTypes(expenses: Expense[]): FuelType[] {
