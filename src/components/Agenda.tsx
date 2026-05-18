@@ -780,32 +780,32 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
             <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={8} /> Folga</span>
             <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={8} /> Férias</span>
           </div>
-          <div className="grid grid-cols-7 gap-px">
-            {weekDayNames.map((dn, i) => (
-              <div key={i} className="text-center text-[8px] font-bold text-slate-400">{dn}</div>
-            ))}
-            {calendarDays.map((day, i) => {
-              if (day === null) return <div key={`empty-${i}`} />;
-              const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
-              const vType = getVacationType(localPlan.vacations || [], dateStr);
-              const dayOfWeek = new Date(yr, mo - 1, day).getDay();
-              const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dayOfWeek];
-              const schedDay = (localPlan.days || []).find(sd => sd.day === dayName);
-              const isWork = schedDay?.active && !vType;
-              return (
-                <button
-                  key={day}
-                  onClick={() => toggleVacation(dateStr)}
-                  className={cn(
-                    "h-6 flex flex-col items-center justify-center rounded-sm text-[8px] font-bold border transition-all",
-                    vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
-                    vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
-                    isWork ? "bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" :
-                    "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
-                  )}
-                >
-                  <span>{day}{vType === 'folga' ? ' F' : vType === 'ferias' ? ' Fe' : ''}</span>
-                </button>
+<div className="grid grid-cols-7 gap-2">
+                  {weekDayNames.map((dn, i) => (
+                    <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
+                  ))}
+                  {calendarDays.map((day, i) => {
+                    if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
+                    const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
+                    const vType = getVacationType(localPlan.vacations || [], dateStr);
+                    const dayOfWeek = new Date(yr, mo - 1, day).getDay();
+                    const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dayOfWeek];
+                    const schedDay = (localPlan.days || []).find(sd => sd.day === dayName);
+                    const isWork = schedDay?.active && !vType;
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => toggleVacation(dateStr)}
+                        className={cn(
+                          "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all",
+                          vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
+                          vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
+                          isWork ? "bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" :
+                          "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
+                        )}
+                      >
+                        <span className="text-[clamp(0.5rem,2vw,0.75rem)] font-bold">{day}{vType === 'folga' ? ' F' : vType === 'ferias' ? ' Fe' : ''}</span>
+                      </button>
               );
             })}
           </div>
