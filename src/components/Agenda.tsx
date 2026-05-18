@@ -774,8 +774,8 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
           ))}
         </div>
 
-        <div>
-          <p className="text-[9px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Calendar size={10} /> Férias/Folgas — clique: trabalho → folga → férias → trabalho</p>
+<div className="max-w-sm">
+<p className="text-[9px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Calendar size={10} /> Férias/Folgas — clique: trabalho → folga → férias → trabalho</p>
           <div className="flex gap-1.5 mb-1">
             <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={8} /> Folga</span>
             <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={8} /> Férias</span>

@@ -219,52 +219,55 @@ export function recalculateFuelExpensesChain(
 ): Expense[] {
   const result = [...expenses];
 
-  for (const ft of FUEL_TYPES) {
-    const indices = result
-      .map((e, i) => ({ e, i }))
-      .filter(({ e }) => e.type === 'combustivel' && (e.fuelType || 'gasolina') === ft)
-      .sort((a, b) => new Date(a.e.date).getTime() - new Date(b.e.date).getTime());
+  const indices = result
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => e.type === 'combustivel')
+    .sort((a, b) => {
+      const dateDiff = new Date(a.e.date).getTime() - new Date(b.e.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return a.e.id.localeCompare(b.e.id);
+    });
 
-    let previousExpense: Expense | undefined;
+  let previousExpense: Expense | undefined;
 
-    for (const { i } of indices) {
-      const expense = result[i];
-      const tripTotal = expense.tripTotal || 0;
-      const tripOnReserve = expense.tripOnReserve || 0;
-      const liters = expense.liters || 0;
+  for (const { i } of indices) {
+    const expense = result[i];
+    const tripTotal = expense.tripTotal || 0;
+    const tripOnReserve = expense.tripOnReserve || 0;
+    const liters = expense.liters || 0;
 
-      if (tripTotal > 0 && liters > 0) {
-        const histAvg = calculateHistoricalAverage(result, ft);
-        const calcResult = calculateFuelBalance(
-          tripTotal,
-          tripOnReserve,
-          liters,
-          profile,
-          previousExpense,
-          expense.fullTank,
-          histAvg ?? undefined
-        );
+    if (tripTotal > 0 && liters > 0) {
+      const ft = (expense.fuelType || 'gasolina') as FuelType;
+      const histAvg = calculateHistoricalAverage(result, ft);
+      const calcResult = calculateFuelBalance(
+        tripTotal,
+        tripOnReserve,
+        liters,
+        profile,
+        previousExpense,
+        expense.fullTank,
+        histAvg ?? undefined
+      );
 
-        const prevIdx = previousExpense ? result.indexOf(previousExpense) : -1;
-        if (prevIdx >= 0) {
-          result[prevIdx] = {
-            ...result[prevIdx],
-            segmentConsumption: calcResult.segmentConsumption ?? result[prevIdx].segmentConsumption ?? null,
-            isCalibrated: calcResult.isCalibrated,
-            calculatedTripTotal: calcResult.tripTotal,
-            calculatedTripOnReserve: calcResult.tripOnReserve,
-          };
-        }
-
-        result[i] = {
-          ...expense,
-          saldoAfterFueling: calcResult.saldoAfterFueling,
+      const prevIdx = previousExpense ? result.indexOf(previousExpense) : -1;
+      if (prevIdx >= 0) {
+        result[prevIdx] = {
+          ...result[prevIdx],
+          segmentConsumption: calcResult.segmentConsumption ?? result[prevIdx].segmentConsumption ?? null,
+          isCalibrated: calcResult.isCalibrated,
+          calculatedTripTotal: calcResult.tripTotal,
+          calculatedTripOnReserve: calcResult.tripOnReserve,
         };
-
-        previousExpense = result[i];
-      } else {
-        previousExpense = expense;
       }
+
+      result[i] = {
+        ...expense,
+        saldoAfterFueling: calcResult.saldoAfterFueling,
+      };
+
+      previousExpense = result[i];
+    } else {
+      previousExpense = expense;
     }
   }
 
