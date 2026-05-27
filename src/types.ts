@@ -128,6 +128,7 @@ export interface MonthlyPlan {
   customHourlyRate?: number;
   customFuelCost?: number;
   customMaintCost?: number;
+  customKmPerLiter?: number;
   actualEarnings?: number;
   actualFuelCost?: number;
   actualMaintCost?: number;

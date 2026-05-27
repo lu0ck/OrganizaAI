@@ -34,15 +34,15 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         ipvaValue: Number(ipvaValue) || undefined,
         licensingValue: Number(licensingValue) || undefined,
         insuranceValue: Number(insuranceValue) || undefined,
-        workSchedule: [
-          { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] },
-          { day: 'Seg', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-          { day: 'Ter', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-          { day: 'Qua', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-          { day: 'Qui', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-          { day: 'Sex', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-          { day: 'Sáb', active: false, periods: [{ start: '00:00', end: '00:00' }] },
-        ]
+    workSchedule: [
+      { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+      { day: 'Seg', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+      { day: 'Ter', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+      { day: 'Qua', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+      { day: 'Qui', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+      { day: 'Sex', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+      { day: 'Sáb', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    ]
       });
     }
   };

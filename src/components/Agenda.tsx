@@ -3,6 +3,7 @@ import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, S
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, isAfter, getDay, startOfWeek, addDays } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry } from '../types';
 import { cn } from '../lib/utils';
+import { calculateHistoricalAverage } from '../lib/fuelCalculation';
 import InfoTooltip from './Tooltip';
 
 function isVacationDay(vacations: VacationEntry[], dateStr: string): boolean {
@@ -12,6 +13,41 @@ function isVacationDay(vacations: VacationEntry[], dateStr: string): boolean {
 function getVacationType(vacations: VacationEntry[], dateStr: string): 'ferias' | 'folga' | undefined {
   const entry = vacations.find(v => v.date === dateStr);
   return entry?.type;
+}
+
+function getDefaultSchedule(): WorkDay[] {
+  return [
+    { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    { day: 'Seg', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+    { day: 'Ter', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+    { day: 'Qua', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+    { day: 'Qui', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+    { day: 'Sex', active: true, periods: [{ start: '08:00', end: '18:00' }] },
+    { day: 'Sáb', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+  ];
+}
+
+function getEmptySchedule(): WorkDay[] {
+  return [
+    { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    { day: 'Seg', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    { day: 'Ter', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    { day: 'Qua', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    { day: 'Qui', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    { day: 'Sex', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+    { day: 'Sáb', active: false, periods: [{ start: '00:00', end: '00:00' }] },
+  ];
+}
+
+function applyDefaultHours(schedule: WorkDay[]): WorkDay[] {
+  return schedule.map(d => ({
+    ...d,
+    periods: (d.periods || []).map(p =>
+      (p.start === '00:00' && p.end === '00:00' && d.active)
+        ? { start: '08:00', end: '18:00' }
+        : { ...p }
+    )
+  }));
 }
 
 interface AgendaProps {
@@ -30,15 +66,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const plans = Array.isArray(rawPlans) ? rawPlans : [];
   const [simulation, setSimulation] = useState({
     avgPerHour: profile?.hourlyRate || 0,
-    schedule: profile?.workSchedule || [
-      { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] },
-      { day: 'Seg', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-      { day: 'Ter', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-      { day: 'Qua', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-      { day: 'Qui', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-      { day: 'Sex', active: true, periods: [{ start: '00:00', end: '00:00' }] },
-      { day: 'Sáb', active: false, periods: [{ start: '00:00', end: '00:00' }] },
-    ]
+    schedule: profile?.workSchedule || getDefaultSchedule()
   });
   const [isSaved, setIsSaved] = useState(false);
   const [copiedPeriods, setCopiedPeriods] = useState<WorkPeriod[] | null>(null);
@@ -487,7 +515,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
               <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                 {item.active ? (<>
                   <div className="space-y-1">{(item.periods || []).map((period, pIdx) => (<div key={pIdx} className="space-y-0.5"><div className="flex items-center justify-between"><span className="text-[9px] font-bold text-slate-400 uppercase">T{pIdx + 1}</span>{(item.periods || []).length > 1 && <button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={9} /></button>}</div><div className="flex flex-col gap-0.5"><input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 p-1 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /><input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 p-1 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" /></div></div>))}</div>
-                  <button onClick={() => addPeriod(i)} className="w-full mt-1.5 py-0.5 flex items-center justify-center gap-0.5 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded-lg border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[9px] font-bold"><Plus size={9} /> Novo</button>
+                  <button onClick={() => addPeriod(i)} className="w-full mt-1.5 py-1 flex items-center justify-center gap-1 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded-lg border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-xs font-bold"><Plus size={14} /> Novo</button>
                 </>) : (<div className="h-16 flex items-center justify-center"><X size={18} className="text-slate-200 dark:text-slate-700" /></div>)}
               </div>
             </div>
@@ -554,12 +582,12 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
                       <button onClick={() => { setExpandedMonth(null); setEditPlan(null); }} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
                     </div>
                     {editPlan ? (
-                      <EditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } setExpandedMonth(null); setEditPlan(null); }} onCancel={() => { setExpandedMonth(null); setEditPlan(null); }} />
+                      <EditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } setExpandedMonth(null); setEditPlan(null); }} onCancel={() => { setExpandedMonth(null); setEditPlan(null); }} />
                     ) : (
                       <div className="text-center py-8">
                         <p className="text-slate-500 text-sm mb-4">Nenhum plano criado para {ym.label}.</p>
-                        <button onClick={() => { const template: MonthlyPlan = { id: crypto.randomUUID(), month: ym.key, days: profile?.workSchedule ? profile.workSchedule.map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })) : [], vacations: [] }; setEditPlan(template); }} className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-all">Criar plano do Perfil</button>
-                        <button onClick={() => { const empty: MonthlyPlan = { id: crypto.randomUUID(), month: ym.key, days: [ { day: 'Dom', active: false, periods: [{ start: '00:00', end: '00:00' }] }, { day: 'Seg', active: false, periods: [{ start: '00:00', end: '00:00' }] }, { day: 'Ter', active: false, periods: [{ start: '00:00', end: '00:00' }] }, { day: 'Qua', active: false, periods: [{ start: '00:00', end: '00:00' }] }, { day: 'Qui', active: false, periods: [{ start: '00:00', end: '00:00' }] }, { day: 'Sex', active: false, periods: [{ start: '00:00', end: '00:00' }] }, { day: 'Sáb', active: false, periods: [{ start: '00:00', end: '00:00' }] }, ], vacations: [] }; setEditPlan(empty); }} className="ml-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all">Começar do zero</button>
+        <button onClick={() => { const days = profile?.workSchedule ? applyDefaultHours(profile.workSchedule) : getDefaultSchedule(); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days, vacations: [] }); }} className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-all">Criar plano do Perfil</button>
+        <button onClick={() => { setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: getEmptySchedule(), vacations: [] }); }} className="ml-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all">Começar do zero</button>
                       </div>
                     )}
                   </div>
@@ -603,9 +631,13 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
                 <h4 className="text-sm font-bold dark:text-white flex items-center gap-2"><TrendingUp size={14} /> Projeção até Dezembro</h4>
                 <p className="text-[10px] text-slate-400">Meses futuros (a partir do próximo mês)</p>
               </div>
-              <button onClick={() => setShowFullProjection(!showFullProjection)} className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold rounded-lg hover:bg-slate-200 transition-all">
-                {showFullProjection ? <><ChevronUp size={12} /> Apenas futuros</> : <><ChevronDown size={12} /> Ver ano completo</>}
-              </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`; plans.filter(p => p.month > currentMonthKey).forEach(p => onDeletePlan?.(p.id)); }} className="flex items-center gap-1 px-3 py-1.5 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-[10px] font-bold rounded-lg hover:bg-orange-100 transition-all"><Trash2 size={12} /> Resetar Futuros</button>
+          <button onClick={() => { if (confirm('Apagar TODOS os planejamentos?')) plans.forEach(p => onDeletePlan?.(p.id)); }} className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-[10px] font-bold rounded-lg hover:bg-rose-100 transition-all"><Trash2 size={12} /> Resetar Tudo</button>
+          <button onClick={() => setShowFullProjection(!showFullProjection)} className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold rounded-lg hover:bg-slate-200 transition-all">
+            {showFullProjection ? <><ChevronUp size={12} /> Apenas futuros</> : <><ChevronDown size={12} /> Ver ano completo</>}
+          </button>
+        </div>
             </div>
 
             {yearEndProjection && !showFullProjection && (
@@ -638,7 +670,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   );
 }
 
-function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, userAverages, averages, isPast, realData }: {
+function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, userAverages, averages, isPast, realData, expenses }: {
   plan: MonthlyPlan;
   monthKey: string;
   monthLabel: string;
@@ -649,10 +681,18 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
   averages: { perHour: number; perDay: number; perKm: number; expenseRatio: number };
   isPast?: boolean;
   realData?: { earnings: number; fuelCost: number; maintCost: number; otherCost: number; totalExpenses: number; netProfit: number; rideDays: number; hasData: boolean } | null;
+  expenses?: Expense[];
 }) {
   const [localPlan, setLocalPlan] = useState<MonthlyPlan>(plan);
 
   const defaultHourlyRate = profile?.hourlyRate || averages.perHour || 0;
+
+  const histConsumption = useMemo(() => {
+    if (!expenses || expenses.length === 0) return null;
+    const mainFuelType = (profile?.vehicleType === 'moto' ? 'gasolina' : 'gasolina') as any;
+    const avg = calculateHistoricalAverage(expenses, mainFuelType);
+    return avg;
+  }, [expenses, profile]);
 
   const monthProjection = useMemo(() => {
     try {
@@ -723,6 +763,39 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
     setLocalPlan({ ...localPlan, vacations: (localPlan.vacations || []).filter(v => v.date !== dateStr) });
   };
 
+  const setMonthAsFerias = () => {
+    const newVacations: VacationEntry[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = format(new Date(yr, mo - 1, d), 'yyyy-MM-dd');
+      const existing = (localPlan.vacations || []).find(v => v.date === dateStr);
+      if (!existing) newVacations.push({ date: dateStr, type: 'ferias' });
+    }
+    setLocalPlan({ ...localPlan, vacations: [...(localPlan.vacations || []), ...newVacations] });
+  };
+
+  const setVacationPeriod = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return;
+    const start = parseISO(startDate);
+    const end = parseISO(endDate);
+    if (isAfter(start, end)) return;
+    const newVacations: VacationEntry[] = [];
+    let current = start;
+    while (!isAfter(current, end)) {
+      const dateStr = format(current, 'yyyy-MM-dd');
+      const existing = (localPlan.vacations || []).find(v => v.date === dateStr);
+      if (!existing) newVacations.push({ date: dateStr, type: 'ferias' });
+      current = addDays(current, 1);
+    }
+    setLocalPlan({ ...localPlan, vacations: [...(localPlan.vacations || []), ...newVacations] });
+  };
+
+  const clearAllVacations = () => {
+    setLocalPlan({ ...localPlan, vacations: [] });
+  };
+
+  const [vacationStart, setVacationStart] = useState('');
+  const [vacationEnd, setVacationEnd] = useState('');
+
   const copyFromProfile = () => {
     const workSchedule = profile?.workSchedule;
     if (workSchedule) {
@@ -767,7 +840,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
                     <input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="w-full text-xs bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
                   </div>
                 ))}
-                <button onClick={() => addPeriod(i)} className="w-full py-0.5 flex items-center justify-center gap-0 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-[9px] font-bold"><Plus size={8} />+</button>
+                <button onClick={() => addPeriod(i)} className="w-full py-1 flex items-center justify-center gap-1 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-xs font-bold"><Plus size={14} /> Novo</button>
               </div>
             )}
           </div>
@@ -776,10 +849,21 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
 
       <div className="max-w-sm mx-auto">
         <p className="text-sm font-bold text-slate-500 mb-1 flex items-center gap-1"><Calendar size={14} /> Férias/Folgas — clique: trabalho → folga → férias → trabalho</p>
-        <div className="flex gap-1.5 mb-1">
+        <div className="flex gap-1.5 mb-2 flex-wrap">
+          <button onClick={setMonthAsFerias} className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-900/30 hover:bg-orange-100 transition-all"><Palmtree size={12} /> Mês todo férias</button>
+          <button onClick={clearAllVacations} className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-600 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition-all"><X size={12} /> Limpar</button>
+        </div>
+        <div className="flex gap-1.5 mb-2 items-center flex-wrap">
+          <input type="date" value={vacationStart} onChange={e => setVacationStart(e.target.value)} min={`${yr}-${String(mo).padStart(2, '0')}-01`} max={`${yr}-${String(mo).padStart(2, '0')}-${daysInMonth}`} className="text-xs px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+          <span className="text-xs text-slate-400">até</span>
+          <input type="date" value={vacationEnd} onChange={e => setVacationEnd(e.target.value)} min={`${yr}-${String(mo).padStart(2, '0')}-01`} max={`${yr}-${String(mo).padStart(2, '0')}-${daysInMonth}`} className="text-xs px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+          <button onClick={() => { setVacationPeriod(vacationStart, vacationEnd); setVacationStart(''); setVacationEnd(''); }} disabled={!vacationStart || !vacationEnd} className="px-2 py-1 text-xs font-bold bg-brand-600 text-white rounded-lg disabled:opacity-40 hover:bg-brand-700 transition-all">Aplicar</button>
+        </div>
+        <div className="flex gap-1.5 mb-1 flex-wrap">
+          <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 px-1 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/30"><CheckCircle2 size={10} /> Trabalho</span>
           <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={10} /> Folga</span>
           <span className="inline-flex items-center gap-0.5 text-xs font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={10} /> Férias</span>
-          </div>
+        </div>
 <div className="grid grid-cols-7 gap-2">
                   {weekDayNames.map((dn, i) => (
                     <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
@@ -798,9 +882,9 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
                         onClick={() => toggleVacation(dateStr)}
                         className={cn(
                           "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all",
-                          vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
-                          vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
-                          isWork ? "bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" :
+        vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
+        vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
+        isWork ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" :
                           "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
                         )}
                       >
@@ -865,9 +949,43 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
             <label className="text-xs font-bold text-slate-400 uppercase block mb-0.5">Manutenção (R$/mês)</label>
             <input type="number" step="0.01" min="0" value={localPlan.customMaintCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customMaintCost: isNaN(v!) ? undefined : v }); }} placeholder={(monthProjection.workDays * userAverages.maintPerDay).toFixed(0)} className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-sm font-bold focus:ring-1 focus:ring-brand-500" />
           </div>
-        </div>
+      </div>
 
-        {(userAverages.earningsPerDay > 0 || userAverages.kmPerDay > 0) && (
+      <div className="p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-100 dark:border-orange-900/30">
+        <p className="text-xs font-bold text-orange-600 uppercase mb-1">Estimativa de Combustível</p>
+        {histConsumption ? (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Consumo médio calibrado</span>
+              <span className="font-bold text-orange-600 dark:text-orange-400">{histConsumption.toFixed(1)} km/l</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">KM estimados no mês</span>
+              <span className="font-bold dark:text-white">{monthProjection.km.toFixed(0)} km</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Litros estimados</span>
+              <span className="font-bold dark:text-white">{(monthProjection.km / histConsumption).toFixed(0)} L</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <p className="text-xs text-slate-400 italic">Sem dados de consumo calibrados no histórico.</p>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Estimativa de consumo (km/l)</label>
+              <input type="number" step="0.1" min="0" value={localPlan.customKmPerLiter ?? (profile?.kmPerLiter ?? '')} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customKmPerLiter: isNaN(v!) ? undefined : v }); }} placeholder="Ex: 25" className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-sm font-bold focus:ring-1 focus:ring-brand-500" />
+            </div>
+            {(localPlan.customKmPerLiter || profile?.kmPerLiter) && monthProjection.km > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">Litros estimados</span>
+                <span className="font-bold dark:text-white">{(monthProjection.km / (localPlan.customKmPerLiter || profile?.kmPerLiter || 1)).toFixed(0)} L</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {(userAverages.earningsPerDay > 0 || userAverages.kmPerDay > 0) && (
           <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
             <p className="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1"><Info size={10} /> Médias 3 meses</p>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
