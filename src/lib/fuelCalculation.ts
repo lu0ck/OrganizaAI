@@ -58,12 +58,13 @@ export function calculateFuelBalance(
   }
 
   const prevFullTank = previousExpense.fullTank === true;
+  const currentFullTank = fullTank === true;
 
   let segmentConsumption: number | null;
   let isCalibrated: boolean;
   let saldoBeforeFueling: number;
 
-  if (prevFullTank && tripTotal > 0 && litersAdded > 0) {
+  if (prevFullTank && currentFullTank && tripTotal > 0 && litersAdded > 0) {
     isCalibrated = true;
     segmentConsumption = tripTotal / litersAdded;
     saldoBeforeFueling = 0;
@@ -73,12 +74,16 @@ export function calculateFuelBalance(
       ? historicalAverage
       : (profile.kmPerLiter || null);
 
-    const prevSaldo = previousExpense.saldoAfterFueling;
-    if (prevSaldo !== undefined && segmentConsumption && segmentConsumption > 0 && tripTotal > 0) {
-      const fuelBurned = tripTotal / segmentConsumption;
-      saldoBeforeFueling = Math.max(prevSaldo - fuelBurned, 0);
+    if (prevFullTank && tripTotal > 0 && litersAdded > 0) {
+      saldoBeforeFueling = Math.max(T - litersAdded, 0);
     } else {
-      saldoBeforeFueling = prevSaldo !== undefined ? prevSaldo : T;
+      const prevSaldo = previousExpense.saldoAfterFueling;
+      if (prevSaldo !== undefined && segmentConsumption && segmentConsumption > 0 && tripTotal > 0) {
+        const fuelBurned = tripTotal / segmentConsumption;
+        saldoBeforeFueling = Math.max(prevSaldo - fuelBurned, 0);
+      } else {
+        saldoBeforeFueling = prevSaldo !== undefined ? prevSaldo : T;
+      }
     }
   }
 

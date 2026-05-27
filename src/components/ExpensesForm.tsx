@@ -429,7 +429,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
       const isFuel = expense.type === 'combustivel';
       const hasConsumption = isFuel && expense.segmentConsumption != null && expense.segmentConsumption > 0;
       const hasTrip = isFuel && expense.tripTotal != null && expense.tripTotal > 0;
-      const isWaitingNext = isFuel && !hasConsumption && !expense.segmentConsumption;
+      const isWaitingNext = isFuel && !expense.isCalibrated;
         return (
           <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
