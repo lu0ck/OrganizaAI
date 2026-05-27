@@ -147,7 +147,7 @@ useEffect(() => {
     if (globalConsumption.status === 'valid' && globalConsumption.globalAverage && globalConsumption.globalAverage > 0) {
       currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
       } else {
-        const fullTankExpenses = safeState.expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true);
+        const fullTankExpenses = safeState.expenses.filter(e => e.type === 'combustivel' && e.fullTank === true);
         const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
         const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
         if (totalLiters > 0 && fullTankKm > 0) {
@@ -175,10 +175,9 @@ useEffect(() => {
       const recalculated = recalculateFuelExpensesChain(safeState.expenses, safeState.profile);
       const hasChanges = recalculated.some((re, i) => {
         const orig = safeState.expenses[i];
-        return re.calculatedTripTotal !== orig.calculatedTripTotal
-          || re.calculatedTripOnReserve !== orig.calculatedTripOnReserve
-          || re.segmentConsumption !== orig.segmentConsumption
-          || re.saldoAfterFueling !== orig.saldoAfterFueling;
+        return re.segmentConsumption !== orig.segmentConsumption
+          || re.saldoAfterFueling !== orig.saldoAfterFueling
+          || re.isCalibrated !== orig.isCalibrated;
       });
       if (hasChanges) {
         setState(prev => ({ ...prev, expenses: recalculated }));
@@ -272,11 +271,10 @@ setState(prev => {
         }
       }
 
-  const newExpenses = prevExpenses.map(e => {
-    if (e.id !== updatedExpense.id) return e;
-    const { segmentConsumption, calculatedTripTotal, calculatedTripOnReserve, isCalibrated, saldoAfterFueling } = e;
-    return { ...updatedExpense, segmentConsumption, calculatedTripTotal, calculatedTripOnReserve, isCalibrated, saldoAfterFueling };
-  });
+    const newExpenses = prevExpenses.map(e => {
+      if (e.id !== updatedExpense.id) return e;
+      return { ...updatedExpense };
+    });
 
       if (newProfile) {
         const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, newProfile);

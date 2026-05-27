@@ -65,17 +65,17 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
     const perTypeStats = activeFuelTypes.map(ft => {
       const lastOf = getLastFuelExpense(expenses, ft);
       const globalConsumption = calculateGlobalConsumption(expenses, ft);
-      const fullTankExpenses = expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true && e.fuelType === ft);
-      const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
-      const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
-      const simpleAverage = totalLiters > 0 ? fullTankKm / totalLiters : 0;
-      const kmPerLiter = globalConsumption.status === 'valid' && globalConsumption.globalAverage
-        ? globalConsumption.globalAverage
-        : simpleAverage || profile.kmPerLiter || 0;
+  const fullTankExpenses = expenses.filter(e => e.type === 'combustivel' && e.fullTank === true && e.fuelType === ft);
+  const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
+  const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
+  const simpleAverage = totalLiters > 0 ? fullTankKm / totalLiters : 0;
+  const kmPerLiter = globalConsumption.status === 'valid' && globalConsumption.globalAverage
+    ? globalConsumption.globalAverage
+    : simpleAverage || profile.kmPerLiter || 0;
 
-      const kmSinceLastFuel = lastOf
-        ? rides.filter(r => isAfter(parseISO(r.date), parseISO(lastOf.date)) || isSameDay(parseISO(r.date), parseISO(lastOf.date))).reduce((acc, r) => acc + r.kmDriven, 0)
-        : 0;
+  const kmSinceLastFuel = lastOf
+    ? rides.filter(r => isAfter(parseISO(r.date), parseISO(lastOf.date)) || isSameDay(parseISO(r.date), parseISO(lastOf.date))).reduce((acc, r) => acc + r.kmDriven, 0)
+    : 0;
       const estimatedCurrentBalance = lastOf && kmPerLiter > 0
         ? Math.max(0, (lastOf.saldoAfterFueling || 0) - (kmSinceLastFuel / kmPerLiter))
         : lastOf?.saldoAfterFueling || 0;
@@ -98,9 +98,9 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
       };
     });
 
-  const totalLiters = expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true).reduce((acc, e) => acc + (e.liters || 0), 0);
+  const totalLiters = expenses.filter(e => e.type === 'combustivel' && e.fullTank === true).reduce((acc, e) => acc + (e.liters || 0), 0);
   const simpleAverage = totalLiters > 0
-    ? expenses.filter(e => e.type === 'combustivel' && e.enteredReserve === true).reduce((acc, e) => acc + (e.tripTotal || 0), 0) / totalLiters
+    ? expenses.filter(e => e.type === 'combustivel' && e.fullTank === true).reduce((acc, e) => acc + (e.tripTotal || 0), 0) / totalLiters
     : 0;
   const kmPerLiter = profile.kmPerLiter || simpleAverage || 0;
   const globalConsumption = calculateGlobalConsumption(expenses);

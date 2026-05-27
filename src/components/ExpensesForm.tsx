@@ -70,8 +70,8 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
     calculatedFields = {
       tripTotal: Number(formData.tripTotal) || undefined,
       tripOnReserve: formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : undefined,
-      enteredReserve: formData.enteredReserve || undefined,
-      fullTank: formData.fullTank || undefined,
+      enteredReserve: formData.enteredReserve ? true : undefined,
+      fullTank: formData.fullTank ? true : undefined,
     };
   }
     
@@ -427,10 +427,9 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
         const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
         const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
       const isFuel = expense.type === 'combustivel';
-      const displayTripTotal = expense.calculatedTripTotal ?? expense.tripTotal;
-      const displayTripOnReserve = expense.calculatedTripOnReserve ?? expense.tripOnReserve;
-      const hasDeslocamento = isFuel && expense.calculatedTripTotal != null && expense.calculatedTripTotal > 0;
-      const isWaitingNext = isFuel && !expense.calculatedTripTotal;
+      const hasConsumption = isFuel && expense.segmentConsumption != null && expense.segmentConsumption > 0;
+      const hasTrip = isFuel && expense.tripTotal != null && expense.tripTotal > 0;
+      const isWaitingNext = isFuel && !hasConsumption && !expense.segmentConsumption;
         return (
           <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -469,26 +468,31 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </p>
                   </div>
                 )}
-            {hasDeslocamento && expense.segmentConsumption && expense.segmentConsumption > 0 ? (
-              <div className="text-right">
-                <p className="text-xs text-slate-500">Consumo</p>
-                <p className="font-bold text-slate-900 dark:text-white">
-                  {expense.segmentConsumption.toFixed(1)} km/l
-                </p>
-              </div>
-            ) : null}
-            {hasDeslocamento ? (
-              <div className="text-right">
-                <p className="text-xs text-slate-500">Trip</p>
-                <p className="font-bold text-slate-900 dark:text-white">{displayTripTotal} km</p>
-              </div>
-            ) : null}
-            {hasDeslocamento && displayTripOnReserve && displayTripOnReserve > 0 ? (
-              <div className="text-right">
-                <p className="text-xs text-slate-500">Reserva</p>
-                <p className="font-bold text-orange-600 dark:text-orange-400">{displayTripOnReserve} km</p>
-              </div>
-            ) : null}
+              {hasConsumption ? (
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Consumo</p>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {expense.segmentConsumption!.toFixed(1)} km/l
+                  </p>
+                  {expense.isCalibrated ? (
+                    <span className="text-[10px] font-bold text-emerald-500">CALIBRADO</span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-amber-500">ESTIMADO</span>
+                  )}
+                </div>
+              ) : null}
+              {hasTrip ? (
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Trip</p>
+                  <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
+                </div>
+              ) : null}
+              {hasTrip && expense.tripOnReserve && expense.tripOnReserve > 0 ? (
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Reserva</p>
+                  <p className="font-bold text-orange-600 dark:text-orange-400">{expense.tripOnReserve} km</p>
+                </div>
+              ) : null}
                 {isWaitingNext && (
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 italic">Aguardando próximo abastecimento</p>
@@ -508,10 +512,10 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                 liters: expense.liters ? String(expense.liters) : '',
                 pricePerLiter: expense.pricePerLiter ? String(expense.pricePerLiter) : '',
                 fuelType: expense.fuelType || 'gasolina',
-          tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
-          enteredReserve: expense.enteredReserve || false,
-          tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : '',
-          fullTank: expense.fullTank || false
+        tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
+        enteredReserve: !!expense.enteredReserve,
+        tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : '',
+        fullTank: !!expense.fullTank
               });
             }}
             className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
