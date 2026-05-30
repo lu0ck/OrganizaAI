@@ -157,8 +157,6 @@ export function recalculateFuelExpensesChain(
       isCalibrated: undefined,
       saldoAfterFueling: undefined,
       effectiveTripKm: undefined,
-      tripTotal: undefined,
-      tripOnReserve: undefined,
     };
   }
 
