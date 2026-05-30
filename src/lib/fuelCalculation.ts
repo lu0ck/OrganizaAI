@@ -160,45 +160,59 @@ export function recalculateFuelExpensesChain(
     };
   }
 
-  for (let idx = 0; idx < sorted.length; idx++) {
-    const { i: curIdx } = sorted[idx];
-    const current = result[curIdx];
-    const curLiters = current.liters || 0;
-    const curTripTotal = current.tripTotal || 0;
-    const curFullTank = current.fullTank === true;
+for (let idx = 0; idx < sorted.length; idx++) {
+  const { i: curIdx } = sorted[idx];
+  const current = result[curIdx];
+  const curLiters = current.liters || 0;
+  const curTripTotal = current.tripTotal || 0;
+  const curTripOnReserve = current.tripOnReserve || 0;
+  const curFullTank = current.fullTank === true;
 
+  result[curIdx] = {
+    ...result[curIdx],
+    saldoAfterFueling: curFullTank ? T : (curLiters > 0 ? Math.min(curLiters, T) : undefined),
+  };
+
+  if (idx === 0) continue;
+
+  const { i: prevIdx } = sorted[idx - 1];
+  const prev = result[prevIdx];
+  const prevLiters = prev.liters || 0;
+
+  if (curTripTotal > 0 && prevLiters > 0 && curFullTank) {
+    const consumption = curTripTotal / prevLiters;
+    result[prevIdx] = {
+      ...result[prevIdx],
+      segmentConsumption: consumption,
+      isCalibrated: true,
+      effectiveTripKm: curTripTotal,
+      tripTotal: curTripTotal,
+      tripOnReserve: curTripOnReserve > 0 ? curTripOnReserve : undefined,
+    };
     result[curIdx] = {
       ...result[curIdx],
-      saldoAfterFueling: curFullTank ? T : (curLiters > 0 ? Math.min(curLiters, T) : undefined),
+      tripTotal: undefined,
+      tripOnReserve: undefined,
     };
-
-    if (idx === 0) continue;
-
-    const { i: prevIdx } = sorted[idx - 1];
-    const prev = result[prevIdx];
-    const prevLiters = prev.liters || 0;
-    const prevFullTank = prev.fullTank === true;
-
-    if (curTripTotal > 0 && prevLiters > 0 && curFullTank) {
-      const consumption = curTripTotal / prevLiters;
-      result[prevIdx] = {
-        ...result[prevIdx],
-        segmentConsumption: consumption,
-        isCalibrated: true,
-        effectiveTripKm: curTripTotal,
-      };
-    } else if (curTripTotal > 0 && prevLiters > 0) {
-      const ft = (prev.fuelType || 'gasolina') as FuelType;
-      const histAvg = calculateHistoricalAverage(result, ft);
-      const estimatedConsumption = (histAvg && histAvg > 0) ? histAvg : (profile.kmPerLiter || null);
-      result[prevIdx] = {
-        ...result[prevIdx],
-        segmentConsumption: estimatedConsumption ?? undefined,
-        isCalibrated: false,
-        effectiveTripKm: curTripTotal,
-      };
-    }
+  } else if (curTripTotal > 0 && prevLiters > 0) {
+    const ft = (prev.fuelType || 'gasolina') as FuelType;
+    const histAvg = calculateHistoricalAverage(result, ft);
+    const estimatedConsumption = (histAvg && histAvg > 0) ? histAvg : (profile.kmPerLiter || null);
+    result[prevIdx] = {
+      ...result[prevIdx],
+      segmentConsumption: estimatedConsumption ?? undefined,
+      isCalibrated: false,
+      effectiveTripKm: curTripTotal,
+      tripTotal: curTripTotal,
+      tripOnReserve: curTripOnReserve > 0 ? curTripOnReserve : undefined,
+    };
+    result[curIdx] = {
+      ...result[curIdx],
+      tripTotal: undefined,
+      tripOnReserve: undefined,
+    };
   }
+}
 
   return result;
 }
