@@ -189,11 +189,6 @@ for (let idx = 0; idx < sorted.length; idx++) {
       tripTotal: curTripTotal,
       tripOnReserve: curTripOnReserve > 0 ? curTripOnReserve : undefined,
     };
-    result[curIdx] = {
-      ...result[curIdx],
-      tripTotal: undefined,
-      tripOnReserve: undefined,
-    };
   } else if (curTripTotal > 0 && prevLiters > 0) {
     const ft = (prev.fuelType || 'gasolina') as FuelType;
     const histAvg = calculateHistoricalAverage(result, ft);
@@ -205,11 +200,6 @@ for (let idx = 0; idx < sorted.length; idx++) {
       effectiveTripKm: curTripTotal,
       tripTotal: curTripTotal,
       tripOnReserve: curTripOnReserve > 0 ? curTripOnReserve : undefined,
-    };
-    result[curIdx] = {
-      ...result[curIdx],
-      tripTotal: undefined,
-      tripOnReserve: undefined,
     };
   }
 }

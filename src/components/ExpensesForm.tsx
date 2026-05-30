@@ -480,12 +480,12 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                           <span className="text-[10px] font-bold text-amber-500">ESTIMADO</span>
                         </div>
                       )}
-                      {isFuel && expense.tripTotal != null && expense.tripTotal > 0 && (
-                        <div className="text-right">
-                          <p className="text-xs text-slate-500">Trip</p>
-                          <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
-                        </div>
-                      )}
+{isFuel && expense.effectiveTripKm != null && expense.effectiveTripKm > 0 && (
+  <div className="text-right">
+    <p className="text-xs text-slate-500">Trip</p>
+    <p className="font-bold text-slate-900 dark:text-white">{expense.effectiveTripKm} km</p>
+  </div>
+)}
                       {isFuel && expense.fullTank && (
                         <div className="flex items-center gap-1">
                           <Droplet size={12} className="text-blue-500" />
