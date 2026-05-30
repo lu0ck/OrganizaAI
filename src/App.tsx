@@ -178,7 +178,9 @@ useEffect(() => {
       return re.segmentConsumption !== orig.segmentConsumption
         || re.saldoAfterFueling !== orig.saldoAfterFueling
         || re.isCalibrated !== orig.isCalibrated
-        || re.effectiveTripKm !== orig.effectiveTripKm;
+        || re.effectiveTripKm !== orig.effectiveTripKm
+        || re.tripTotal !== orig.tripTotal
+        || re.tripOnReserve !== orig.tripOnReserve;
       });
       if (hasChanges) {
         setState(prev => ({ ...prev, expenses: recalculated }));
