@@ -65,13 +65,14 @@ const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 export function getDailyTarget(
   day: Date,
   goal: Goal | undefined,
-  profile: UserProfile | null | undefined
+  profile: UserProfile | null | undefined,
+  avgPerHour: number = 0
 ): number {
   const targetValue = goal?.targetValue || 0;
   const connectedToSchedule = goal?.connectedToSchedule ?? false;
   const useHourlyRate = goal?.useHourlyRate === true;
 
-  if (connectedToSchedule && profile?.workSchedule && profile?.hourlyRate && profile.hourlyRate > 0 && (useHourlyRate || targetValue <= 0)) {
+  if (connectedToSchedule && profile?.workSchedule && (profile.hourlyRate || avgPerHour) > 0 && (useHourlyRate || targetValue <= 0)) {
     const dayName = dayNames[day.getDay()];
     const scheduleDay = profile.workSchedule.find(d => d.day === dayName);
     if (scheduleDay?.active && scheduleDay.periods) {
@@ -84,7 +85,7 @@ export function getDailyTarget(
         if (diff < 0) diff += 24 * 60;
         dayHours += diff / 60;
       });
-      return dayHours * (profile.hourlyRate || 0);
+      return dayHours * (profile.hourlyRate || avgPerHour || 0);
     }
   }
 
@@ -92,6 +93,19 @@ export function getDailyTarget(
 }
 
 export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDeleteGoal, onUpdateGoal, manualCompensations = [], onAddManualCompensation, onRemoveManualCompensation }: GoalsProps) {
+  const historicalAvgPerHour = useMemo(() => {
+    const totalEarnings = rides.reduce((acc, r) => acc + r.totalValue, 0);
+    let totalHours = 0;
+    rides.forEach(r => {
+      if (!r.startTime || !r.endTime) return;
+      const [sH, sM] = r.startTime.split(':').map(Number);
+      const [eH, eM] = r.endTime.split(':').map(Number);
+      let diff = (eH * 60 + eM) - (sH * 60 + sM);
+      if (diff < 0) diff += 24 * 60;
+      totalHours += diff / 60;
+    });
+    return totalHours > 0 ? totalEarnings / totalHours : 0;
+  }, [rides]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -189,7 +203,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
       const schedule = profile?.workSchedule;
       const isWorkDay = schedule ? (schedule.find(d => d.day === dayNames[day.getDay()])?.active ?? false) : false;
       const isPastDay = isBefore(day, new Date()) || isSameDay(day, new Date());
-      const effectiveTarget = getDailyTarget(day, dailyGoal, profile);
+      const effectiveTarget = getDailyTarget(day, dailyGoal, profile, historicalAvgPerHour);
       const isAbsentDay = isWorkDay && !hasData && isPastDay && effectiveTarget > 0;
 
       const isMet = hasData ? totalEarned >= effectiveTarget : false;
@@ -371,7 +385,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                       </label>
                       {formData.useHourlyRate && profile?.workSchedule && profile?.hourlyRate && (
                         <p className="text-[10px] text-emerald-600 font-medium mt-1">
-                          Meta de hoje: R$ {getDailyTarget(new Date(), formData as Goal, profile).toFixed(2)}
+                          Meta de hoje: R$ {getDailyTarget(new Date(), formData as Goal, profile, historicalAvgPerHour).toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -450,7 +464,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 const dayCursor = new Date(monthStart);
                 while (isBefore(dayCursor, now) || isSameDay(dayCursor, now)) {
                   if (profile.workSchedule.find(d => d.day === dayNames[dayCursor.getDay()])?.active) {
-                    expectedValueThisMonth += getDailyTarget(dayCursor, dailyGoal, profile);
+                    expectedValueThisMonth += getDailyTarget(dayCursor, dailyGoal, profile, historicalAvgPerHour);
                   }
                   dayCursor.setDate(dayCursor.getDate() + 1);
                 }
@@ -927,7 +941,7 @@ for (const idx of sorted) {
               let periodLabel = '';
               
         if (goal.connectedToSchedule && profile?.workSchedule) {
-          const hourlyRate = profile.hourlyRate || 0;
+          const hourlyRate = profile.hourlyRate || historicalAvgPerHour || 0;
 
           expectedDays = countExpectedWorkDays(profile.workSchedule, effectiveStart, now);
           workedDays = countWorkedDays(rides, effectiveStart, now);
@@ -937,7 +951,7 @@ for (const idx of sorted) {
           const dayIt = new Date(effectiveStart);
           while (isBefore(dayIt, now) || isSameDay(dayIt, now)) {
             if (profile.workSchedule.find(d => d.day === dayNames[dayIt.getDay()])?.active) {
-              expectedValue += getDailyTarget(dayIt, goal, profile);
+              expectedValue += getDailyTarget(dayIt, goal, profile, historicalAvgPerHour);
             }
             dayIt.setDate(dayIt.getDate() + 1);
           }
@@ -1020,7 +1034,7 @@ for (const idx of sorted) {
               </span>
                 <h4 className="font-bold dark:text-white">
                   {(() => {
-                    const td = getDailyTarget(now, goal, profile);
+                    const td = getDailyTarget(now, goal, profile, historicalAvgPerHour);
                     if (td > 0) {
                       if (goal.useHourlyRate) {
                         return <>Alvo: R$ {td.toFixed(2)}/dia <span className="text-xs font-normal text-slate-400 ml-1">(horas × R${(profile?.hourlyRate || 0).toFixed(2)}/h)</span></>;
@@ -1079,7 +1093,7 @@ for (const idx of sorted) {
                   </label>
               {formData.useHourlyRate && profile?.workSchedule && profile?.hourlyRate && (
                 <p className="text-[10px] text-emerald-600 font-medium ml-1">
-                  Meta de hoje: R$ {getDailyTarget(new Date(), formData as Goal, profile).toFixed(2)}
+                  Meta de hoje: R$ {getDailyTarget(new Date(), formData as Goal, profile, historicalAvgPerHour).toFixed(2)}
                 </p>
               )}
                   <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">

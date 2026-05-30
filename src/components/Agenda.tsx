@@ -502,11 +502,19 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
           <div className="space-y-6">
             <div className="flex items-center justify-between"><h3 className="text-lg font-bold dark:text-white">Agenda de Trabalho</h3><p className="text-xs text-slate-500">Clique no dia para ativar/desativar</p></div>
         <div className="grid grid-cols-7 gap-2">
-          {simulation.schedule.map((item, i) => (
-            <div key={item.day} className={cn("relative p-3 rounded-2xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-lg shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
-              <div className="text-center mb-2">
-                <p className={cn("text-xs font-bold", item.active ? "text-brand-600" : "text-slate-400")}>{item.day}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">{item.active ? 'Ativo' : 'Folga'}</p>
+{simulation.schedule.map((item, i) => {
+          const dayHours = item.active ? (item.periods || []).reduce((acc, p) => {
+            const [sH, sM] = p.start.split(':').map(Number);
+            const [eH, eM] = p.end.split(':').map(Number);
+            let diff = (eH * 60 + eM) - (sH * 60 + sM);
+            if (diff < 0) diff += 24 * 60;
+            return acc + diff / 60;
+          }, 0) : 0;
+          return (
+        <div key={item.day} className={cn("relative p-3 rounded-2xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-lg shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
+          <div className="text-center mb-2">
+            <p className={cn("text-xs font-bold", item.active ? "text-brand-600" : "text-slate-400")}>{item.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase">{item.active ? 'Ativo' : 'Folga'}</p>
                 <div className="flex justify-center gap-1.5 mt-1.5">
                   <button onClick={(e) => copyDay(i, e)} title="Copiar escala" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-brand-600"><Copy size={11} /></button>
                   {copiedPeriods && <button onClick={(e) => pasteDay(i, e)} title="Colar escala" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-emerald-600"><ClipboardCheck size={11} /></button>}
@@ -518,8 +526,9 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
                   <button onClick={() => addPeriod(i)} className="w-full mt-1.5 py-1 flex items-center justify-center gap-1 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded-lg border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-xs font-bold"><Plus size={14} /> Novo</button>
                 </>) : (<div className="h-16 flex items-center justify-center"><X size={18} className="text-slate-200 dark:text-slate-700" /></div>)}
               </div>
-            </div>
-          ))}
+        </div>
+        );
+        })}
         </div>
           </div>
         </div>
@@ -684,6 +693,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
   expenses?: Expense[];
 }) {
   const [localPlan, setLocalPlan] = useState<MonthlyPlan>(plan);
+  const [copiedPlanPeriods, setCopiedPlanPeriods] = useState<WorkPeriod[] | null>(null);
 
   const defaultHourlyRate = profile?.hourlyRate || averages.perHour || 0;
 
@@ -827,24 +837,37 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-7 gap-2">
-        {(localPlan.days || []).map((day, i) => (
+  <div className="grid grid-cols-7 gap-2">
+        {(localPlan.days || []).map((day, i) => {
+          const dayHours = day.active ? (day.periods || []).reduce((acc, p) => {
+            const [sH, sM] = p.start.split(':').map(Number);
+            const [eH, eM] = p.end.split(':').map(Number);
+            let diff = (eH * 60 + eM) - (sH * 60 + sM);
+            if (diff < 0) diff += 24 * 60;
+            return acc + diff / 60;
+          }, 0) : 0;
+          return (
           <div key={day.day} className="space-y-0.5">
-            <button onClick={() => toggleDay(i)} className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border transition-all", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}</button>
+            <button onClick={() => toggleDay(i)} className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border transition-all", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</button>
             {day.active && (
-              <div className="space-y-0" onClick={e => e.stopPropagation()}>
-                {(day.periods || []).map((period, pIdx) => (
-                  <div key={pIdx}>
-                    {(day.periods || []).length > 1 && <div className="flex items-center justify-between"><span className="text-[9px] font-bold text-slate-400">T{pIdx + 1}</span><button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={8} /></button></div>}
-                    <input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="w-full text-xs bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                    <input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="w-full text-xs bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                  </div>
-                ))}
-                <button onClick={() => addPeriod(i)} className="w-full py-1 flex items-center justify-center gap-1 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-xs font-bold"><Plus size={14} /> Novo</button>
+            <div className="space-y-0" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-center gap-1 mb-0.5">
+                <button onClick={(e) => { e.stopPropagation(); setCopiedPlanPeriods([...(day.periods || []).map(p => ({ ...p }))]); }} title="Copiar escala" className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-brand-600"><Copy size={10} /></button>
+                {copiedPlanPeriods && <button onClick={(e) => { e.stopPropagation(); if (!copiedPlanPeriods) return; const newDays = [...(localPlan.days || [])]; newDays[i] = { ...newDays[i], active: true, periods: copiedPlanPeriods.map(p => ({ ...p })) }; setLocalPlan({ ...localPlan, days: newDays }); }} title="Colar escala" className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-emerald-600"><ClipboardCheck size={10} /></button>}
               </div>
+              {(day.periods || []).map((period, pIdx) => (
+              <div key={pIdx}>
+                {(day.periods || []).length > 1 && <div className="flex items-center justify-between"><span className="text-[9px] font-bold text-slate-400">T{pIdx + 1}</span><button onClick={() => removePeriod(i, pIdx)} className="text-rose-500 hover:text-rose-600"><Trash2 size={8} /></button></div>}
+                <input type="time" value={period.start} onChange={(e) => updatePeriod(i, pIdx, 'start', e.target.value)} className="w-full text-xs bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+                <input type="time" value={period.end} onChange={(e) => updatePeriod(i, pIdx, 'end', e.target.value)} className="w-full text-xs bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+              </div>
+              ))}
+              <button onClick={() => addPeriod(i)} className="w-full py-1 flex items-center justify-center gap-1 bg-brand-50 dark:bg-brand-950/30 text-brand-600 rounded border border-brand-100 dark:border-brand-900/30 hover:bg-brand-100 transition-colors text-xs font-bold"><Plus size={14} /> Novo</button>
+            </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="max-w-sm mx-auto">

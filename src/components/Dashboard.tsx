@@ -187,7 +187,7 @@ let periodTarget = 0;
 if (dailyGoal) {
   const interval = { start: filteredData.start, end: filteredData.end };
   const allDays = eachDayOfInterval(interval);
-  periodTarget = allDays.reduce((sum, day) => sum + getDailyTarget(day, dailyGoal, profile), 0);
+    periodTarget = allDays.reduce((sum, day) => sum + getDailyTarget(day, dailyGoal, profile, totalHours > 0 ? totalEarnings / totalHours : 0), 0);
 }
 
     return {
@@ -224,7 +224,7 @@ if (dailyGoal) {
       installmentsRemaining,
       totalInstallmentDebt,
       installmentMonthly,
-      dailyGoalTarget: getDailyTarget(new Date(), dailyGoal, profile),
+      dailyGoalTarget: getDailyTarget(new Date(), dailyGoal, profile, totalHours > 0 ? totalEarnings / totalHours : 0),
       periodTarget
     };
   }, [filteredData, profile, rides, expenses, goals]);
@@ -248,7 +248,7 @@ if (dailyGoal) {
   const monthlyEstimate = useMemo(() => {
     const now = new Date();
     const schedule = profile?.workSchedule || [];
-    const hourlyRate = profile?.hourlyRate || 0;
+    const hourlyRate = profile?.hourlyRate || stats.avgPerHour || 0;
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     let totalHours = 0;
@@ -614,7 +614,7 @@ if (dailyGoal) {
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[9px] text-slate-400">
               <span>{monthlyEstimate.workDays} dias</span>
               <span>{monthlyEstimate.totalHours.toFixed(1)}h</span>
-              <span>R$ {(profile.hourlyRate || 0).toFixed(2)}/h</span>
+              <span>R$ {(profile?.hourlyRate || stats.avgPerHour || 0).toFixed(2)}/h</span>
             </div>
           </div>
 
