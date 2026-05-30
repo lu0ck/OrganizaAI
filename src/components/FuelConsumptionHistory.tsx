@@ -61,7 +61,7 @@ export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: 
   const chartData = fuelExpenses.slice().reverse().slice(0, 20).map(expense => ({
     date: format(parseISO(expense.date), 'dd/MM'),
     fullDate: format(parseISO(expense.date), 'dd/MM/yyyy'),
-    kmPerLiter: expense.segmentConsumption || (expense.tripTotal && expense.liters ? expense.tripTotal / expense.liters : 0),
+    kmPerLiter: expense.segmentConsumption || 0,
     trip: expense.tripTotal || 0,
     value: expense.value || 0,
     liters: expense.liters || 0,

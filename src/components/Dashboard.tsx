@@ -148,9 +148,9 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
     const totalCostPerKm = filteredKm > 0 ? (totalExpenses + totalFixedCosts) / filteredKm : 0;
 
   const globalConsumption = calculateGlobalConsumption(expenses);
-  const fullTankExpenses = expenses.filter(e => e.type === 'combustivel' && e.fullTank === true);
-  const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
-  const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
+  const calibratedExpenses = expenses.filter(e => e.type === 'combustivel' && e.isCalibrated === true && e.effectiveTripKm && e.liters);
+  const fullTankKm = calibratedExpenses.reduce((acc, e) => acc + (e.effectiveTripKm || 0), 0);
+  const totalLiters = calibratedExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
   const simpleAverage = totalLiters > 0 ? fullTankKm / totalLiters : 0;
   const kmPerLiter = globalConsumption.status === 'valid' && globalConsumption.globalAverage && globalConsumption.globalAverage > 0
     ? globalConsumption.globalAverage

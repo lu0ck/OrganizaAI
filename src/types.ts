@@ -38,6 +38,7 @@ export interface Expense {
   saldoAfterFueling?: number;
   segmentConsumption?: number;
   isCalibrated?: boolean;
+  effectiveTripKm?: number;
 }
 
 export interface Goal {

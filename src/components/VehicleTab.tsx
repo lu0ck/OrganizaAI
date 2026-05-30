@@ -65,9 +65,9 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
     const perTypeStats = activeFuelTypes.map(ft => {
       const lastOf = getLastFuelExpense(expenses, ft);
       const globalConsumption = calculateGlobalConsumption(expenses, ft);
-  const fullTankExpenses = expenses.filter(e => e.type === 'combustivel' && e.fullTank === true && e.fuelType === ft);
-  const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
-  const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
+    const fullTankExpenses = expenses.filter(e => e.type === 'combustivel' && e.isCalibrated === true && e.effectiveTripKm && e.liters && e.fuelType === ft);
+    const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
+    const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.effectiveTripKm || 0), 0);
   const simpleAverage = totalLiters > 0 ? fullTankKm / totalLiters : 0;
   const kmPerLiter = globalConsumption.status === 'valid' && globalConsumption.globalAverage
     ? globalConsumption.globalAverage
@@ -98,9 +98,10 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
       };
     });
 
-  const totalLiters = expenses.filter(e => e.type === 'combustivel' && e.fullTank === true).reduce((acc, e) => acc + (e.liters || 0), 0);
+  const calibratedAll = expenses.filter(e => e.type === 'combustivel' && e.isCalibrated === true && e.effectiveTripKm && e.liters);
+  const totalLiters = calibratedAll.reduce((acc, e) => acc + (e.liters || 0), 0);
   const simpleAverage = totalLiters > 0
-    ? expenses.filter(e => e.type === 'combustivel' && e.fullTank === true).reduce((acc, e) => acc + (e.tripTotal || 0), 0) / totalLiters
+    ? calibratedAll.reduce((acc, e) => acc + (e.effectiveTripKm || 0), 0) / totalLiters
     : 0;
   const kmPerLiter = profile.kmPerLiter || simpleAverage || 0;
   const globalConsumption = calculateGlobalConsumption(expenses);

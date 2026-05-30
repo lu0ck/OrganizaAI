@@ -146,10 +146,10 @@ useEffect(() => {
 
     if (globalConsumption.status === 'valid' && globalConsumption.globalAverage && globalConsumption.globalAverage > 0) {
       currentKmPerLiter = Number(globalConsumption.globalAverage.toFixed(1));
-      } else {
-        const fullTankExpenses = safeState.expenses.filter(e => e.type === 'combustivel' && e.fullTank === true);
-        const fullTankKm = fullTankExpenses.reduce((acc, e) => acc + (e.tripTotal || 0), 0);
-        const totalLiters = fullTankExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
+    } else {
+      const calibratedExpenses = safeState.expenses.filter(e => e.type === 'combustivel' && e.isCalibrated === true && e.effectiveTripKm && e.liters);
+      const fullTankKm = calibratedExpenses.reduce((acc, e) => acc + (e.effectiveTripKm || 0), 0);
+      const totalLiters = calibratedExpenses.reduce((acc, e) => acc + (e.liters || 0), 0);
         if (totalLiters > 0 && fullTankKm > 0) {
           currentKmPerLiter = Number((fullTankKm / totalLiters).toFixed(1));
         }
@@ -175,9 +175,10 @@ useEffect(() => {
       const recalculated = recalculateFuelExpensesChain(safeState.expenses, safeState.profile);
       const hasChanges = recalculated.some((re, i) => {
         const orig = safeState.expenses[i];
-        return re.segmentConsumption !== orig.segmentConsumption
-          || re.saldoAfterFueling !== orig.saldoAfterFueling
-          || re.isCalibrated !== orig.isCalibrated;
+      return re.segmentConsumption !== orig.segmentConsumption
+        || re.saldoAfterFueling !== orig.saldoAfterFueling
+        || re.isCalibrated !== orig.isCalibrated
+        || re.effectiveTripKm !== orig.effectiveTripKm;
       });
       if (hasChanges) {
         setState(prev => ({ ...prev, expenses: recalculated }));

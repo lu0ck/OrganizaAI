@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator, Gauge, Info, Pencil, Navigation } from 'lucide-react';
+import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator, Gauge, Info, Pencil, Navigation, Droplet } from 'lucide-react';
 import { Expense, UserProfile } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -17,26 +17,28 @@ interface ExpensesFormProps {
   avgPerKm: number;
 }
 
+const emptyForm = {
+  date: format(new Date(), 'yyyy-MM-dd'),
+  type: 'combustivel' as Expense['type'],
+  value: '',
+  description: '',
+  location: '',
+  liters: '',
+  pricePerLiter: '',
+  fuelType: 'gasolina' as Expense['fuelType'],
+  tripTotal: '',
+  enteredReserve: false,
+  tripOnReserve: '',
+  fullTank: false
+};
+
 export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profile, avgPerKm }: ExpensesFormProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCalculator, setShowCalculator] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
-    date: format(new Date(), 'yyyy-MM-dd'),
-    type: 'combustivel' as Expense['type'],
-    value: '',
-    description: '',
-    location: '',
-    liters: '',
-    pricePerLiter: '',
-    fuelType: 'gasolina' as Expense['fuelType'],
-    tripTotal: '',
-    enteredReserve: false,
-    tripOnReserve: '',
-    fullTank: false
-  });
+  const [formData, setFormData] = useState({ ...emptyForm });
 
   const expenseTypes = [
     { id: 'combustivel', label: 'Combustível', icon: Fuel, color: 'text-orange-500 bg-orange-50 dark:bg-orange-950/30' },
@@ -58,23 +60,11 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses, filterType, searchTerm]);
 
-
   const hasValidConfig = hasValidFuelData(profile);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-  let calculatedFields: Partial<Expense> = {};
-
-  if (formData.type === 'combustivel') {
-    calculatedFields = {
-      tripTotal: Number(formData.tripTotal) || undefined,
-      tripOnReserve: formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : undefined,
-      enteredReserve: formData.enteredReserve ? true : undefined,
-      fullTank: formData.fullTank ? true : undefined,
-    };
-  }
-    
     const newExpense: Expense = {
       id: editingId || crypto.randomUUID(),
       date: formData.date,
@@ -82,34 +72,45 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
       value: Number(formData.value),
       description: formData.description,
       location: formData.location || undefined,
-      liters: formData.liters ? Number(formData.liters) : undefined,
-      pricePerLiter: formData.pricePerLiter ? Number(formData.pricePerLiter) : undefined,
+      liters: formData.type === 'combustivel' && formData.liters ? Number(formData.liters) : undefined,
+      pricePerLiter: formData.type === 'combustivel' && formData.pricePerLiter ? Number(formData.pricePerLiter) : undefined,
       fuelType: formData.type === 'combustivel' ? formData.fuelType : undefined,
-      ...calculatedFields
     };
-    
+
+    if (formData.type === 'combustivel') {
+      newExpense.tripTotal = Number(formData.tripTotal) || undefined;
+      newExpense.fullTank = formData.fullTank;
+      newExpense.enteredReserve = formData.enteredReserve ? true : undefined;
+      newExpense.tripOnReserve = formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : undefined;
+    }
+
     if (editingId) {
       onEdit(newExpense);
-      setEditingId(null);
     } else {
       onAdd(newExpense);
     }
-    
+
     setIsAdding(false);
     setEditingId(null);
+    setFormData({ ...emptyForm, date: format(new Date(), 'yyyy-MM-dd') });
+  };
+
+  const startEdit = (expense: Expense) => {
+    setEditingId(expense.id);
+    setIsAdding(true);
     setFormData({
-      date: format(new Date(), 'yyyy-MM-dd'),
-      type: 'combustivel',
-      value: '',
-      description: '',
-      location: '',
-      liters: '',
-      pricePerLiter: '',
-      fuelType: 'gasolina',
-      tripTotal: '',
-      enteredReserve: false,
-      tripOnReserve: '',
-      fullTank: false
+      date: expense.date,
+      type: expense.type,
+      value: String(expense.value),
+      description: expense.description || '',
+      location: expense.location || '',
+      liters: expense.liters ? String(expense.liters) : '',
+      pricePerLiter: expense.pricePerLiter ? String(expense.pricePerLiter) : '',
+      fuelType: expense.fuelType || 'gasolina',
+      tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
+      enteredReserve: !!expense.enteredReserve,
+      tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : '',
+      fullTank: !!expense.fullTank,
     });
   };
 
@@ -131,7 +132,15 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
             <Calculator size={24} />
           </button>
           <button
-            onClick={() => setIsAdding(!isAdding)}
+            onClick={() => {
+              if (isAdding && editingId) {
+                setIsAdding(false);
+                setEditingId(null);
+                setFormData({ ...emptyForm, date: format(new Date(), 'yyyy-MM-dd') });
+              } else {
+                setIsAdding(!isAdding);
+              }
+            }}
             className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg shadow-brand-200 dark:shadow-none"
           >
             {isAdding ? <X size={20} /> : <Plus size={20} />}
@@ -212,16 +221,22 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
 
               {formData.type === 'combustivel' && (
                 <div className="space-y-6 p-6 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-100 dark:border-orange-900/30">
-                  {/* Aviso sobre configuração */}
                   {!hasValidConfig && (
                     <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-900/30">
                       <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
                       <p className="text-xs text-amber-700 dark:text-amber-300">
-                        <strong>Configure o perfil:</strong> Adicione a capacidade do tanque, reserva e consumo estimado em Perfil para cálculos precisos.
+                        <strong>Configure o perfil:</strong> Adicione a capacidade do tanque e consumo estimado em Perfil para cálculos precisos.
                       </p>
                     </div>
                   )}
-                  
+
+                  <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                    <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
+                    <div className="text-xs text-blue-700 dark:text-blue-300">
+                      <strong>Como funciona:</strong> Zere o trip no painel a cada abastecimento. Marque "Tanque cheio" quando encher completamente — só assim o consumo real é calculado (trip ÷ litros).
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-orange-800 dark:text-orange-300">Tipo de Combustível</label>
@@ -293,50 +308,36 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                         placeholder="Ex: 25.500"
                       />
                     </div>
-            </div>
+                  </div>
 
-            <div className="flex items-center gap-3 py-2">
-              <input
-                type="checkbox"
-                id="fullTank"
-                checked={formData.fullTank}
-                onChange={(e) => setFormData({ ...formData, fullTank: e.target.checked })}
-                className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
-              />
-              <label htmlFor="fullTank" className="text-sm font-medium text-orange-800 dark:text-orange-300 cursor-pointer">
-                Encheu o tanque completo?
-              </label>
-            </div>
+                  <div className="flex items-center gap-3 py-2">
+                    <input
+                      type="checkbox"
+                      id="fullTank"
+                      checked={formData.fullTank}
+                      onChange={(e) => setFormData({ ...formData, fullTank: e.target.checked })}
+                      className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+                    />
+                    <label htmlFor="fullTank" className="text-sm font-medium text-orange-800 dark:text-orange-300 cursor-pointer">
+                      Tanque cheio?
+                    </label>
+                  </div>
 
-            <div className="space-y-4 pt-4 border-t border-orange-100 dark:border-orange-900/30">
-                    {/* Campo Trip Total - Obrigatório */}
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
-                          <Gauge size={16} /> Trip Total (KM desde último abastecimento) <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          value={formData.tripTotal}
-                          onChange={(e) => setFormData({ ...formData, tripTotal: e.target.value })}
-                          className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
-                          placeholder="Ex: 280"
-                        />
-                      </div>
-                      
-                      {/* Instrução visual importante */}
-                      <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                        <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
-                        <div className="text-xs text-blue-700 dark:text-blue-300">
-                          <strong>Instrução:</strong> Zere o trip no painel do veículo <strong>a cada abastecimento</strong>.
-                          <br />
-                          O trip deve registrar quantos KM você rodou desde o último abastecimento.
-                        </div>
-                      </div>
+                  <div className="space-y-4 pt-4 border-t border-orange-100 dark:border-orange-900/30">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
+                        <Gauge size={16} /> Trip Total (KM desde último abastecimento) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        value={formData.tripTotal}
+                        onChange={(e) => setFormData({ ...formData, tripTotal: e.target.value })}
+                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
+                        placeholder="Ex: 280"
+                      />
                     </div>
 
-                    {/* Checkbox Entrou na Reserva */}
                     <div className="flex items-center gap-3 py-2">
                       <input
                         type="checkbox"
@@ -350,24 +351,18 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                       </label>
                     </div>
 
-                    {/* Campo KM na Reserva - Condicional */}
                     {formData.enteredReserve && (
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                          Quantos KM rodou com a luz da reserva acesa? <span className="text-red-500">*</span>
+                          Quantos KM rodou com a luz da reserva acesa?
                         </label>
                         <input
                           type="number"
-                          required
                           value={formData.tripOnReserve}
                           onChange={(e) => setFormData({ ...formData, tripOnReserve: e.target.value })}
                           className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
                           placeholder="Ex: 15"
                         />
-                        <p className="text-xs text-orange-600 flex items-center gap-1">
-                          <Info size={12} />
-                          Este valor permite calcular o consumo REAL do seu veículo.
-                        </p>
                       </div>
                     )}
                   </div>
@@ -402,15 +397,15 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
             </div>
             <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2">
               <Filter size={16} className="text-slate-400" />
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="bg-transparent text-sm outline-none text-slate-900 dark:text-white cursor-pointer"
-                >
-                  <option value="all" className="text-slate-900 bg-white">Todos os Tipos</option>
-                  {expenseTypes.map(t => (
-                    <option key={t.id} value={t.id} className="text-slate-900 bg-white">{t.label}</option>
-                  ))}
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="bg-transparent text-sm outline-none text-slate-900 dark:text-white cursor-pointer"
+              >
+                <option value="all" className="text-slate-900 bg-white">Todos os Tipos</option>
+                {expenseTypes.map(t => (
+                  <option key={t.id} value={t.id} className="text-slate-900 bg-white">{t.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -422,136 +417,123 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
             <p className="text-slate-500">Nenhuma despesa encontrada com os filtros atuais.</p>
           </div>
         ) : (
-<div className="grid gap-4">
-  {filteredExpenses.map((expense, expenseIndex) => {
-        const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
-        const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
-      const isFuel = expense.type === 'combustivel';
-      const hasConsumption = isFuel && expense.segmentConsumption != null && expense.segmentConsumption > 0;
-      const hasTrip = isFuel && expense.tripTotal != null && expense.tripTotal > 0;
-      const isWaitingNext = isFuel && !expense.isCalibrated;
-        return (
-          <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", typeInfo.color)}>
-                  <typeInfo.icon size={24} />
-                </div>
-                <div>
-                  <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
-                  <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
+          <div className="grid gap-4">
+            {filteredExpenses.map((expense) => {
+              const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
+              const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
+              const isFuel = expense.type === 'combustivel';
+              const isCalibrated = isFuel && expense.isCalibrated === true && expense.segmentConsumption != null && expense.segmentConsumption > 0;
+              const isEstimated = isFuel && expense.isCalibrated !== true && expense.segmentConsumption != null && expense.segmentConsumption > 0;
+              const isWaitingNext = isFuel && !isCalibrated && !isEstimated;
+              return (
+                <div key={expense.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", typeInfo.color)}>
+                        <typeInfo.icon size={24} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
+                        <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
+                      </div>
+                    </div>
 
-                </div>
-              </div>
+                    <div className="flex flex-wrap gap-4 items-center">
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500">Valor</p>
+                        <p className="font-bold text-rose-600">R$ {expense.value.toFixed(2)}</p>
+                      </div>
+                      {expense.liters && (
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Litros</p>
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            {expense.liters.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}L
+                          </p>
+                          {expense.fuelType && (
+                            <span className="text-[10px] font-bold text-orange-500 uppercase">{expense.fuelType}</span>
+                          )}
+                        </div>
+                      )}
+                      {isFuel && expense.pricePerLiter && (
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Preço/L</p>
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            R$ {expense.pricePerLiter.toFixed(2)}/L
+                          </p>
+                        </div>
+                      )}
+                      {isCalibrated && (
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Consumo</p>
+                          <p className="font-bold text-emerald-600">
+                            {expense.segmentConsumption!.toFixed(1)} km/l
+                          </p>
+                          <span className="text-[10px] font-bold text-emerald-500">TANQUE CHEIO</span>
+                        </div>
+                      )}
+                      {isEstimated && (
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Consumo</p>
+                          <p className="font-bold text-amber-600">
+                            ~{expense.segmentConsumption!.toFixed(1)} km/l
+                          </p>
+                          <span className="text-[10px] font-bold text-amber-500">ESTIMADO</span>
+                        </div>
+                      )}
+                      {isFuel && expense.tripTotal != null && expense.tripTotal > 0 && (
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Trip</p>
+                          <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
+                        </div>
+                      )}
+                      {isFuel && expense.fullTank && (
+                        <div className="flex items-center gap-1">
+                          <Droplet size={12} className="text-blue-500" />
+                          <span className="text-[10px] font-bold text-blue-500">CHEIO</span>
+                        </div>
+                      )}
+                      {isWaitingNext && (
+                        <div className="text-right">
+                          <p className="text-[10px] text-slate-400 italic">Aguardando próximo abastecimento</p>
+                        </div>
+                      )}
 
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Valor</p>
-                  <p className="font-bold text-rose-600">R$ {expense.value.toFixed(2)}</p>
-                </div>
-                {expense.liters && (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Litros</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {expense.liters.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}L
-                    </p>
-                    {expense.fuelType && (
-                      <span className="text-[10px] font-bold text-orange-500 uppercase">{expense.fuelType}</span>
-                    )}
+                      <button
+                        onClick={() => startEdit(expense)}
+                        className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
+                        onClick={() => onDelete(expense.id)}
+                        className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-2 rounded-lg transition-all"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
                   </div>
-                )}
-                {isFuel && expense.pricePerLiter && (
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500">Preço/L</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      R$ {expense.pricePerLiter.toFixed(2)}/L
+
+                  {expense.description && (
+                    <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                      {expense.description}
+                      {expense.location && <span className="block mt-1 text-xs font-semibold text-slate-500 italic flex items-center gap-1"><MapPin size={10} /> {expense.location}</span>}
                     </p>
-                  </div>
-                )}
-              {hasConsumption ? (
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Consumo</p>
-                  <p className="font-bold text-slate-900 dark:text-white">
-                    {expense.segmentConsumption!.toFixed(1)} km/l
-                  </p>
-                  {expense.isCalibrated ? (
-                    <span className="text-[10px] font-bold text-emerald-500">CALIBRADO</span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-amber-500">ESTIMADO</span>
+                  )}
+
+                  {kmToPay !== null && (
+                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg w-fit">
+                        <Navigation size={14} className="text-emerald-600" />
+                        <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                          {kmToPay.toLocaleString()} km para pagar esta despesa
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </div>
-              ) : null}
-              {hasTrip ? (
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Trip</p>
-                  <p className="font-bold text-slate-900 dark:text-white">{expense.tripTotal} km</p>
-                </div>
-              ) : null}
-              {hasTrip && expense.tripOnReserve && expense.tripOnReserve > 0 ? (
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Reserva</p>
-                  <p className="font-bold text-orange-600 dark:text-orange-400">{expense.tripOnReserve} km</p>
-                </div>
-              ) : null}
-                {isWaitingNext && (
-                  <div className="text-right">
-                    <p className="text-[10px] text-slate-400 italic">Aguardando próximo abastecimento</p>
-                  </div>
-                )}
-
-          <button
-            onClick={() => {
-              setEditingId(expense.id);
-              setIsAdding(true);
-              setFormData({
-                date: expense.date,
-                type: expense.type,
-                value: String(expense.value),
-                description: expense.description || '',
-                location: expense.location || '',
-                liters: expense.liters ? String(expense.liters) : '',
-                pricePerLiter: expense.pricePerLiter ? String(expense.pricePerLiter) : '',
-                fuelType: expense.fuelType || 'gasolina',
-        tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
-        enteredReserve: !!expense.enteredReserve,
-        tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : '',
-        fullTank: !!expense.fullTank
-              });
-            }}
-            className="opacity-0 group-hover:opacity-100 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 p-2 rounded-lg transition-all"
-          >
-            <Pencil size={18} />
-          </button>
-          <button
-            onClick={() => onDelete(expense.id)}
-            className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-2 rounded-lg transition-all"
-          >
-            <Trash2 size={20} />
-          </button>
-        </div>
-      </div>
-
-      {expense.description && (
-        <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-          {expense.description}
-          {expense.location && <span className="block mt-1 text-xs font-semibold text-slate-500 italic flex items-center gap-1"><MapPin size={10} /> {expense.location}</span>}
-        </p>
-      )}
-
-      {kmToPay !== null && (
-        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg w-fit">
-            <Navigation size={14} className="text-emerald-600" />
-            <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
-              {kmToPay.toLocaleString()} km para pagar esta despesa
-            </span>
+              );
+            })}
           </div>
-        </div>
-      )}
-    </div>
-  );
-  })}
-</div>
         )}
       </div>
     </div>
