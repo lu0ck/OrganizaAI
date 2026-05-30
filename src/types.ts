@@ -30,6 +30,7 @@ export interface Expense {
   pricePerLiter?: number;
   fuelType?: 'gasolina' | 'alcool' | 'gnv';
   // Método da Reserva - campos de entrada
+  fuelTime?: string;
   tripTotal?: number;
   tripOnReserve?: number;
   enteredReserve?: boolean;

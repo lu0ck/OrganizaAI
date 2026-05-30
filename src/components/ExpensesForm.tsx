@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator, Gauge, Info, Pencil, Navigation, Droplet } from 'lucide-react';
+import { Plus, Trash2, Receipt, Fuel, Settings, FileText, AlertCircle, CreditCard, Save, X, MapPin, Droplets, DollarSign, Utensils, CheckCircle2, Shield, Filter, Search, Calculator, Gauge, Info, Pencil, Navigation, Droplet, Clock } from 'lucide-react';
 import { Expense, UserProfile } from '../types';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -26,6 +26,7 @@ const emptyForm = {
   liters: '',
   pricePerLiter: '',
   fuelType: 'gasolina' as Expense['fuelType'],
+  fuelTime: format(new Date(), 'HH:mm'),
   tripTotal: '',
   enteredReserve: false,
   tripOnReserve: '',
@@ -77,11 +78,12 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
       fuelType: formData.type === 'combustivel' ? formData.fuelType : undefined,
     };
 
-    if (formData.type === 'combustivel') {
-      newExpense.tripTotal = Number(formData.tripTotal) || undefined;
-      newExpense.fullTank = formData.fullTank;
-      newExpense.enteredReserve = formData.enteredReserve ? true : undefined;
-      newExpense.tripOnReserve = formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : undefined;
+  if (formData.type === 'combustivel') {
+    newExpense.tripTotal = Number(formData.tripTotal) || undefined;
+    newExpense.fullTank = formData.fullTank;
+    newExpense.fuelTime = formData.fuelTime;
+    newExpense.enteredReserve = formData.enteredReserve ? true : undefined;
+    newExpense.tripOnReserve = formData.enteredReserve && formData.tripOnReserve ? Number(formData.tripOnReserve) : undefined;
     }
 
     if (editingId) {
@@ -92,7 +94,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
 
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ ...emptyForm, date: format(new Date(), 'yyyy-MM-dd') });
+    setFormData({ ...emptyForm, date: format(new Date(), 'yyyy-MM-dd'), fuelTime: format(new Date(), 'HH:mm') });
   };
 
   const startEdit = (expense: Expense) => {
@@ -107,6 +109,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
       liters: expense.liters ? String(expense.liters) : '',
       pricePerLiter: expense.pricePerLiter ? String(expense.pricePerLiter) : '',
       fuelType: expense.fuelType || 'gasolina',
+      fuelTime: expense.fuelTime || '12:00',
       tripTotal: expense.tripTotal ? String(expense.tripTotal) : '',
       enteredReserve: !!expense.enteredReserve,
       tripOnReserve: expense.tripOnReserve ? String(expense.tripOnReserve) : '',
@@ -136,7 +139,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
               if (isAdding && editingId) {
                 setIsAdding(false);
                 setEditingId(null);
-                setFormData({ ...emptyForm, date: format(new Date(), 'yyyy-MM-dd') });
+                setFormData({ ...emptyForm, date: format(new Date(), 'yyyy-MM-dd'), fuelTime: format(new Date(), 'HH:mm') });
               } else {
                 setIsAdding(!isAdding);
               }
@@ -258,57 +261,72 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
-                        <MapPin size={16} /> Localização (Posto)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.location}
-                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
-                        placeholder="Ex: Posto Ipiranga"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
-                        <DollarSign size={16} /> Preço por Litro (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.001"
-                        value={formData.pricePerLiter}
-                        onChange={(e) => {
-                          const price = Number(e.target.value);
-                          const total = Number(formData.value);
-                          const liters = price > 0 ? (total / price).toFixed(2) : formData.liters;
-                          setFormData({ ...formData, pricePerLiter: e.target.value, liters: liters.toString() });
-                        }}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
-                        placeholder="Ex: 5.89"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
-                        <Droplets size={16} /> Litros Abastecidos <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        step="0.001"
-                        required
-                        value={formData.liters}
-                        onChange={(e) => {
-                          const liters = Number(e.target.value);
-                          const price = Number(formData.pricePerLiter);
-                          const total = price > 0 ? (liters * price).toFixed(2) : formData.value;
-                          setFormData({ ...formData, liters: e.target.value, value: total.toString() });
-                        }}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
-                        placeholder="Ex: 25.500"
-                      />
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
+                    <Clock size={16} /> Horário do Abastecimento <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={formData.fuelTime}
+                    onChange={(e) => setFormData({ ...formData, fuelTime: e.target.value })}
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
+                    <MapPin size={16} /> Localização (Posto)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
+                    placeholder="Ex: Posto Ipiranga"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
+                    <DollarSign size={16} /> Preço por Litro (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={formData.pricePerLiter}
+                    onChange={(e) => {
+                      const price = Number(e.target.value);
+                      const total = Number(formData.value);
+                      const liters = price > 0 ? (total / price).toFixed(2) : formData.liters;
+                      setFormData({ ...formData, pricePerLiter: e.target.value, liters: liters.toString() });
+                    }}
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
+                    placeholder="Ex: 5.89"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-orange-800 dark:text-orange-300 flex items-center gap-2">
+                    <Droplets size={16} /> Litros Abastecidos <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    required
+                    value={formData.liters}
+                    onChange={(e) => {
+                      const liters = Number(e.target.value);
+                      const price = Number(formData.pricePerLiter);
+                      const total = price > 0 ? (liters * price).toFixed(2) : formData.value;
+                      setFormData({ ...formData, liters: e.target.value, value: total.toString() });
+                    }}
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
+                    placeholder="Ex: 25.500"
+                  />
+                </div>
+              </div>
 
                   <div className="flex items-center gap-3 py-2">
                     <input
@@ -433,8 +451,8 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                         <typeInfo.icon size={24} />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
-                        <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}</p>
+<p className="font-bold text-slate-900 dark:text-white">{typeInfo.label}</p>
+                              <p className="text-xs text-slate-500">{format(parseISO(expense.date), 'dd/MM/yyyy')}{expense.fuelTime ? ` às ${expense.fuelTime}` : ''}</p>
                       </div>
                     </div>
 

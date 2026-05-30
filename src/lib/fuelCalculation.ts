@@ -32,6 +32,22 @@ export function getFuelTypes(): readonly FuelType[] {
   return FUEL_TYPES;
 }
 
+function compareFuelExpenses(a: Expense, b: Expense): number {
+  const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+  if (dateDiff !== 0) return dateDiff;
+  const aTime = a.fuelTime || '';
+  const bTime = b.fuelTime || '';
+  if (aTime && bTime) {
+    if (aTime < bTime) return -1;
+    if (aTime > bTime) return 1;
+  } else if (aTime && !bTime) {
+    return -1;
+  } else if (!aTime && bTime) {
+    return 1;
+  }
+  return a.id.localeCompare(b.id);
+}
+
 export function calculateHistoricalAverage(expenses: Expense[], fuelType?: FuelType): number | null {
   const calibrated = expenses.filter(
     e => e.type === 'combustivel'
@@ -66,7 +82,7 @@ export function calculateGlobalConsumption(
       e.type === 'combustivel'
       && (fuelType ? (e.fuelType || 'gasolina') === fuelType : true)
     )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => compareFuelExpenses(a, b));
 
   if (fuelExpenses.length === 0) {
     return {
@@ -143,8 +159,13 @@ export function recalculateFuelExpensesChain(
 
   for (let i = 0; i < result.length; i++) {
     const e = result[i];
-    if (e.type === 'combustivel' && e.effectiveTripKm && !e.tripTotal) {
-      result[i] = { ...e, tripTotal: e.effectiveTripKm };
+    if (e.type === 'combustivel') {
+      if (e.effectiveTripKm && !e.tripTotal) {
+        result[i] = { ...e, tripTotal: e.effectiveTripKm };
+      }
+      if (!result[i].fuelTime) {
+        result[i] = { ...result[i], fuelTime: '12:00' };
+      }
     }
   }
 
@@ -154,6 +175,16 @@ export function recalculateFuelExpensesChain(
     .sort((a, b) => {
       const dateDiff = new Date(a.e.date).getTime() - new Date(b.e.date).getTime();
       if (dateDiff !== 0) return dateDiff;
+      const aTime = a.e.fuelTime || '';
+      const bTime = b.e.fuelTime || '';
+      if (aTime && bTime) {
+        if (aTime < bTime) return -1;
+        if (aTime > bTime) return 1;
+      } else if (aTime && !bTime) {
+        return -1;
+      } else if (!aTime && bTime) {
+        return 1;
+      }
       return a.e.id.localeCompare(b.e.id);
     });
 
@@ -219,7 +250,7 @@ export function getLastFuelExpense(
       e.type === 'combustivel'
       && (fuelType ? (e.fuelType || 'gasolina') === fuelType : true)
     )
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    .sort((a, b) => -compareFuelExpenses(a, b))[0];
 }
 
 export function getActiveFuelTypes(expenses: Expense[]): FuelType[] {
