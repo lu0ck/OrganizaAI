@@ -80,12 +80,15 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
     if (profile?.workSchedule) {
       setSimulation(prev => ({ ...prev, schedule: profile.workSchedule }));
     }
-  }, [profile?.workSchedule]);
+    if (profile?.hourlyRate !== undefined) {
+      setSimulation(prev => ({ ...prev, avgPerHour: profile.hourlyRate || prev.avgPerHour }));
+    }
+  }, [profile?.workSchedule, profile?.hourlyRate]);
 
   const handleSave = () => {
     try {
       if (profile) {
-        onUpdateProfile({ ...profile, workSchedule: simulation.schedule, hourlyRate: simulation.avgPerHour || averages.perHour });
+        onUpdateProfile({ ...profile, workSchedule: simulation.schedule,         hourlyRate: simulation.avgPerHour ?? averages.perHour });
         setIsSaved(true);
         setTimeout(() => setIsSaved(false), 3000);
       }
@@ -95,28 +98,38 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   };
 
   const toggleDay = (index: number) => {
-    const newSchedule = [...simulation.schedule];
-    newSchedule[index].active = !newSchedule[index].active;
+    const newSchedule = simulation.schedule.map((d, i) =>
+      i === index ? { ...d, active: !d.active } : d
+    );
     setSimulation({ ...simulation, schedule: newSchedule });
   };
 
   const addPeriod = (dayIndex: number) => {
-    const newSchedule = [...simulation.schedule];
-    newSchedule[dayIndex].periods.push({ start: '00:00', end: '00:00' });
+    const newSchedule = simulation.schedule.map((d, i) =>
+      i === dayIndex
+        ? { ...d, periods: [...d.periods, { start: '00:00', end: '00:00' }] }
+        : d
+    );
     setSimulation({ ...simulation, schedule: newSchedule });
   };
 
   const removePeriod = (dayIndex: number, periodIndex: number) => {
-    const newSchedule = [...simulation.schedule];
-    if (newSchedule[dayIndex].periods.length > 1) {
-      newSchedule[dayIndex].periods.splice(periodIndex, 1);
-      setSimulation({ ...simulation, schedule: newSchedule });
-    }
+    const newSchedule = simulation.schedule.map((d, i) => {
+      if (i !== dayIndex) return d;
+      if (d.periods.length <= 1) return d;
+      return { ...d, periods: d.periods.filter((_, pi) => pi !== periodIndex) };
+    });
+    setSimulation({ ...simulation, schedule: newSchedule });
   };
 
   const updatePeriod = (dayIndex: number, periodIndex: number, field: 'start' | 'end', value: string) => {
-    const newSchedule = [...simulation.schedule];
-    newSchedule[dayIndex].periods[periodIndex][field] = value;
+    const newSchedule = simulation.schedule.map((d, i) => {
+      if (i !== dayIndex) return d;
+      const newPeriods = d.periods.map((p, pi) =>
+        pi === periodIndex ? { ...p, [field]: value } : p
+      );
+      return { ...d, periods: newPeriods };
+    });
     setSimulation({ ...simulation, schedule: newSchedule });
   };
 
@@ -128,9 +141,11 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const pasteDay = (dayIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!copiedPeriods) return;
-    const newSchedule = [...simulation.schedule];
-    newSchedule[dayIndex].periods = [...copiedPeriods.map(p => ({ ...p }))];
-    newSchedule[dayIndex].active = true;
+    const newSchedule = simulation.schedule.map((d, i) =>
+      i === dayIndex
+        ? { ...d, active: true, periods: copiedPeriods.map(p => ({ ...p })) }
+        : d
+    );
     setSimulation({ ...simulation, schedule: newSchedule });
   };
 
@@ -163,7 +178,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
 
       return {
         perHour: totalHours > 0 ? totalValue / totalHours : 0,
-        perDay: totalValue / monthRides.length,
+        perDay: totalValue / (new Set(monthRides.map(r => r.date.split('T')[0])).size || 1),
         perKm: totalKm > 0 ? totalValue / totalKm : 0,
         expenseRatio: totalValue > 0 ? totalExpenses / totalValue : 0
       };
@@ -194,15 +209,15 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
         }
       });
 
-      const hourlyRate = simulation.avgPerHour || averages.perHour;
+      const hourlyRate = simulation.avgPerHour ?? averages.perHour;
       const weeklyEarnings = hourlyRate * totalHoursPerWeek;
-      const monthlyEarnings = weeklyEarnings * 4;
+      const monthlyEarnings = weeklyEarnings * (365 / 12 / 7);
       const dailyEarnings = activeDays > 0 ? weeklyEarnings / activeDays : 0;
 
       const annualFixedCosts = (profile?.ipvaValue || 0) + (profile?.licensingValue || 0);
-      const monthlyFixedCosts = (annualFixedCosts / 12) + (profile?.insuranceValue || 0);
-      const weeklyFixedCosts = monthlyFixedCosts / 4;
+    const monthlyFixedCosts = (annualFixedCosts / 12) + (profile?.insuranceValue || 0) + (profile?.vehicleInstallmentValue || 0);
 
+    const weeklyFixedCosts = monthlyFixedCosts / 4;
       const varWeeklyExpenses = weeklyEarnings * averages.expenseRatio;
       const varMonthlyExpenses = monthlyEarnings * averages.expenseRatio;
 
@@ -286,7 +301,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const fullMonthLabels = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  const yearMonths = Array.from({ length: 12 }, (_, i) => ({
+  const yearMonths = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
     key: `${currentYear}-${String(i + 1).padStart(2, '0')}`,
     label: monthLabels[i],
     fullLabel: fullMonthLabels[i],
@@ -296,7 +311,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
     end: endOfMonth(new Date(currentYear, i, 1)),
     isPast: i < currentMonth,
     isCurrent: i === currentMonth
-  }));
+  })), [currentYear, currentMonth]);
 
   const filteredMonths = planFilter === 'all' ? yearMonths
     : planFilter === 'q1' ? yearMonths.slice(0, 3)
@@ -503,13 +518,15 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
             <div className="flex items-center justify-between"><h3 className="text-lg font-bold dark:text-white">Agenda de Trabalho</h3><p className="text-xs text-slate-500">Clique no dia para ativar/desativar</p></div>
         <div className="grid grid-cols-7 gap-2">
 {simulation.schedule.map((item, i) => {
-          const dayHours = item.active ? (item.periods || []).reduce((acc, p) => {
-            const [sH, sM] = p.start.split(':').map(Number);
-            const [eH, eM] = p.end.split(':').map(Number);
-            let diff = (eH * 60 + eM) - (sH * 60 + sM);
-            if (diff < 0) diff += 24 * 60;
-            return acc + diff / 60;
-          }, 0) : 0;
+        const dayHours = item.active ? (item.periods || []).reduce((acc, p) => {
+          if (!p.start || !p.end || !p.start.includes(':') || !p.end.includes(':')) return acc;
+          const [sH, sM] = p.start.split(':').map(Number);
+          const [eH, eM] = p.end.split(':').map(Number);
+          if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return acc;
+          let diff = (eH * 60 + eM) - (sH * 60 + sM);
+          if (diff < 0) diff += 24 * 60;
+          return acc + diff / 60;
+        }, 0) : 0;
           return (
         <div key={item.day} className={cn("relative p-3 rounded-2xl border-2 transition-all cursor-pointer group", item.active ? "bg-white dark:bg-slate-900 border-brand-500 shadow-lg shadow-brand-100 dark:shadow-none" : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-60")} onClick={() => toggleDay(i)}>
           <div className="text-center mb-2">
@@ -699,7 +716,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
 
   const histConsumption = useMemo(() => {
     if (!expenses || expenses.length === 0) return null;
-    const mainFuelType = (profile?.vehicleType === 'moto' ? 'gasolina' : 'gasolina') as any;
+    const mainFuelType = 'gasolina';
     const avg = calculateHistoricalAverage(expenses, mainFuelType);
     return avg;
   }, [expenses, profile]);
@@ -735,7 +752,8 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
       const fuelCost = localPlan.customFuelCost ?? (workDays * userAverages.fuelPerDay);
       const maintCost = localPlan.customMaintCost ?? (workDays * userAverages.maintPerDay);
       const annualFixedCosts = (profile?.ipvaValue || 0) + (profile?.licensingValue || 0);
-      const monthlyFixedCosts = (annualFixedCosts / 12) + (profile?.insuranceValue || 0) + (profile?.vehicleInstallmentValue || 0);
+    const monthlyFixedCosts = (annualFixedCosts / 12) + (profile?.insuranceValue || 0) + (profile?.vehicleInstallmentValue || 0);
+    const weeklyFixedCosts = monthlyFixedCosts / 4;
       const totalExpenses = fuelCost + maintCost + monthlyFixedCosts;
 
       return { workDays, totalHours, earnings, fuelCost, maintCost, fixedCosts: monthlyFixedCosts, totalExpenses, netProfit: earnings - totalExpenses, km: workDays * userAverages.kmPerDay };
@@ -778,9 +796,17 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = format(new Date(yr, mo - 1, d), 'yyyy-MM-dd');
       const existing = (localPlan.vacations || []).find(v => v.date === dateStr);
-      if (!existing) newVacations.push({ date: dateStr, type: 'ferias' });
+      if (existing) {
+        if (existing.type === 'folga') {
+          newVacations.push({ date: dateStr, type: 'ferias' });
+        } else {
+          newVacations.push(existing);
+        }
+      } else {
+        newVacations.push({ date: dateStr, type: 'ferias' });
+      }
     }
-    setLocalPlan({ ...localPlan, vacations: [...(localPlan.vacations || []), ...newVacations] });
+    setLocalPlan({ ...localPlan, vacations: newVacations });
   };
 
   const setVacationPeriod = (startDate: string, endDate: string) => {
@@ -839,13 +865,15 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
     <div className="space-y-4">
   <div className="grid grid-cols-7 gap-2">
         {(localPlan.days || []).map((day, i) => {
-          const dayHours = day.active ? (day.periods || []).reduce((acc, p) => {
-            const [sH, sM] = p.start.split(':').map(Number);
-            const [eH, eM] = p.end.split(':').map(Number);
-            let diff = (eH * 60 + eM) - (sH * 60 + sM);
-            if (diff < 0) diff += 24 * 60;
-            return acc + diff / 60;
-          }, 0) : 0;
+  const dayHours = day.active ? (day.periods || []).reduce((acc, p) => {
+          if (!p.start || !p.end || !p.start.includes(':') || !p.end.includes(':')) return acc;
+          const [sH, sM] = p.start.split(':').map(Number);
+          const [eH, eM] = p.end.split(':').map(Number);
+          if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return acc;
+          let diff = (eH * 60 + eM) - (sH * 60 + sM);
+          if (diff < 0) diff += 24 * 60;
+          return acc + diff / 60;
+        }, 0) : 0;
           return (
           <div key={day.day} className="space-y-0.5">
             <button onClick={() => toggleDay(i)} className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border transition-all", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</button>

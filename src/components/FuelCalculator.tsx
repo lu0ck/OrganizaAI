@@ -38,7 +38,9 @@ export default function FuelCalculator({ profile, expenses = [] }: FuelCalculato
 
     const isAlcoholBetter = costPerKmAlcohol < costPerKmGas;
     const savingsPerKm = Math.abs(costPerKmGas - costPerKmAlcohol);
-    const savingsPerTank = savingsPerKm * (profile.totalTankSize || 50);
+    const tankSize = profile.totalTankSize ?? 50;
+  const kmPerTank = tankSize * cg;
+  const savingsPerTank = savingsPerKm * kmPerTank;
 
     return {
       isAlcoholBetter,

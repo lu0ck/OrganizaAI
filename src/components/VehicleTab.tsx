@@ -156,10 +156,11 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
     }
 
     try {
-      if (editingId) {
-        onUpdateMaintenance(maintenance.map(m => m.id === editingId ? { ...m, ...formData } as MaintenanceItem : m));
-        setEditingId(null);
-        showToast?.('Item atualizado com sucesso!', 'success');
+    if (editingId) {
+      onUpdateMaintenance(maintenance.map(m => m.id === editingId ? { ...m, ...formData } as MaintenanceItem : m));
+      setEditingId(null);
+      setIsAdding(false);
+      showToast?.('Item atualizado com sucesso!', 'success');
       } else {
         const newItem: MaintenanceItem = {
           id: crypto.randomUUID(),
@@ -199,7 +200,7 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
       return;
     }
 
-    if (!historyFormData.cost || historyFormData.cost < 0) {
+    if (historyFormData.cost < 0) {
       showToast?.('Por favor, insira o custo da manutenção.', 'error');
       return;
     }
@@ -217,13 +218,12 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
         if (m.id === itemId) {
           const history = [...(m.history || []), newHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           const latest = history[0];
-          return {
-            ...m,
-            history,
-            lastChangeKm: latest.km,
-            lastChangeDate: latest.date,
-            estimatedCost: latest.cost
-          };
+        return {
+          ...m,
+          history,
+          lastChangeKm: latest.km,
+          lastChangeDate: latest.date,
+        };
         }
         return m;
       });
@@ -239,20 +239,21 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
   };
 
   const handleDeleteHistory = (itemId: string, historyId: string) => {
-    const updatedMaintenance = maintenance.map(m => {
-      if (m.id === itemId) {
-        const history = (m.history || []).filter(h => h.id !== historyId);
-        const latest = history[0];
-        return {
-          ...m,
-          history,
-          lastChangeKm: latest ? latest.km : m.lastChangeKm,
-          lastChangeDate: latest ? latest.date : m.lastChangeDate
-        };
-      }
-      return m;
-    });
-    onUpdateMaintenance(updatedMaintenance);
+  const updatedMaintenance = maintenance.map(m => {
+    if (m.id === itemId) {
+      const history = (m.history || []).filter(h => h.id !== historyId)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const latest = history[0];
+      return {
+        ...m,
+        history,
+        lastChangeKm: latest ? latest.km : m.lastChangeKm,
+        lastChangeDate: latest ? latest.date : m.lastChangeDate
+      };
+    }
+    return m;
+  });
+  onUpdateMaintenance(updatedMaintenance);
   };
 
   const handleRestoreDefaults = () => {
@@ -379,7 +380,7 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
         nextChangeDate
       };
     });
-  }, [maintenance, motoStats]);
+  }, [maintenance, motoStats, profile]);
 
   const filteredMaintenance = useMemo(() => {
     return enhancedMaintenance.filter(item => {
@@ -514,7 +515,7 @@ Est.
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white text-sm">{item.name}</p>
                       <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
-                        {item.isOverdue ? 'Vencido!' : `Vence em aprox. ${item.minDaysRemaining} dias`}
+                        {item.isOverdue ? 'Vencido!' : item.minDaysRemaining === Infinity ? 'Sem data prevista' : `Vence em aprox. ${item.minDaysRemaining} dias`}
                       </p>
                     </div>
                     <button

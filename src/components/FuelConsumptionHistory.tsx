@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Gauge, Fuel, Droplets, DollarSign } from 'lucide-react';
 import { Expense } from '../types';
 import { format, parseISO } from 'date-fns';
@@ -52,13 +52,13 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 }
 
 export default function FuelConsumptionHistory({ expenses, profileKmPerLiter }: FuelConsumptionHistoryProps) {
-  const globalConsumption = calculateGlobalConsumption(expenses);
+  const globalConsumption = useMemo(() => calculateGlobalConsumption(expenses), [expenses]);
   const fuelExpenses = expenses.filter(e => e.type === 'combustivel' && e.tripTotal && e.liters)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const hasChartableData = fuelExpenses.length >= 2;
 
-  const chartData = fuelExpenses.slice().reverse().slice(0, 20).map(expense => ({
+  const chartData = fuelExpenses.slice(-20).map(expense => ({
     date: format(parseISO(expense.date), 'dd/MM'),
     fullDate: format(parseISO(expense.date), 'dd/MM/yyyy'),
     kmPerLiter: expense.segmentConsumption || 0,

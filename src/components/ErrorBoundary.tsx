@@ -40,20 +40,13 @@ function ErrorFallback({ error, onReset, onClearData }: { error: Error | null; o
   );
 }
 
-class ErrorBoundaryClass extends (React.Component as any)<{ children: React.ReactNode }, ErrorBoundaryState> {
-  constructor(props: any) {
+class ErrorBoundaryClass extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-    try {
-      localStorage.setItem('organizaai_last_error', JSON.stringify({
-        message: error?.message || 'Unknown',
-        stack: error?.stack || '',
-        time: new Date().toISOString()
-      }));
-    } catch {}
     return { hasError: true, error };
   }
 
@@ -77,6 +70,7 @@ class ErrorBoundaryClass extends (React.Component as any)<{ children: React.Reac
     if (confirm('Isso apagará todos os dados salvos e recarregará o app. Tem certeza?')) {
       localStorage.removeItem('organizaai_data_v2');
       localStorage.removeItem('organizaai_last_backup');
+      localStorage.removeItem('organizaai_last_error');
       window.location.reload();
     }
   };

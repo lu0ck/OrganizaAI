@@ -215,8 +215,29 @@ export default function Sidebar({
           </AnimatePresence>
         </div>
 
-        {/* Theme Toggle */}
-        {/* User Profile */}
+      {/* Theme Toggle */}
+      <button
+        onClick={onToggleTheme}
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+          isCompact ? "justify-center" : ""
+        )}
+      >
+        {theme === 'dark' ? <Sun size={20} className="shrink-0" /> : <Moon size={20} className="shrink-0" />}
+        <AnimatePresence>
+          {!isCompact && (
+            <motion.span
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              className="whitespace-nowrap overflow-hidden"
+            >
+              {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </button>
+      {/* User Profile */}
         <div
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800",

@@ -222,7 +222,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
         effectiveTarget
       };
     });
-  }, [daysInMonth, rides, dailyGoal, profile]);
+  }, [daysInMonth, rides, dailyGoal, profile, historicalAvgPerHour]);
 
   const compensationMap = useMemo(() => {
     const result = new Map<number, { compensatedBy?: { day: number; amount: number }; compensated?: { day: number; amount: number } }>();
@@ -247,9 +247,15 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
             remainingSurplus -= deficit.amount;
             result.set(deficit.dayIndex, { ...(result.get(deficit.dayIndex) || {}), compensatedBy: { day: i, amount: deficit.amount } });
             result.set(i, { ...(result.get(i) || {}), compensated: { day: deficit.dayIndex, amount: deficit.amount } });
-          } else {
-            stillPending.push(deficit);
-          }
+ } else {
+ const partialAmount = remainingSurplus;
+ if (partialAmount > 0) {
+ result.set(deficit.dayIndex, { ...(result.get(deficit.dayIndex) || {}), compensatedBy: { day: i, amount: partialAmount } });
+ result.set(i, { ...(result.get(i) || {}), compensated: { day: deficit.dayIndex, amount: partialAmount } });
+ }
+ stillPending.push({ dayIndex: deficit.dayIndex, amount: deficit.amount - partialAmount });
+ remainingSurplus = 0;
+ }
         }
         pendingDeficits.length = 0;
         pendingDeficits.push(...stillPending);
@@ -341,7 +347,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   type="number"
                   value={formData.targetValue}
                   disabled={formData.useHourlyRate === true}
-                  onChange={(e) => setFormData({ ...formData, targetValue: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, targetValue: Number(e.target.value) || 0 })}
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Ex: 200.00"
                 />
@@ -444,9 +450,9 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               {(() => {
                 const now = new Date();
                 const monthStart = startOfMonth(now);
-                const dailyGoal = goals.find(g => g.type === 'diaria' && g.connectedToSchedule);
+ const scheduleDailyGoal = goals.find(g => g.type === 'diaria' && g.connectedToSchedule);
 
-                if (!dailyGoal) {
+ if (!scheduleDailyGoal) {
                   return (
                     <div className="text-center py-4">
                       <p className="text-xs text-slate-500 mb-2">
@@ -464,7 +470,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                 const dayCursor = new Date(monthStart);
                 while (isBefore(dayCursor, now) || isSameDay(dayCursor, now)) {
                   if (profile.workSchedule.find(d => d.day === dayNames[dayCursor.getDay()])?.active) {
-                    expectedValueThisMonth += getDailyTarget(dayCursor, dailyGoal, profile, historicalAvgPerHour);
+                    expectedValueThisMonth += getDailyTarget(dayCursor, scheduleDailyGoal, profile, historicalAvgPerHour);
                   }
                   dayCursor.setDate(dayCursor.getDate() + 1);
                 }
@@ -990,7 +996,7 @@ for (const idx of sorted) {
                 earned = rides
                   .filter(r => isWithinInterval(parseISO(r.date), { start, end }))
                   .reduce((acc, r) => acc + r.totalValue, 0);
-                workedDays = rides.filter(r => isWithinInterval(parseISO(r.date), { start, end })).length;
+                workedDays = countWorkedDays(rides, start, end);
               }
               
               const difference = earned - expectedValue;
@@ -1033,18 +1039,16 @@ for (const idx of sorted) {
                 {goal.type} {goal.connectedToSchedule ? '• Conectada à agenda' : ''} {goal.monthlyCycle ? '• Ciclo mensal' : ''}
               </span>
                 <h4 className="font-bold dark:text-white">
-                  {(() => {
-                    const td = getDailyTarget(now, goal, profile, historicalAvgPerHour);
-                    if (td > 0) {
-                      if (goal.useHourlyRate) {
-                        return <>Alvo: R$ {td.toFixed(2)}/dia <span className="text-xs font-normal text-slate-400 ml-1">(horas × R${(profile?.hourlyRate || 0).toFixed(2)}/h)</span></>;
-                      }
-                      if (goal.targetValue > 0) {
-                        return `Alvo: R$ ${td.toFixed(2)}/dia`;
-                      }
-                      return `Alvo: R$ ${td.toFixed(2)}/dia`;
-                    }
-                    return 'Alvo: R$ 0/dia';
+ {(() => {
+ const td = getDailyTarget(now, goal, profile, historicalAvgPerHour);
+ const periodSuffix = goal.type === 'semanal' ? '/sem' : goal.type === 'mensal' ? '/mês' : '/dia';
+ if (td > 0) {
+ if (goal.useHourlyRate) {
+ return <>Alvo: R$ {td.toFixed(2)}{periodSuffix} <span className="text-xs font-normal text-slate-400 ml-1">(horas × R${(profile?.hourlyRate || 0).toFixed(2)}/h)</span></>;
+ }
+ return `Alvo: R$ ${td.toFixed(2)}${periodSuffix}`;
+ }
+ return `Alvo: R$ 0${periodSuffix}`;
                   })()}
                 </h4>
                     </div>

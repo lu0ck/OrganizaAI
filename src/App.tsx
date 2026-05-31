@@ -8,7 +8,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSidebar } from './hooks/useSidebar';
 import { useToast } from './hooks/useToast';
 import { recalculateFuelExpensesChain, calculateGlobalConsumption } from './lib/fuelCalculation';
-import { AppState, ColorTheme, MaintenanceItem, Expense, RideEntry } from './types';
+import { AppState, ColorTheme, Expense, RideEntry } from './types';
 import { format, subDays } from 'date-fns';
 import { cn } from './lib/utils';
 
@@ -37,14 +37,6 @@ const mobileNavItems = [
   { id: 'profile', label: '', icon: User },
 ];
 
-const initialMaintenance: MaintenanceItem[] = [
-  { id: '1', name: 'Troca de Óleo', intervalKm: 1000, intervalDays: 30, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 50 },
-  { id: '2', name: 'Kit Relação', intervalKm: 15000, intervalDays: 180, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 250 },
-  { id: '3', name: 'Pneu Dianteiro', intervalKm: 12000, intervalDays: 365, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 400, position: 'dianteiro' },
-  { id: '4', name: 'Pneu Traseiro', intervalKm: 12000, intervalDays: 365, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 450, position: 'traseiro' },
-  { id: '5', name: 'Pastilhas de Freio dianteira', intervalKm: 5000, intervalDays: 90, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 40, position: 'dianteiro' },
-  { id: '6', name: 'Pastilhas de Freio traseira', intervalKm: 5000, intervalDays: 90, lastChangeKm: 0, lastChangeDate: format(new Date(), 'yyyy-MM-dd'), estimatedCost: 40, position: 'traseiro' },
-];
 
 const initialState: AppState = {
   profile: null,
@@ -61,7 +53,7 @@ const initialState: AppState = {
 
 export default function App() {
   const [state, setState] = useLocalStorage<AppState>('organizaai_data_v2', initialState);
-  const safeState = {
+  const safeState = useMemo(() => ({
     ...state,
     rides: Array.isArray(state.rides) ? state.rides : [],
     expenses: Array.isArray(state.expenses) ? state.expenses : [],
@@ -70,7 +62,7 @@ export default function App() {
     manualCompensations: Array.isArray(state.manualCompensations) ? state.manualCompensations : [],
     plans: Array.isArray(state.plans) ? state.plans : [],
     customApps: Array.isArray(state.customApps) ? state.customApps : [],
-  };
+  }), [state]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
   const { width, collapsed, isResizing, toggle, startResizing, stopResizing, handleResize } = useSidebar();
@@ -158,7 +150,7 @@ useEffect(() => {
       if (safeState.profile.currentKmPerLiter !== currentKmPerLiter) {
         setState(prev => ({
           ...prev,
-          profile: { ...prev.profile!, currentKmPerLiter }
+          profile: prev.profile ? { ...prev.profile, currentKmPerLiter } : prev.profile
         }));
       }
     } catch (error) {
@@ -169,26 +161,28 @@ useEffect(() => {
   const fuelChainRecalcRef = useRef(false);
 
   useEffect(() => {
-    if (!safeState.profile || fuelChainRecalcRef.current) return;
     fuelChainRecalcRef.current = true;
-    try {
-      const recalculated = recalculateFuelExpensesChain(safeState.expenses, safeState.profile);
-      const hasChanges = recalculated.some((re, i) => {
-        const orig = safeState.expenses[i];
-        return re.segmentConsumption !== orig.segmentConsumption
-          || re.saldoAfterFueling !== orig.saldoAfterFueling
-          || re.isCalibrated !== orig.isCalibrated
-          || re.effectiveTripKm !== orig.effectiveTripKm
-          || re.tripTotal !== orig.tripTotal
-          || re.tripOnReserve !== orig.tripOnReserve
-          || re.fuelTime !== orig.fuelTime;
-      });
-      if (hasChanges) {
-        setState(prev => ({ ...prev, expenses: recalculated }));
+    setState(prev => {
+      if (!prev.profile || !prev.expenses?.length) return prev;
+      try {
+        const recalculated = recalculateFuelExpensesChain(prev.expenses, prev.profile);
+        const hasChanges = recalculated.some((re, i) => {
+          const orig = prev.expenses[i];
+          return re.segmentConsumption !== orig.segmentConsumption
+            || re.saldoAfterFueling !== orig.saldoAfterFueling
+            || re.isCalibrated !== orig.isCalibrated
+            || re.effectiveTripKm !== orig.effectiveTripKm
+            || re.tripOnReserve !== orig.tripOnReserve
+            || re.fuelTime !== orig.fuelTime;
+        });
+        if (hasChanges) {
+          return { ...prev, expenses: recalculated };
+        }
+      } catch (error) {
+        console.error('Error recalculating fuel chain on load:', error);
       }
-    } catch (error) {
-      console.error('Error recalculating fuel chain on load:', error);
-    }
+      return prev;
+    });
   }, []);
 
 const toggleTheme = () => {
@@ -246,15 +240,19 @@ const handleAddRide = (ride: RideEntry) => {
 
   // Handler para deletar expense e recalcular
   const handleDeleteExpense = (id: string) => {
-setState(prev => {
+    setState(prev => {
       const prevExpenses = Array.isArray(prev.expenses) ? prev.expenses : [];
+      const deletedExpense = prevExpenses.find(e => e.id === id);
       const newExpenses = prevExpenses.filter(e => e.id !== id);
-
-      if (prev.profile) {
-        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, prev.profile);
-        return { ...prev, expenses: recalculatedExpenses };
+      let newProfile = prev.profile;
+      if (deletedExpense?.type === 'combustivel' && deletedExpense.tripTotal && prev.profile) {
+        const newOdometerKm = Math.round(((prev.profile.vehicleOdometerKm || 0) - deletedExpense.tripTotal) * 100) / 100;
+        newProfile = { ...prev.profile, vehicleOdometerKm: Math.max(0, newOdometerKm) };
       }
-
+      if (newProfile) {
+        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, newProfile);
+        return { ...prev, expenses: recalculatedExpenses, profile: newProfile };
+      }
       return { ...prev, expenses: newExpenses };
     });
   };
@@ -266,23 +264,27 @@ setState(prev => {
       const oldExpense = prevExpenses.find(e => e.id === updatedExpense.id);
       let newProfile = prev.profile;
 
-      if (oldExpense && prev.profile && oldExpense.type === 'combustivel' && updatedExpense.type === 'combustivel') {
-        const oldTrip = oldExpense.tripTotal || 0;
-        const newTrip = updatedExpense.tripTotal || 0;
-        const tripDiff = newTrip - oldTrip;
-        if (tripDiff !== 0) {
-          newProfile = { ...prev.profile, vehicleOdometerKm: Math.round(((prev.profile.vehicleOdometerKm || 0) + tripDiff) * 100) / 100 };
+      if (prev.profile) {
+        let odometerAdjust = 0;
+        if (oldExpense?.type === 'combustivel') {
+          odometerAdjust -= (oldExpense.tripTotal || 0);
+        }
+        if (updatedExpense.type === 'combustivel') {
+          odometerAdjust += (updatedExpense.tripTotal || 0);
+        }
+        if (odometerAdjust !== 0) {
+          newProfile = { ...prev.profile, vehicleOdometerKm: Math.max(0, Math.round(((prev.profile.vehicleOdometerKm || 0) + odometerAdjust) * 100) / 100) };
         }
       }
 
-    const newExpenses = prevExpenses.map(e => {
-      if (e.id !== updatedExpense.id) return e;
-      return { ...updatedExpense };
-    });
+      const newExpenses = prevExpenses.map(e => {
+        if (e.id !== updatedExpense.id) return e;
+        return { ...updatedExpense };
+      });
 
-      if (newProfile) {
-        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, newProfile);
-        return { ...prev, expenses: recalculatedExpenses, profile: newProfile };
+      if (prev.profile) {
+        const recalculatedExpenses = recalculateFuelExpensesChain(newExpenses, newProfile || prev.profile);
+        return { ...prev, expenses: recalculatedExpenses, profile: newProfile || prev.profile };
       }
 
       return { ...prev, expenses: newExpenses };
@@ -407,6 +409,7 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
           theme={state.theme}
           colorTheme={state.colorTheme}
           setColorTheme={setColorTheme}
+          onToggleTheme={toggleTheme}
           width={width}
           collapsed={collapsed}
           isResizing={isResizing}
@@ -506,7 +509,19 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
           profile={safeState.profile}
           onUpdate={(profile) => setState(prev => ({ ...prev, profile }))}
           fullState={state}
-                  onImportState={(newState) => setState(newState)}
+                  onImportState={(newState) => setState(prev => ({
+          ...prev,
+          profile: newState.profile && typeof newState.profile === 'object' ? newState.profile : prev.profile,
+          rides: Array.isArray(newState.rides) ? newState.rides : prev.rides,
+          expenses: Array.isArray(newState.expenses) ? newState.expenses : prev.expenses,
+          goals: Array.isArray(newState.goals) ? newState.goals : prev.goals,
+          maintenance: Array.isArray(newState.maintenance) ? newState.maintenance : prev.maintenance,
+          manualCompensations: Array.isArray(newState.manualCompensations) ? newState.manualCompensations : prev.manualCompensations,
+          plans: Array.isArray(newState.plans) ? newState.plans : prev.plans,
+          customApps: Array.isArray(newState.customApps) ? newState.customApps : prev.customApps,
+          theme: newState.theme === 'light' || newState.theme === 'dark' ? newState.theme : prev.theme,
+          colorTheme: newState.colorTheme || prev.colorTheme,
+        }))}
                 />
               )}
             </motion.div>
@@ -544,7 +559,7 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
                     <Download size={18} /> Fazer Backup Agora
                   </button>
                   <button
-                    onClick={() => { localStorage.setItem('organizaai_last_backup', new Date().toISOString()); setShowBackupPrompt(false); }}
+                    onClick={() => { localStorage.setItem('organizaai_last_backup', new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()); setShowBackupPrompt(false); }}
                     className="p-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all"
                   >
                     <CloseIcon size={20} />

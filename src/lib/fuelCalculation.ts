@@ -61,16 +61,12 @@ export function calculateHistoricalAverage(expenses: Expense[], fuelType?: FuelT
 
   if (calibrated.length === 0) return null;
 
-  const weightedSum = calibrated.reduce(
-    (sum, e) => sum + (e.segmentConsumption || 0) * (e.effectiveTripKm || 0),
-    0
-  );
-  const totalKm = calibrated.reduce(
-    (sum, e) => sum + (e.effectiveTripKm || 0),
-    0
-  );
-
-  return totalKm > 0 ? weightedSum / totalKm : null;
+  const totalKm = calibrated.reduce((sum, e) => sum + (e.effectiveTripKm || 0), 0);
+  const totalLiters = calibrated.reduce((sum, e) => {
+    const cons = e.segmentConsumption || 0;
+    return cons > 0 ? sum + (e.effectiveTripKm || 0) / cons : sum;
+  }, 0);
+  return totalKm > 0 && totalLiters > 0 ? totalKm / totalLiters : null;
 }
 
 export function calculateGlobalConsumption(
@@ -96,7 +92,7 @@ export function calculateGlobalConsumption(
     };
   }
 
-  const totalKm = fuelExpenses.reduce((sum, e) => sum + (e.tripTotal || 0), 0);
+  const totalKm = fuelExpenses.reduce((sum, e) => sum + (e.effectiveTripKm || 0), 0);
   const totalLitersAdded = fuelExpenses.reduce((sum, e) => sum + (e.liters || 0), 0);
   const currentSaldo = fuelExpenses[fuelExpenses.length - 1]?.saldoAfterFueling || 0;
   const litersBurned = totalLitersAdded - currentSaldo;
@@ -118,15 +114,12 @@ export function calculateGlobalConsumption(
     };
   }
 
-  const weightedSum = calibratedExpenses.reduce(
-    (sum, e) => sum + (e.segmentConsumption || 0) * (e.effectiveTripKm || 0),
-    0
-  );
-  const totalCalibratedKm = calibratedExpenses.reduce(
-    (sum, e) => sum + (e.effectiveTripKm || 0),
-    0
-  );
-  const globalAverage = totalCalibratedKm > 0 ? weightedSum / totalCalibratedKm : null;
+  const totalCalibratedKm = calibratedExpenses.reduce((sum, e) => sum + (e.effectiveTripKm || 0), 0);
+  const totalCalibratedLiters = calibratedExpenses.reduce((sum, e) => {
+    const cons = e.segmentConsumption || 0;
+    return cons > 0 ? sum + (e.effectiveTripKm || 0) / cons : sum;
+  }, 0);
+  const globalAverage = totalCalibratedKm > 0 && totalCalibratedLiters > 0 ? totalCalibratedKm / totalCalibratedLiters : null;
 
   return {
     totalKm,
@@ -155,14 +148,11 @@ export function recalculateFuelExpensesChain(
   profile: UserProfile
 ): Expense[] {
   const result = [...expenses];
-  const T = profile.totalTankSize || 50;
+  const T = profile.totalTankSize ?? 50;
 
   for (let i = 0; i < result.length; i++) {
     const e = result[i];
     if (e.type === 'combustivel') {
-      if (e.effectiveTripKm && !e.tripTotal) {
-        result[i] = { ...e, tripTotal: e.effectiveTripKm };
-      }
       if (!result[i].fuelTime) {
         result[i] = { ...result[i], fuelTime: '12:00' };
       }
@@ -208,7 +198,7 @@ export function recalculateFuelExpensesChain(
 
     result[curIdx] = {
       ...result[curIdx],
-      saldoAfterFueling: curFullTank ? T : (curLiters > 0 ? Math.min(curLiters, T) : undefined),
+        saldoAfterFueling: curFullTank ? T : undefined,
     };
 
     if (idx === 0) continue;

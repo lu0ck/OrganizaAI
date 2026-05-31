@@ -153,7 +153,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                       type="number"
                       step="0.1"
                       value={formData.kmPerLiter || ''}
-                      onChange={(e) => setFormData({ ...formData, kmPerLiter: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, kmPerLiter: e.target.value ? Number(e.target.value) : undefined })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                     />
 {profile.currentKmPerLiter && profile.currentKmPerLiter > 0 ? (
@@ -177,7 +177,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                       type="number"
                       step="0.1"
                       value={formData.totalTankSize || ''}
-                      onChange={(e) => setFormData({ ...formData, totalTankSize: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, totalTankSize: e.target.value ? Number(e.target.value) : undefined })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                     />
                   </div>
@@ -193,7 +193,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                       type="number"
                       step="0.1"
                       value={formData.reserveSize || ''}
-                      onChange={(e) => setFormData({ ...formData, reserveSize: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, reserveSize: e.target.value ? Number(e.target.value) : undefined })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                       placeholder="Ex: 5"
                     />
@@ -218,7 +218,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                   <input
                     type="number"
                     value={formData.ipvaValue || ''}
-                    onChange={(e) => setFormData({ ...formData, ipvaValue: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, ipvaValue: e.target.value ? Number(e.target.value) : undefined })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                     placeholder="R$ 0,00"
                   />
@@ -230,7 +230,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                   <input
                     type="number"
                     value={formData.licensingValue || ''}
-                    onChange={(e) => setFormData({ ...formData, licensingValue: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, licensingValue: e.target.value ? Number(e.target.value) : undefined })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                     placeholder="R$ 0,00"
                   />
@@ -244,7 +244,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                 <input
                   type="number"
                   value={formData.insuranceValue || ''}
-                  onChange={(e) => setFormData({ ...formData, insuranceValue: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, insuranceValue: e.target.value ? Number(e.target.value) : undefined })}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                   placeholder="R$ 0,00"
                 />
@@ -258,7 +258,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                   <input
                     type="number"
                     value={formData.vehicleInstallmentValue || ''}
-                    onChange={(e) => setFormData({ ...formData, vehicleInstallmentValue: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, vehicleInstallmentValue: e.target.value ? Number(e.target.value) : undefined })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                     placeholder="R$ 0,00"
                   />
@@ -270,7 +270,7 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
                   <input
                     type="number"
                     value={formData.vehicleInstallmentsRemaining || ''}
-                    onChange={(e) => setFormData({ ...formData, vehicleInstallmentsRemaining: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, vehicleInstallmentsRemaining: e.target.value ? Number(e.target.value) : undefined })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                     placeholder="Ex: 24"
                   />

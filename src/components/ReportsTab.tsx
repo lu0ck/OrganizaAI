@@ -47,11 +47,12 @@ export default function ReportsTab({ rides, expenses, profile }: ReportsTabProps
     const daysInMonth = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
     // Fixed costs proportional to days in month (same logic as Dashboard)
-    const ipvaDaily = (profile.ipvaValue || 0) / 365;
-    const licensingDaily = (profile.licensingValue || 0) / 365;
-    const insuranceDaily = (profile.insuranceValue || 0) / 30;
-    
-    const fixedCosts = (ipvaDaily + licensingDaily + insuranceDaily) * daysInMonth;
+  const ipvaDaily = (profile.ipvaValue || 0) / 365;
+  const licensingDaily = (profile.licensingValue || 0) / 365;
+  const insuranceDaily = (profile.insuranceValue || 0) / 30;
+  const installmentDaily = (profile.vehicleInstallmentValue || 0) / 30;
+
+  const fixedCosts = (ipvaDaily + licensingDaily + insuranceDaily + installmentDaily) * daysInMonth;
 
     const netProfit = totalEarnings - totalExpenses - fixedCosts;
 
@@ -93,7 +94,7 @@ export default function ReportsTab({ rides, expenses, profile }: ReportsTabProps
       body: [
         ['Ganhos Brutos', reportData.stats.totalEarnings.toFixed(2)],
         ['Despesas Variáveis', reportData.stats.totalExpenses.toFixed(2)],
-        ['Custos Fixos (IPVA/Seguro/Lic.)', reportData.stats.totalFixedCosts?.toFixed(2) || reportData.stats.fixedCosts.toFixed(2)],
+        ['Custos Fixos (IPVA/Seguro/Lic./Parcela)', reportData.stats.fixedCosts.toFixed(2)],
         ['Lucro Líquido', reportData.stats.netProfit.toFixed(2)],
         ['KM Rodados', reportData.stats.totalKm.toFixed(1)],
         ['Total de Corridas', reportData.stats.totalRides.toString()],
@@ -140,7 +141,7 @@ export default function ReportsTab({ rides, expenses, profile }: ReportsTabProps
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.join(','))
+      ...rows.map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

@@ -174,8 +174,8 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
       ? calculateAutonomy(estimatedBalance, kmPerLiter)
       : null;
 
-    const ipvaMonthly = (profile?.ipvaValue || 0) / 12;
-    const licensingMonthly = (profile?.licensingValue || 0) / 12;
+const ipvaMonthly = (profile?.ipvaValue || 0) / 365 * 30;
+  const licensingMonthly = (profile?.licensingValue || 0) / 365 * 30;
     const insuranceMonthly = profile?.insuranceValue || 0;
     const installmentMonthly = profile?.vehicleInstallmentValue || 0;
     const monthlyFixedCosts = ipvaMonthly + licensingMonthly + insuranceMonthly + installmentMonthly;
@@ -217,7 +217,8 @@ if (dailyGoal) {
       totalCostPerKm,
       kmPerLiter,
       globalConsumption,
-      estimatedBalance,
+estimatedBalance,
+    estimatedBalanceUnreliable: lastFuelExpense && kmPerLiter <= 0 && kmSinceLastFuel > 0,
       autonomy,
       tankSize: profile?.totalTankSize,
       monthlyFixedCosts,
@@ -230,7 +231,7 @@ if (dailyGoal) {
   }, [filteredData, profile, rides, expenses, goals]);
 
   const previousPeriodStats = useMemo(() => {
-    const periodDays = Math.max(differenceInDays(filteredData.end, filteredData.start), 1);
+    const periodDays = Math.max(differenceInDays(filteredData.end, filteredData.start) + 1, 1);
     const prevEnd = startOfDay(subDays(filteredData.start, 1));
     const prevStart = startOfDay(subDays(prevEnd, periodDays));
     const prevInterval = { start: prevStart, end: prevEnd };
@@ -263,7 +264,7 @@ if (dailyGoal) {
           if (!p.start || !p.end) return;
           const [sH, sM] = p.start.split(':').map(Number);
           const [eH, eM] = p.end.split(':').map(Number);
-          if (isNaN(sH)) return;
+          if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return;
           let diff = (eH * 60 + eM) - (sH * 60 + sM);
           if (diff < 0) diff += 24 * 60;
           totalHours += diff / 60;
@@ -277,7 +278,7 @@ if (dailyGoal) {
     const last30Maint = last30.filter(e => e.type === 'manutencao').reduce((acc, e) => acc + e.value, 0);
     const last30Total = last30.reduce((acc, e) => acc + e.value, 0);
     const dailyExpense = last30Total / 30;
-    const monthlyExpenses = dailyExpense * workDays;
+    const monthlyExpenses = dailyExpense * daysInMonth;
 
     return {
       workDays,
@@ -285,10 +286,10 @@ if (dailyGoal) {
       earnings,
       expenses: monthlyExpenses,
       net: earnings - monthlyExpenses,
-      fuelEstimated: (last30Fuel / 30) * workDays,
-      maintEstimated: (last30Maint / 30) * workDays,
+      fuelEstimated: (last30Fuel / 30) * daysInMonth,
+      maintEstimated: (last30Maint / 30) * daysInMonth,
     };
-  }, [profile, expenses]);
+  }, [profile, expenses, stats]);
 
   const getChangePercent = (current: number, previous: number): number | null => {
     if (previous === 0) return current > 0 ? 100 : null;
@@ -558,6 +559,9 @@ if (dailyGoal) {
               <div className="space-y-1">
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Saldo Tanque</p>
                 <p className="text-lg font-bold text-brand-600">{stats.estimatedBalance.toFixed(1)}L</p>
+            {stats.estimatedBalanceUnreliable && (
+              <p className="text-[9px] text-amber-500 italic">Saldo sem consumo real</p>
+            )}
                 {stats.tankSize && (
                   <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
@@ -1123,7 +1127,19 @@ if (dailyGoal) {
   );
 }
 
-function StatCard({ title, value, icon: Icon, color, isCurrency = false, isDecimal = false, unit, change, tooltip }: any) {
+interface StatCardProps {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  color: string;
+  isCurrency?: boolean;
+  isDecimal?: boolean;
+  unit?: string;
+  change?: number | null;
+  tooltip?: string;
+}
+
+function StatCard({ title, value, icon: Icon, color, isCurrency = false, isDecimal = false, unit, change, tooltip }: StatCardProps) {
   const formattedValue = isCurrency
     ? `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : isDecimal

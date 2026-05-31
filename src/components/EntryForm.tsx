@@ -105,12 +105,12 @@ export default function EntryForm({ onAdd, onDelete, onEdit, rides, profile, exp
   };
 
   const addAppRow = () => {
+    const newIdx = formData.appRides.length;
+    setCustomAppInputs(prev => ({ ...prev, [newIdx]: '' }));
     setFormData(prev => {
       const currentTotal = Number(prev.totalValue) || 0;
       const firstAppValue = prev.appRides.length > 0 ? Number(prev.appRides[0].value) || 0 : 0;
       const remainingValue = currentTotal - firstAppValue;
-      const newIdx = prev.appRides.length;
-      setCustomAppInputs(prev2 => ({ ...prev2, [newIdx]: '' }));
       return {
         ...prev,
         appRides: [...prev.appRides, { appName: '', modality: 'passageiro', count: 0, value: remainingValue > 0 ? remainingValue : 0 }]

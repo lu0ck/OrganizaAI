@@ -297,12 +297,9 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
                     type="number"
                     step="0.001"
                     value={formData.pricePerLiter}
-                    onChange={(e) => {
-                      const price = Number(e.target.value);
-                      const total = Number(formData.value);
-                      const liters = price > 0 ? (total / price).toFixed(2) : formData.liters;
-                      setFormData({ ...formData, pricePerLiter: e.target.value, liters: liters.toString() });
-                    }}
+                onChange={(e) => {
+                  setFormData({ ...formData, pricePerLiter: e.target.value });
+                }}
                     className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
                     placeholder="Ex: 5.89"
                   />
@@ -437,7 +434,7 @@ export default function ExpensesForm({ onAdd, onDelete, onEdit, expenses, profil
         ) : (
           <div className="grid gap-4">
             {filteredExpenses.map((expense) => {
-              const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[5];
+              const typeInfo = expenseTypes.find(t => t.id === expense.type) || expenseTypes[7];
               const kmToPay = avgPerKm > 0 ? Math.ceil(expense.value / avgPerKm) : null;
               const isFuel = expense.type === 'combustivel';
               const isCalibrated = isFuel && expense.isCalibrated === true && expense.segmentConsumption != null && expense.segmentConsumption > 0;
