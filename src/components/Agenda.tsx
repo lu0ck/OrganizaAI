@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, isAfter, getDay, startOfWeek, addDays } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry } from '../types';
 import { cn } from '../lib/utils';
@@ -73,6 +73,8 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [inputAvgPerHour, setInputAvgPerHour] = useState<string>('');
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [editPlan, setEditPlan] = useState<MonthlyPlan | null>(null);
+  const [planViewMode, setPlanViewMode] = useState<'view' | 'edit'>('view');
+  const [copiedMonthPlan, setCopiedMonthPlan] = useState<{ month: string; monthLabel: string; days: WorkDay[]; vacations: VacationEntry[]; notes?: string; customHourlyRate?: number; customFuelCost?: number; customMaintCost?: number; customKmPerLiter?: number } | null>(null);
   const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
   const [showFullProjection, setShowFullProjection] = useState(false);
 
@@ -601,24 +603,39 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
 
             return (
               <div key={ym.key} className={cn("rounded-2xl border transition-all", isExpanded ? "col-span-2 sm:col-span-3 md:col-span-4" : "", plan ? "border-brand-200 dark:border-brand-900/30 bg-brand-50/30 dark:bg-brand-950/10" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900")}>
-                {isExpanded ? (
+              {isExpanded ? (
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-bold dark:text-white">{ym.fullLabel} {ym.year}</h4>
-                      <button onClick={() => { setExpandedMonth(null); setEditPlan(null); }} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                      <div className="flex items-center gap-2">
+                        {plan && planViewMode === 'view' && (
+                          <>
+                            <button onClick={() => { setCopiedMonthPlan({ month: ym.key, monthLabel: ym.label, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])], notes: plan.notes, customHourlyRate: plan.customHourlyRate, customFuelCost: plan.customFuelCost, customMaintCost: plan.customMaintCost, customKmPerLiter: plan.customKmPerLiter }); }} title="Copiar plano" className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-all"><Copy size={16} /></button>
+                            <button onClick={() => { setEditPlan({ ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] }); setPlanViewMode('edit'); }} title="Editar plano" className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-all"><Pencil size={16} /></button>
+                          </>
+                        )}
+                        <button onClick={() => { setExpandedMonth(null); setEditPlan(null); setPlanViewMode('view'); }} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                      </div>
                     </div>
-                    {editPlan ? (
-                      <EditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } setExpandedMonth(null); setEditPlan(null); }} onCancel={() => { setExpandedMonth(null); setEditPlan(null); }} />
+                    {plan && planViewMode === 'view' ? (
+                      <PlanView plan={plan} monthKey={ym.key} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} />
+                    ) : editPlan ? (
+                      <EditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} copiedMonthPlan={copiedMonthPlan} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } setExpandedMonth(null); setEditPlan(null); setPlanViewMode('view'); }} onCancel={() => { setExpandedMonth(null); setEditPlan(null); setPlanViewMode('view'); }} />
                     ) : (
                       <div className="text-center py-8">
                         <p className="text-slate-500 text-sm mb-4">Nenhum plano criado para {ym.label}.</p>
-        <button onClick={() => { const days = profile?.workSchedule ? applyDefaultHours(profile.workSchedule) : getDefaultSchedule(); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days, vacations: [] }); }} className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-all">Criar plano do Perfil</button>
-        <button onClick={() => { setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: getEmptySchedule(), vacations: [] }); }} className="ml-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all">Começar do zero</button>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <button onClick={() => { const days = profile?.workSchedule ? applyDefaultHours(profile.workSchedule) : getDefaultSchedule(); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days, vacations: [] }); setPlanViewMode('edit'); }} className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-all">Criar plano do Perfil</button>
+                          <button onClick={() => { setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: getEmptySchedule(), vacations: [] }); setPlanViewMode('edit'); }} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all">Começar do zero</button>
+                          {copiedMonthPlan && (
+                            <button onClick={() => { const srcMonth = copiedMonthPlan.month; const [srcYr, srcMo] = srcMonth.split('-').map(Number); const [destYr, destMo] = ym.key.split('-').map(Number); const destDaysInMonth = new Date(destYr, destMo, 0).getDate(); const mappedVacations = copiedMonthPlan.vacations.map(v => { const srcDay = parseInt(v.date.split('-')[2], 10); const destDay = Math.min(srcDay, destDaysInMonth); const destDateStr = `${ym.key}-${String(destDay).padStart(2, '0')}`; return { date: destDateStr, type: v.type }; }); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: copiedMonthPlan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })), vacations: mappedVacations, notes: copiedMonthPlan.notes, customHourlyRate: copiedMonthPlan.customHourlyRate, customFuelCost: copiedMonthPlan.customFuelCost, customMaintCost: copiedMonthPlan.customMaintCost, customKmPerLiter: copiedMonthPlan.customKmPerLiter }); setPlanViewMode('edit'); }} className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-sm font-bold rounded-xl hover:bg-emerald-100 transition-all flex items-center gap-1.5"><ClipboardPaste size={16} /> Colar de {copiedMonthPlan.monthLabel}</button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="p-4 cursor-pointer hover:shadow-md transition-all" onClick={() => { setExpandedMonth(ym.key); setEditPlan(plan ? { ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] } : null); }}>
+                  <div className="p-4 cursor-pointer hover:shadow-md transition-all" onClick={() => { setExpandedMonth(ym.key); if (plan) { setPlanViewMode('view'); setEditPlan(null); } else { setPlanViewMode('edit'); setEditPlan(null); } }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold dark:text-white">{ym.label}</span>
@@ -696,7 +713,251 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   );
 }
 
-function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, userAverages, averages, isPast, realData, expenses }: {
+function PlanView({ plan, monthKey, profile, userAverages, averages, isPast, realData, expenses }: {
+  plan: MonthlyPlan;
+  monthKey: string;
+  profile?: UserProfile | null;
+  userAverages: { earningsPerDay: number; kmPerDay: number; fuelPerDay: number; maintPerDay: number; hoursPerDay: number };
+  averages: { perHour: number; perDay: number; perKm: number; expenseRatio: number };
+  isPast?: boolean;
+  realData?: { earnings: number; fuelCost: number; maintCost: number; otherCost: number; totalExpenses: number; netProfit: number; rideDays: number; hasData: boolean } | null;
+  expenses?: Expense[];
+}) {
+  const defaultHourlyRate = profile?.hourlyRate || averages.perHour || 0;
+
+  const histConsumption = useMemo(() => {
+    if (!expenses || expenses.length === 0) return null;
+    const avg = calculateHistoricalAverage(expenses, 'gasolina');
+    return avg;
+  }, [expenses, profile]);
+
+  const monthProjection = useMemo(() => {
+    try {
+      const [yr, mo] = monthKey.split('-').map(Number);
+      const daysInMonth = new Date(yr, mo, 0).getDate();
+      let workDays = 0;
+      let totalHours = 0;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(yr, mo - 1, d);
+        const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][date.getDay()];
+        const dateStr = format(date, 'yyyy-MM-dd');
+        if (isVacationDay(plan.vacations || [], dateStr)) continue;
+        const schedDay = (plan.days || []).find(sd => sd.day === dayName);
+        if (schedDay?.active && schedDay.periods) {
+          workDays++;
+          schedDay.periods.forEach(p => {
+            if (!p.start || !p.end) return;
+            const [sH, sM] = p.start.split(':').map(Number);
+            const [eH, eM] = p.end.split(':').map(Number);
+            let diff = (eH * 60 + eM) - (sH * 60 + sM);
+            if (diff < 0) diff += 24 * 60;
+            totalHours += diff / 60;
+          });
+        }
+      }
+
+      const hourlyRate = plan.customHourlyRate ?? defaultHourlyRate;
+      const earnings = totalHours * hourlyRate;
+      const fuelCost = plan.customFuelCost ?? (workDays * userAverages.fuelPerDay);
+      const maintCost = plan.customMaintCost ?? (workDays * userAverages.maintPerDay);
+      const annualFixedCosts = (profile?.ipvaValue || 0) + (profile?.licensingValue || 0);
+      const monthlyFixedCosts = (annualFixedCosts / 12) + (profile?.insuranceValue || 0) + (profile?.vehicleInstallmentValue || 0);
+      const totalExpenses = fuelCost + maintCost + monthlyFixedCosts;
+
+      const feriasCount = (plan.vacations || []).filter(v => v.type === 'ferias').length;
+      const folgaCount = (plan.vacations || []).filter(v => v.type === 'folga').length;
+
+      return { workDays, totalHours, earnings, fuelCost, maintCost, fixedCosts: monthlyFixedCosts, totalExpenses, netProfit: earnings - totalExpenses, km: workDays * userAverages.kmPerDay, feriasCount, folgaCount, daysInMonth };
+    } catch {
+      return { workDays: 0, totalHours: 0, earnings: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0, totalExpenses: 0, netProfit: 0, km: 0, feriasCount: 0, folgaCount: 0, daysInMonth: 30 };
+    }
+  }, [plan, monthKey, defaultHourlyRate, userAverages, profile]);
+
+  const [yr, mo] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const firstDayOfMonth = new Date(yr, mo - 1, 1);
+  const startDayOfWeek = getDay(firstDayOfMonth);
+  const weekDayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const calendarDays: (number | null)[] = [];
+  for (let i = 0; i < startDayOfWeek; i++) calendarDays.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
+  while (calendarDays.length % 7 !== 0) calendarDays.push(null);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-7 gap-2">
+        {(plan.days || []).map((day) => {
+          const dayHours = day.active ? (day.periods || []).reduce((acc, p) => {
+            if (!p.start || !p.end || !p.start.includes(':') || !p.end.includes(':')) return acc;
+            const [sH, sM] = p.start.split(':').map(Number);
+            const [eH, eM] = p.end.split(':').map(Number);
+            if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return acc;
+            let diff = (eH * 60 + eM) - (sH * 60 + sM);
+            if (diff < 0) diff += 24 * 60;
+            return acc + diff / 60;
+          }, 0) : 0;
+          return (
+            <div key={day.day} className="space-y-0.5">
+              <div className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border text-center", day.active ? "bg-brand-50 dark:bg-brand-950/30 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" : "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</div>
+              {day.active && (day.periods || []).some(p => p.start !== '00:00' || p.end !== '00:00') && (
+                <div className="space-y-0">
+                  {(day.periods || []).map((period, pIdx) => (
+                    <div key={pIdx} className="text-center">
+                      {(day.periods || []).length > 1 && <span className="text-[8px] text-slate-400 font-bold">T{pIdx + 1}</span>}
+                      <p className="text-[10px] font-medium text-slate-600 dark:text-slate-300">{period.start}-{period.end}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="max-w-sm mx-auto">
+        <p className="text-sm font-bold text-slate-500 mb-1 flex items-center gap-1"><Calendar size={14} /> Calendário do Mês</p>
+        <div className="flex gap-1.5 mb-1 flex-wrap">
+          <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 px-1 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/30"><CheckCircle2 size={10} /> Trabalho</span>
+          <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={10} /> Folga</span>
+          <span className="inline-flex items-center gap-0.5 text-xs font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={10} /> Férias</span>
+        </div>
+        <div className="grid grid-cols-7 gap-2">
+          {weekDayNames.map((dn, i) => (
+            <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
+          ))}
+          {calendarDays.map((day, i) => {
+            if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
+            const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
+            const vType = getVacationType(plan.vacations || [], dateStr);
+            const dayOfWeek = new Date(yr, mo - 1, day).getDay();
+            const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dayOfWeek];
+            const schedDay = (plan.days || []).find(sd => sd.day === dayName);
+            const isWork = schedDay?.active && !vType;
+            return (
+              <div
+                key={day}
+                className={cn(
+                  "aspect-square rounded-xl flex flex-col items-center justify-center border transition-all",
+                  vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
+                  vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
+                  isWork ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" :
+                  "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700"
+                )}
+              >
+                <span className="text-[clamp(0.5rem,2vw,0.75rem)] font-bold">{day}{vType === 'folga' ? ' F' : vType === 'ferias' ? ' Fe' : ''}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {monthProjection.feriasCount > 0 || monthProjection.folgaCount > 0 ? (
+        <div className="flex gap-2">
+          {monthProjection.feriasCount > 0 && <span className="text-[9px] font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded">{monthProjection.feriasCount}d férias</span>}
+          {monthProjection.folgaCount > 0 && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded">{monthProjection.folgaCount}d folga</span>}
+        </div>
+      ) : null}
+
+      {isPast && realData?.hasData && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-2 space-y-1.5">
+          <p className="text-sm font-bold text-slate-500 uppercase">Dados Reais vs Planejado</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+            <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+              <span className="text-slate-400 block">Ganhos</span>
+              <p className="font-bold dark:text-white">R$ {realData.earnings.toFixed(0)}</p>
+              <p className="text-[9px] text-slate-400">Plano: R$ {monthProjection.earnings.toFixed(0)}</p>
+            </div>
+            <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+              <span className="text-slate-400 block">Comb.</span>
+              <p className="font-bold dark:text-white">R$ {realData.fuelCost.toFixed(0)}</p>
+              <p className="text-[9px] text-slate-400">Plano: R$ {monthProjection.fuelCost.toFixed(0)}</p>
+            </div>
+            <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+              <span className="text-slate-400 block">Manut.</span>
+              <p className="font-bold dark:text-white">R$ {realData.maintCost.toFixed(0)}</p>
+              <p className="text-[9px] text-slate-400">Plano: R$ {monthProjection.maintCost.toFixed(0)}</p>
+            </div>
+            <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+              <span className="text-slate-400 block">Lucro</span>
+              <p className={cn("font-bold", realData.netProfit >= 0 ? "text-brand-600" : "text-rose-600")}>R$ {realData.netProfit.toFixed(0)}</p>
+              <p className="text-[9px] text-slate-400">Plano: R$ {monthProjection.netProfit.toFixed(0)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isPast && !realData?.hasData && (plan.actualEarnings != null || plan.actualFuelCost != null) && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-2 space-y-1.5">
+          <p className="text-sm font-bold text-slate-500 uppercase">Dados Reais Informados</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+            {plan.actualEarnings != null && <div><span className="text-slate-400">Ganhos</span><p className="font-bold dark:text-white">R$ {plan.actualEarnings.toFixed(0)}</p></div>}
+            {plan.actualFuelCost != null && <div><span className="text-slate-400">Comb.</span><p className="font-bold dark:text-white">R$ {plan.actualFuelCost.toFixed(0)}</p></div>}
+            {plan.actualMaintCost != null && <div><span className="text-slate-400">Manut.</span><p className="font-bold dark:text-white">R$ {plan.actualMaintCost.toFixed(0)}</p></div>}
+            {plan.actualOtherCost != null && <div><span className="text-slate-400">Outros</span><p className="font-bold dark:text-white">R$ {plan.actualOtherCost.toFixed(0)}</p></div>}
+          </div>
+        </div>
+      )}
+
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-2 space-y-1.5">
+        <p className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1"><Eye size={14} /> Estimativa Financeira</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+          <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Valor/hora</label>
+            <p className="text-sm font-bold dark:text-white">R$ {(plan.customHourlyRate ?? defaultHourlyRate).toFixed(2)}{plan.customHourlyRate != null ? ' (custom)' : ''}</p>
+          </div>
+          <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Combustível/mês</label>
+            <p className="text-sm font-bold dark:text-white">R$ {monthProjection.fuelCost.toFixed(0)}{plan.customFuelCost != null ? ' (custom)' : ''}</p>
+          </div>
+          <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Manutenção/mês</label>
+            <p className="text-sm font-bold dark:text-white">R$ {monthProjection.maintCost.toFixed(0)}{plan.customMaintCost != null ? ' (custom)' : ''}</p>
+          </div>
+        </div>
+
+        {histConsumption && (
+          <div className="p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-100 dark:border-orange-900/30">
+            <p className="text-xs font-bold text-orange-600 uppercase mb-1">Consumo</p>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Média calibrada</span>
+              <span className="font-bold text-orange-600 dark:text-orange-400">{histConsumption.toFixed(1)} km/l</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">KM estimados</span>
+              <span className="font-bold dark:text-white">{monthProjection.km.toFixed(0)} km</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Litros estimados</span>
+              <span className="font-bold dark:text-white">{(monthProjection.km / histConsumption).toFixed(0)} L</span>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-100 dark:border-emerald-900/30"><p className="text-[10px] text-emerald-600 font-bold uppercase">Ganho</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.earnings.toFixed(0)}</p><p className="text-[9px] text-slate-400">{monthProjection.workDays}d &middot; {monthProjection.totalHours.toFixed(1)}h</p></div>
+          <div className="p-2 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-100 dark:border-orange-900/30"><p className="text-[10px] text-orange-600 font-bold uppercase">Combustível</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.fuelCost.toFixed(0)}</p></div>
+          <div className="p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-100 dark:border-purple-900/30"><p className="text-[10px] text-purple-600 font-bold uppercase">Manutenção</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.maintCost.toFixed(0)}</p></div>
+          <div className="p-2 bg-rose-50 dark:bg-rose-950/30 rounded-lg border border-rose-100 dark:border-rose-900/30"><p className="text-[10px] text-rose-600 font-bold uppercase">Fixos</p><p className="text-sm font-bold dark:text-white">R$ {monthProjection.fixedCosts.toFixed(0)}</p><p className="text-[9px] text-slate-400">IPVA+seg+parc</p></div>
+        </div>
+
+        <div className={cn("p-2 rounded-lg border", monthProjection.netProfit >= 0 ? "bg-brand-50 dark:bg-brand-950/30 border-brand-100 dark:border-brand-900/30" : "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30")}>
+          <div className="flex items-center justify-between"><p className={cn("text-xs font-bold uppercase", monthProjection.netProfit >= 0 ? "text-brand-600" : "text-rose-600")}>Lucro Líq.</p><p className={cn("text-sm font-bold", monthProjection.netProfit >= 0 ? "text-brand-700 dark:text-brand-400" : "text-rose-700 dark:text-rose-400")}>R$ {monthProjection.netProfit.toFixed(0)}</p></div>
+          <p className="text-[9px] text-slate-400 mt-0.5">R$ {monthProjection.earnings.toFixed(0)} - R$ {monthProjection.fuelCost.toFixed(0)} - R$ {monthProjection.maintCost.toFixed(0)} - R$ {monthProjection.fixedCosts.toFixed(0)}</p>
+        </div>
+      </div>
+
+      {plan.notes && (
+        <div>
+          <label className="text-xs font-bold text-slate-500 uppercase block mb-0.5">Observações</label>
+          <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap">{plan.notes}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, userAverages, averages, isPast, realData, expenses, copiedMonthPlan }: {
   plan: MonthlyPlan;
   monthKey: string;
   monthLabel: string;
@@ -708,6 +969,7 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
   isPast?: boolean;
   realData?: { earnings: number; fuelCost: number; maintCost: number; otherCost: number; totalExpenses: number; netProfit: number; rideDays: number; hasData: boolean } | null;
   expenses?: Expense[];
+  copiedMonthPlan?: { month: string; monthLabel: string; days: WorkDay[]; vacations: VacationEntry[]; notes?: string; customHourlyRate?: number; customFuelCost?: number; customMaintCost?: number; customKmPerLiter?: number } | null;
 }) {
   const [localPlan, setLocalPlan] = useState<MonthlyPlan>(plan);
   const [copiedPlanPeriods, setCopiedPlanPeriods] = useState<WorkPeriod[] | null>(null);
@@ -1070,6 +1332,9 @@ function EditPlanForm({ plan, monthKey, monthLabel, onSave, onCancel, profile, u
       <div className="flex gap-1.5 pt-1">
         <button onClick={() => { onSave({ ...localPlan, month: monthKey }); }} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold py-2 rounded-lg transition-all">Salvar</button>
         <button onClick={copyFromProfile} className="px-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-lg hover:bg-slate-200 transition-all flex items-center gap-1"><Copy size={14} /> Perfil</button>
+        {copiedMonthPlan && (
+          <button onClick={() => { setLocalPlan({ ...localPlan, days: copiedMonthPlan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })) }); }} className="px-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-sm font-bold rounded-lg hover:bg-emerald-100 transition-all flex items-center gap-1"><ClipboardPaste size={14} /> Colar</button>
+        )}
         <button onClick={onCancel} className="px-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-lg hover:bg-slate-200 transition-all">Cancelar</button>
       </div>
     </div>

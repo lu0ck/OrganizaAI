@@ -14,7 +14,9 @@ import {
   Droplets,
   Zap,
   Target,
-  Calculator
+  Calculator,
+  Scale,
+  X
 } from 'lucide-react';
 import {
   AreaChart,
@@ -31,7 +33,7 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInDays, addMonths, eachDayOfInterval } from 'date-fns';
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, differenceInDays, addMonths, eachDayOfInterval, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getDailyTarget } from './Goals';
 import { RideEntry, Expense, Goal, UserProfile } from '../types';
@@ -67,6 +69,65 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
   const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'month' | 'custom'>('7d');
   const [customStart, setCustomStart] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
   const [customEnd, setCustomEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [showComparison, setShowComparison] = useState(false);
+  const [compPresetA, setCompPresetA] = useState<'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30d' | 'custom'>('thisMonth');
+  const [compPresetB, setCompPresetB] = useState<'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30d' | 'custom'>('lastMonth');
+  const [compCustomA, setCompCustomA] = useState({ start: format(subDays(new Date(), 7), 'yyyy-MM-dd'), end: format(new Date(), 'yyyy-MM-dd') });
+  const [compCustomB, setCompCustomB] = useState({ start: format(subDays(new Date(), 37), 'yyyy-MM-dd'), end: format(subDays(new Date(), 8), 'yyyy-MM-dd') });
+
+  function getComparisonPeriod(preset: 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30d' | 'custom', custom: { start: string; end: string }) {
+    const now = new Date();
+    switch (preset) {
+      case 'thisWeek': return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }), label: 'Esta Semana' };
+      case 'lastWeek': { const lw = subDays(startOfWeek(now, { weekStartsOn: 1 }), 1); return { start: startOfWeek(lw, { weekStartsOn: 1 }), end: endOfWeek(lw, { weekStartsOn: 1 }), label: 'Semana Passada' }; }
+      case 'thisMonth': return { start: startOfMonth(now), end: endOfMonth(now), label: 'Este Mês' };
+      case 'lastMonth': { const lm = addMonths(now, -1); return { start: startOfMonth(lm), end: endOfMonth(lm), label: 'Mês Passado' }; }
+      case 'last30d': return { start: startOfDay(subDays(now, 30)), end: endOfDay(now), label: 'Últimos 30 dias' };
+      case 'custom': return { start: startOfDay(parseISO(custom.start)), end: endOfDay(parseISO(custom.end)), label: `${custom.start} → ${custom.end}` };
+    }
+  }
+
+  function computePeriodStatsForComparison(start: Date, end: Date) {
+    const interval = { start, end };
+    const pRides = rides.filter(r => isWithinInterval(parseISO(r.date), interval));
+    const pExpenses = expenses.filter(e => isWithinInterval(parseISO(e.date), interval));
+    const totalEarnings = pRides.reduce((acc, r) => acc + r.totalValue, 0);
+    const totalExp = pExpenses.reduce((acc, e) => acc + e.value, 0);
+    const fuelExp = pExpenses.filter(e => e.type === 'combustivel').reduce((acc, e) => acc + e.value, 0);
+    const foodExp = pExpenses.filter(e => e.type === 'alimentacao').reduce((acc, e) => acc + e.value, 0);
+    const maintExp = pExpenses.filter(e => e.type === 'manutencao').reduce((acc, e) => acc + e.value, 0);
+    const totalKm = pRides.reduce((acc, r) => acc + r.kmDriven, 0);
+    const totalRidesCount = pRides.reduce((acc, r) => acc + r.numRides, 0);
+    const workedDays = new Set(pRides.map(r => r.date.split('T')[0])).size;
+    const totalHours = pRides.reduce((acc, r) => {
+      if (!r.startTime || !r.endTime) return acc;
+      const [sH, sM] = r.startTime.split(':').map(Number);
+      const [eH, eM] = r.endTime.split(':').map(Number);
+      if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return acc;
+      let diff = (eH * 60 + eM) - (sH * 60 + sM);
+      if (diff < 0) diff += 24 * 60;
+      return acc + diff / 60;
+    }, 0);
+    const daysInPeriod = Math.max(Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)), 1);
+    const ipvaDaily = (profile?.ipvaValue || 0) / 365;
+    const licensingDaily = (profile?.licensingValue || 0) / 365;
+    const insuranceDaily = (profile?.insuranceValue || 0) / 30;
+    const installmentDaily = (profile?.vehicleInstallmentValue || 0) / 30;
+    const totalFixedCosts = (ipvaDaily + licensingDaily + insuranceDaily + installmentDaily) * daysInPeriod;
+    return {
+      earnings: totalEarnings, expenses: totalExp, profit: totalEarnings - totalExp - totalFixedCosts,
+      km: totalKm, rides: totalRidesCount, hours: totalHours, workedDays,
+      avgPerHour: totalHours > 0 ? totalEarnings / totalHours : 0,
+      avgPerKm: totalKm > 0 ? totalEarnings / totalKm : 0,
+      fuelExpenses: fuelExp, foodExpenses: foodExp, maintenanceExpenses: maintExp,
+      fixedCosts: totalFixedCosts, costPerKm: totalKm > 0 ? (fuelExp + maintExp) / totalKm : 0,
+    };
+  }
+
+  const compPeriodA = useMemo(() => getComparisonPeriod(compPresetA, compCustomA), [compPresetA, compCustomA]);
+  const compPeriodB = useMemo(() => getComparisonPeriod(compPresetB, compCustomB), [compPresetB, compCustomB]);
+  const compStatsA = useMemo(() => computePeriodStatsForComparison(compPeriodA.start, compPeriodA.end), [compPeriodA, rides, expenses, profile]);
+  const compStatsB = useMemo(() => computePeriodStatsForComparison(compPeriodB.start, compPeriodB.end), [compPeriodB, rides, expenses, profile]);
 
   const filteredData = useMemo(() => {
     const now = new Date();
@@ -435,48 +496,156 @@ estimatedBalance,
       animate="show"
       className="space-y-8"
     >
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h2>
-          <p className="text-slate-500 dark:text-slate-400">Resumo completo das suas atividades e ganhos.</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
-            {(['today', '7d', '30d', 'month', 'custom'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setDateRange(range)}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
-                  dateRange === range
-                    ? "bg-brand-600 text-white shadow-md"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                )}
-              >
-                {range === 'today' ? 'Hoje' : range === '7d' ? '7 Dias' : range === '30d' ? '30 Dias' : range === 'month' ? 'Este Mês' : 'Personalizado'}
-              </button>
-            ))}
-          </div>
-
-          {dateRange === 'custom' && (
-            <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="bg-transparent text-xs font-bold outline-none dark:text-white px-2"
-              />
-              <span className="text-slate-400 text-xs">até</span>
-              <input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="bg-transparent text-xs font-bold outline-none dark:text-white px-2"
-              />
-            </div>
-          )}
-        </div>
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div>
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h2>
+        <p className="text-slate-500 dark:text-slate-400">Resumo completo das suas atividades e ganhos.</p>
       </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
+          {(['today', '7d', '30d', 'month', 'custom'] as const).map((range) => (
+            <button
+              key={range}
+              onClick={() => setDateRange(range)}
+              className={cn(
+                "px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
+                dateRange === range
+                  ? "bg-brand-600 text-white shadow-md"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              )}
+            >
+              {range === 'today' ? 'Hoje' : range === '7d' ? '7 Dias' : range === '30d' ? '30 Dias' : range === 'month' ? 'Este Mês' : 'Personalizado'}
+            </button>
+          ))}
+        </div>
+
+        {dateRange === 'custom' && (
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="bg-transparent text-xs font-bold outline-none dark:text-white px-2"
+            />
+            <span className="text-slate-400 text-xs">até</span>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="bg-transparent text-xs font-bold outline-none dark:text-white px-2"
+            />
+          </div>
+        )}
+
+        <button
+          onClick={() => setShowComparison(!showComparison)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border shadow-sm transition-all whitespace-nowrap",
+            showComparison
+              ? "bg-brand-600 text-white border-brand-600"
+              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+          )}
+        >
+          <Scale size={14} />
+          Comparar
+        </button>
+      </div>
+    </div>
+
+    {showComparison && (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        exit={{ opacity: 0, height: 0 }}
+        className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-brand-200 dark:border-brand-900/30 shadow-sm space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2"><Scale size={18} className="text-brand-600" /> Comparação de Períodos</h3>
+          <button onClick={() => setShowComparison(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(['A', 'B'] as const).map((side) => {
+            const preset = side === 'A' ? compPresetA : compPresetB;
+            const setPreset = side === 'A' ? setCompPresetA : setCompPresetB;
+            const custom = side === 'A' ? compCustomA : compCustomB;
+            const setCustom = side === 'A' ? setCompCustomA : setCompCustomB;
+            const bgColor = side === 'A' ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30' : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/30';
+            const badgeColor = side === 'A' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white';
+            return (
+              <div key={side} className={cn("p-3 rounded-2xl border", bgColor)}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={cn("px-2 py-0.5 rounded-lg text-xs font-bold", badgeColor)}>Período {side}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {(['thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30d', 'custom'] as const).map(p => (
+                    <button key={p} onClick={() => setPreset(p)} className={cn("px-2 py-1 rounded-lg text-[10px] font-bold transition-all", preset === p ? "bg-brand-600 text-white" : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700")}>
+                      {p === 'thisWeek' ? 'Esta Semana' : p === 'lastWeek' ? 'Sem. Passada' : p === 'thisMonth' ? 'Este Mês' : p === 'lastMonth' ? 'Mês Passado' : p === 'last30d' ? 'Últ. 30d' : 'Customizado'}
+                    </button>
+                  ))}
+                </div>
+                {preset === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <input type="date" value={custom.start} onChange={e => setCustom({ ...custom, start: e.target.value })} className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+                    <span className="text-xs text-slate-400">até</span>
+                    <input type="date" value={custom.end} onChange={e => setCustom({ ...custom, end: e.target.value })} className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-700">
+                <th className="text-left py-2 px-2 text-slate-500 font-bold uppercase">Métrica</th>
+                <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[10px] font-bold">A</span></th>
+                <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold">B</span></th>
+                <th className="text-right py-2 px-2 text-slate-500 font-bold uppercase">Diferença</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { label: 'Ganhos', key: 'earnings' as const, isCurrency: true },
+                { label: 'Despesas', key: 'expenses' as const, isCurrency: true },
+                { label: 'Líquido', key: 'profit' as const, isCurrency: true },
+                { label: 'KM Rodados', key: 'km' as const, isCurrency: false },
+                { label: 'Dias Trabalhados', key: 'workedDays' as const, isCurrency: false },
+                { label: 'Horas', key: 'hours' as const, isCurrency: false },
+                { label: '/Hora', key: 'avgPerHour' as const, isCurrency: true },
+                { label: '/KM', key: 'avgPerKm' as const, isCurrency: true },
+                { label: 'Corridas', key: 'rides' as const, isCurrency: false },
+                { label: 'Combustível', key: 'fuelExpenses' as const, isCurrency: true },
+                { label: 'Alimentação', key: 'foodExpenses' as const, isCurrency: true },
+                { label: 'Manutenção', key: 'maintenanceExpenses' as const, isCurrency: true },
+                { label: 'Custos Fixos', key: 'fixedCosts' as const, isCurrency: true },
+                { label: 'Custo/KM', key: 'costPerKm' as const, isCurrency: true },
+              ].map(({ label, key, isCurrency }) => {
+                const valA = compStatsA[key];
+                const valB = compStatsB[key];
+                const diff = (valB as number) - (valA as number);
+                const pct = (valA as number) === 0 ? ((valB as number) > 0 ? 100 : null) : (diff / (valA as number)) * 100;
+                const isGood = key === 'expenses' || key === 'fuelExpenses' || key === 'maintenanceExpenses' || key === 'costPerKm' || key === 'fixedCosts' ? diff <= 0 : diff >= 0;
+                const fmt = (v: number) => isCurrency ? `R$ ${v.toFixed(2)}` : v.toLocaleString('pt-BR');
+                return (
+                  <tr key={key} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-2 px-2 font-medium text-slate-700 dark:text-slate-300">{label}</td>
+                    <td className="py-2 px-2 text-right font-bold dark:text-white">{fmt(valA as number)}</td>
+                    <td className="py-2 px-2 text-right font-bold dark:text-white">{fmt(valB as number)}</td>
+                    <td className={cn("py-2 px-2 text-right font-bold", diff === 0 ? "text-slate-400" : isGood ? "text-emerald-600" : "text-rose-600")}>
+                      {diff !== 0 && <span className="text-[9px]">{diff > 0 ? '↑' : '↓'}</span>} {isCurrency ? `R$ ${Math.abs(diff).toFixed(2)}` : Math.abs(diff).toLocaleString('pt-BR')}
+                      {pct !== null && <span className="text-[9px] ml-1">({pct >= 0 ? '+' : ''}{pct.toFixed(0)}%)</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+    )}
 
       {/* Stats Grid */}
       <motion.div
