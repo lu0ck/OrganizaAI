@@ -421,7 +421,6 @@ return { workDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost:
 };
 
 const yearEndProjection = useMemo(() => {
-try {
 return yearMonths.reduce((acc, ym) => {
 const stats = getMonthProjection(ym);
 acc.totalWorkDays += stats.workDays;
@@ -433,9 +432,6 @@ acc.maintCost += stats.maintCost;
 acc.fixedCosts += stats.fixedCosts;
 return acc;
 }, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 });
-} catch {
-return null;
-}
 }, [yearMonths, plans, profile, averages, userAverages, rides, expenses]);
 
 const renderProjectionCards = (proj: { totalWorkDays: number; totalHours: number; earnings: number; km: number; fuelCost: number; maintCost: number; fixedCosts: number }, profileArg?: UserProfile | null) => {
@@ -719,7 +715,7 @@ return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
 </div>
 </div>
 
-{yearEndProjection && (
+{yearEndProjection && (yearEndProjection.earnings > 0 || yearEndProjection.fuelCost > 0 || yearEndProjection.fixedCosts > 0 || plans.length > 0) && (
 <>
 {renderProjectionCards(yearEndProjection, profile)}
 <div className="mt-3 flex flex-wrap gap-4 text-[10px] text-slate-500">
