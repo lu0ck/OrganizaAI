@@ -373,45 +373,86 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
     const totalExpenses = monthExpenses.reduce((acc, e) => acc + e.value, 0);
     const rideDays = monthRides.length;
     return { earnings, fuelCost, maintCost, otherCost, totalExpenses, netProfit: earnings - totalExpenses, rideDays, hasData: monthRides.length > 0 || monthExpenses.length > 0 };
-  };
+};
 
-  const yearEndProjection = useMemo(() => {
-    try {
-      const futureMonths = yearMonths.filter(ym => ym.month > currentMonth);
-      if (futureMonths.length === 0) return null;
-      return futureMonths.reduce((acc, ym) => {
-        const stats = computeMonthStats(ym);
-        acc.totalWorkDays += stats.workDays;
-        acc.totalHours += stats.totalHours;
-        acc.earnings += stats.earnings;
-        acc.km += stats.km;
-        acc.fuelCost += stats.fuelCost;
-        acc.maintCost += stats.maintCost;
-        acc.fixedCosts += stats.fixedCosts;
-        return acc;
-      }, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 });
-    } catch {
-      return null;
-    }
-  }, [yearMonths, plans, profile, averages, userAverages, currentMonth]);
+const getMonthProjection = (ym: { year: number; month: number; key: string; isPast?: boolean; isCurrent?: boolean }) => {
+const realData = (ym.isPast || ym.isCurrent) ? getRealMonthData(ym) : null;
+const stats = computeMonthStats(ym);
+const annualFixedCosts = (profile?.ipvaValue || 0) + (profile?.licensingValue || 0);
+const monthlyFixedCosts = (annualFixedCosts / 12) + (profile?.insuranceValue || 0) + (profile?.vehicleInstallmentValue || 0);
+if (realData?.hasData) {
+const mStart = startOfMonth(new Date(ym.year, ym.month, 1));
+const mEnd = endOfMonth(new Date(ym.year, ym.month, 1));
+const interval = { start: mStart, end: mEnd };
+const monthRides = rides.filter(r => isWithinInterval(parseISO(r.date), interval));
+const realKm = monthRides.reduce((acc, r) => acc + r.kmDriven, 0);
+const realHours = monthRides.reduce((acc, r) => {
+if (!r.startTime || !r.endTime) return acc;
+const [sH, sM] = r.startTime.split(':').map(Number);
+const [eH, eM] = r.endTime.split(':').map(Number);
+if (isNaN(sH)) return acc;
+let diff = (eH * 60 + eM) - (sH * 60 + sM);
+if (diff < 0) diff += 24 * 60;
+return acc + diff / 60;
+}, 0);
+return {
+workDays: realData.rideDays,
+totalHours: realHours,
+earnings: realData.earnings,
+km: realKm,
+fuelCost: realData.fuelCost,
+maintCost: realData.maintCost,
+fixedCosts: monthlyFixedCosts,
+};
+}
+return {
+workDays: stats.workDays,
+totalHours: stats.totalHours,
+earnings: stats.earnings,
+km: stats.km,
+fuelCost: stats.fuelCost,
+maintCost: stats.maintCost,
+fixedCosts: stats.fixedCosts,
+};
+};
 
-  const fullYearProjection = useMemo(() => {
-    try {
-      return filteredMonths.reduce((acc, ym) => {
-        const stats = computeMonthStats(ym);
-        acc.totalWorkDays += stats.workDays;
-        acc.totalHours += stats.totalHours;
-        acc.earnings += stats.earnings;
-        acc.km += stats.km;
-        acc.fuelCost += stats.fuelCost;
-        acc.maintCost += stats.maintCost;
-        acc.fixedCosts += stats.fixedCosts;
-        return acc;
-      }, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 });
-    } catch {
-      return { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 };
-    }
-  }, [filteredMonths, plans, profile, averages, userAverages]);
+const yearEndProjection = useMemo(() => {
+try {
+const futureMonths = yearMonths.filter(ym => ym.month > currentMonth);
+if (futureMonths.length === 0) return null;
+return futureMonths.reduce((acc, ym) => {
+const stats = getMonthProjection(ym);
+acc.totalWorkDays += stats.workDays;
+acc.totalHours += stats.totalHours;
+acc.earnings += stats.earnings;
+acc.km += stats.km;
+acc.fuelCost += stats.fuelCost;
+acc.maintCost += stats.maintCost;
+acc.fixedCosts += stats.fixedCosts;
+return acc;
+}, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 });
+} catch {
+return null;
+}
+}, [yearMonths, plans, profile, averages, userAverages, currentMonth, rides, expenses]);
+
+const fullYearProjection = useMemo(() => {
+try {
+return filteredMonths.reduce((acc, ym) => {
+const stats = getMonthProjection(ym);
+acc.totalWorkDays += stats.workDays;
+acc.totalHours += stats.totalHours;
+acc.earnings += stats.earnings;
+acc.km += stats.km;
+acc.fuelCost += stats.fuelCost;
+acc.maintCost += stats.maintCost;
+acc.fixedCosts += stats.fixedCosts;
+return acc;
+}, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 });
+} catch {
+return { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 };
+}
+}, [filteredMonths, plans, profile, averages, userAverages, rides, expenses]);
 
 const renderProjectionCards = (proj: { totalWorkDays: number; totalHours: number; earnings: number; km: number; fuelCost: number; maintCost: number; fixedCosts: number }, profileArg?: UserProfile | null) => {
 const ipvaMonthly = ((profileArg?.ipvaValue || 0) / 12);
@@ -685,14 +726,14 @@ return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
 <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
 <div className="flex items-center justify-between mb-4">
 <div>
-<h4 className="text-sm font-bold dark:text-white flex items-center gap-2"><TrendingUp size={14} /> Projeção até Dezembro</h4>
-<p className="text-[10px] text-slate-400">Meses futuros (a partir do próximo mês)</p>
+<h4 className="text-sm font-bold dark:text-white flex items-center gap-2"><TrendingUp size={14} /> Resumo do Ano</h4>
+<p className="text-[10px] text-slate-400">{showFullProjection ? 'Janeiro a Dezembro — meses com dados reais usam valores reais' : `Projeção de ${fullMonthLabels[(currentMonth + 1) % 12]} a Dezembro`}</p>
 </div>
 <div className="flex items-center gap-2">
 <button onClick={() => { const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`; const ids = plans.filter(p => p.month > currentMonthKey).map(p => p.id); if (ids.length > 0) onBulkDeletePlans?.(ids); }} className="flex items-center gap-1 px-3 py-1.5 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-xs font-bold rounded-lg hover:bg-orange-100 transition-all"><Trash2 size={12} /> Resetar Futuros</button>
 <button onClick={() => { if (confirm('Apagar TODOS os planejamentos?')) { const ids = plans.map(p => p.id); if (ids.length > 0) onBulkDeletePlans?.(ids); } }} className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-lg hover:bg-rose-100 transition-all"><Trash2 size={12} /> Resetar Tudo</button>
 <button onClick={() => setShowFullProjection(!showFullProjection)} className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all">
-{showFullProjection ? <><ChevronUp size={12} /> Apenas futuros</> : <><ChevronDown size={12} /> Ver ano completo</>}
+{showFullProjection ? <><ChevronUp size={12} /> Só futuros</> : <><ChevronDown size={12} /> Ver ano completo</>}
 </button>
 </div>
 </div>
@@ -710,13 +751,11 @@ return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
 
 {showFullProjection && (
 <>
-<p className="text-[10px] text-slate-400 mb-3">Projeção {planFilter === 'all' ? 'anual' : planFilter?.toUpperCase()} completa (todos os meses filtrados)</p>
 {renderProjectionCards(fullYearProjection, profile)}
 <div className="mt-3 flex flex-wrap gap-4 text-[10px] text-slate-500">
 <span>{fullYearProjection.totalWorkDays} dias trabalhados</span>
 <span>{fullYearProjection.totalHours.toFixed(1)} horas totais</span>
 <span>R$ {profile?.hourlyRate?.toFixed(2) || averages.perHour.toFixed(2)}/h</span>
-<span>Médias baseadas nos últimos 3 meses de dados reais</span>
 </div>
 </>
 )}
@@ -1355,19 +1394,21 @@ const [showMedias, setShowMedias] = useState(true);
         )}
       </div>
 
-{(userAverages.earningsPerDay > 0 || userAverages.kmPerDay > 0) && showMedias && (
+{(userAverages.earningsPerDay > 0 || userAverages.kmPerDay > 0) && (
 <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-<div className="flex items-center justify-between mb-1">
+<button onClick={() => setShowMedias(!showMedias)} className="w-full flex items-center justify-between">
 <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Info size={10} /> Médias dos últimos 3 meses</p>
-<button onClick={() => setShowMedias(false)} className="p-0.5 text-slate-400 hover:text-slate-600 transition-all"><X size={12} /></button>
-</div>
-<div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
+{showMedias ? <ChevronUp size={12} className="text-slate-400" /> : <ChevronDown size={12} className="text-slate-400" />}
+</button>
+{showMedias && (
+<div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs mt-1.5">
 <div><span className="text-slate-400">Ganho por dia</span><p className="font-bold dark:text-white">R$ {userAverages.earningsPerDay.toFixed(0)}</p></div>
 <div><span className="text-slate-400">Horas por dia</span><p className="font-bold dark:text-white">{userAverages.hoursPerDay.toFixed(1)}h</p></div>
 <div><span className="text-slate-400">KM por dia</span><p className="font-bold dark:text-white">{userAverages.kmPerDay.toFixed(0)}</p></div>
 <div><span className="text-slate-400">Combustível por dia</span><p className="font-bold dark:text-white">R$ {userAverages.fuelPerDay.toFixed(0)}</p></div>
 <div><span className="text-slate-400">Manutenção por dia</span><p className="font-bold dark:text-white">R$ {userAverages.maintPerDay.toFixed(0)}</p></div>
 </div>
+)}
 </div>
 )}
 
