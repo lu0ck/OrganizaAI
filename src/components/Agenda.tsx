@@ -376,8 +376,8 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
 };
 
 const getMonthProjection = (ym: { year: number; month: number; key: string; isPast?: boolean; isCurrent?: boolean }) => {
+const plan = plans.find(p => p.month === ym.key);
 const realData = (ym.isPast || ym.isCurrent) ? getRealMonthData(ym) : null;
-const stats = computeMonthStats(ym);
 const annualFixedCosts = (profile?.ipvaValue || 0) + (profile?.licensingValue || 0);
 const monthlyFixedCosts = (annualFixedCosts / 12) + (profile?.insuranceValue || 0) + (profile?.vehicleInstallmentValue || 0);
 if (realData?.hasData) {
@@ -405,6 +405,8 @@ maintCost: realData.maintCost,
 fixedCosts: monthlyFixedCosts,
 };
 }
+if (plan) {
+const stats = computeMonthStats(ym);
 return {
 workDays: stats.workDays,
 totalHours: stats.totalHours,
@@ -414,6 +416,8 @@ fuelCost: stats.fuelCost,
 maintCost: stats.maintCost,
 fixedCosts: stats.fixedCosts,
 };
+}
+return { workDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: monthlyFixedCosts };
 };
 
 const yearEndProjection = useMemo(() => {
@@ -693,7 +697,7 @@ return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
       </div>
       {plan && onDeletePlan && <button onClick={(e) => { e.stopPropagation(); onDeletePlan(plan.id); }} className="p-1 text-slate-300 hover:text-rose-500 transition-all"><Trash2 size={12} /></button>}
     </div>
-{plan ? (<>
+{plan || realData?.hasData ? (<>
 <p className="text-[10px] text-slate-500 mb-2">{stats.daysInMonth}d no mês &middot; {stats.workDays}d trabalho &middot; {stats.totalHours.toFixed(0)}h</p>
 <div className="grid grid-cols-3 gap-2">
 <div className="text-center p-1.5 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-lg">
