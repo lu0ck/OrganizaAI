@@ -77,7 +77,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [planViewMode, setPlanViewMode] = useState<'view' | 'edit'>('view');
   const [copiedMonthPlan, setCopiedMonthPlan] = useState<{ month: string; monthLabel: string; days: WorkDay[]; vacations: VacationEntry[]; notes?: string; customHourlyRate?: number; customFuelCost?: number; customMaintCost?: number; customKmPerLiter?: number } | null>(null);
   const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
-  const [showFullProjection, setShowFullProjection] = useState(false);
+  
   const [showMedias, setShowMedias] = useState(false);
 
   React.useEffect(() => {
@@ -422,9 +422,7 @@ return { workDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost:
 
 const yearEndProjection = useMemo(() => {
 try {
-const futureMonths = yearMonths.filter(ym => ym.month > currentMonth);
-if (futureMonths.length === 0) return null;
-return futureMonths.reduce((acc, ym) => {
+return yearMonths.reduce((acc, ym) => {
 const stats = getMonthProjection(ym);
 acc.totalWorkDays += stats.workDays;
 acc.totalHours += stats.totalHours;
@@ -438,25 +436,7 @@ return acc;
 } catch {
 return null;
 }
-}, [yearMonths, plans, profile, averages, userAverages, currentMonth, rides, expenses]);
-
-const fullYearProjection = useMemo(() => {
-try {
-return filteredMonths.reduce((acc, ym) => {
-const stats = getMonthProjection(ym);
-acc.totalWorkDays += stats.workDays;
-acc.totalHours += stats.totalHours;
-acc.earnings += stats.earnings;
-acc.km += stats.km;
-acc.fuelCost += stats.fuelCost;
-acc.maintCost += stats.maintCost;
-acc.fixedCosts += stats.fixedCosts;
-return acc;
-}, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 });
-} catch {
-return { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 };
-}
-}, [filteredMonths, plans, profile, averages, userAverages, rides, expenses]);
+}, [yearMonths, plans, profile, averages, userAverages, rides, expenses]);
 
 const renderProjectionCards = (proj: { totalWorkDays: number; totalHours: number; earnings: number; km: number; fuelCost: number; maintCost: number; fixedCosts: number }, profileArg?: UserProfile | null) => {
 const ipvaMonthly = ((profileArg?.ipvaValue || 0) / 12);
@@ -731,34 +711,20 @@ return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
 <div className="flex items-center justify-between mb-4">
 <div>
 <h4 className="text-sm font-bold dark:text-white flex items-center gap-2"><TrendingUp size={14} /> Resumo do Ano</h4>
-<p className="text-[10px] text-slate-400">{showFullProjection ? 'Janeiro a Dezembro — meses com dados reais usam valores reais' : `Projeção de ${fullMonthLabels[(currentMonth + 1) % 12]} a Dezembro`}</p>
+<p className="text-[10px] text-slate-400">Dados reais + meses planejados — meses sem plano são R$ 0</p>
 </div>
 <div className="flex items-center gap-2">
 <button onClick={() => { const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`; const ids = plans.filter(p => p.month > currentMonthKey).map(p => p.id); if (ids.length > 0) onBulkDeletePlans?.(ids); }} className="flex items-center gap-1 px-3 py-1.5 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-xs font-bold rounded-lg hover:bg-orange-100 transition-all"><Trash2 size={12} /> Resetar Futuros</button>
 <button onClick={() => { if (confirm('Apagar TODOS os planejamentos?')) { const ids = plans.map(p => p.id); if (ids.length > 0) onBulkDeletePlans?.(ids); } }} className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-lg hover:bg-rose-100 transition-all"><Trash2 size={12} /> Resetar Tudo</button>
-<button onClick={() => setShowFullProjection(!showFullProjection)} className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all">
-{showFullProjection ? <><ChevronUp size={12} /> Só futuros</> : <><ChevronDown size={12} /> Ver ano completo</>}
-</button>
 </div>
 </div>
 
-{yearEndProjection && !showFullProjection && (
+{yearEndProjection && (
 <>
 {renderProjectionCards(yearEndProjection, profile)}
 <div className="mt-3 flex flex-wrap gap-4 text-[10px] text-slate-500">
 <span>{yearEndProjection.totalWorkDays} dias trabalhados</span>
 <span>{yearEndProjection.totalHours.toFixed(1)} horas totais</span>
-<span>R$ {profile?.hourlyRate?.toFixed(2) || averages.perHour.toFixed(2)}/h</span>
-</div>
-</>
-)}
-
-{showFullProjection && (
-<>
-{renderProjectionCards(fullYearProjection, profile)}
-<div className="mt-3 flex flex-wrap gap-4 text-[10px] text-slate-500">
-<span>{fullYearProjection.totalWorkDays} dias trabalhados</span>
-<span>{fullYearProjection.totalHours.toFixed(1)} horas totais</span>
 <span>R$ {profile?.hourlyRate?.toFixed(2) || averages.perHour.toFixed(2)}/h</span>
 </div>
 </>
