@@ -495,6 +495,7 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
           onAddPlan={(plan) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? [...prev.plans, plan] : [plan] }))}
           onUpdatePlan={(plan) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.map(p => p.id === plan.id ? plan : p) : [plan] }))}
           onDeletePlan={(id) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.filter(p => p.id !== id) : [] }))}
+onBulkDeletePlans={(ids) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.filter(p => !ids.includes(p.id)) : [] }))}
         />
       )}
       {activeTab === 'reports' && (

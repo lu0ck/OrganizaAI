@@ -6,7 +6,8 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { applyPlugin } from 'jspdf-autotable';
+applyPlugin(jsPDF);
 
 interface ReportsTabProps {
   rides: RideEntry[];
@@ -73,63 +74,282 @@ export default function ReportsTab({ rides, expenses, profile }: ReportsTabProps
     };
   }, [rides, expenses, selectedMonth, profile]);
 
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const stripAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
   const exportPDF = () => {
-    const doc = new jsPDF();
-    const monthLabel = months.find(m => m.value === selectedMonth)?.label || selectedMonth;
+    setPdfError(null);
+    try {
+      const doc = new jsPDF();
+      const pageW = doc.internal.pageSize.getWidth();
+      const margin = 14;
+      const contentW = pageW - margin * 2;
+      const monthLabel = months.find(m => m.value === selectedMonth)?.label || selectedMonth;
+      const s = stripAccents;
+      const now = new Date();
+      const generatedAt = format(now, 'dd/MM/yyyy HH:mm');
 
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text('Relatório Mensal - OrganizaAi', 14, 22);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Período: ${monthLabel}`, 14, 30);
-    doc.text(`Motorista: ${profile.name} | Veículo: ${profile.vehicleModel}`, 14, 36);
+      const { stats, rides: fRides, expenses: fExpenses } = reportData;
+      const workedDays = new Set(fRides.map(r => r.date.split('T')[0])).size;
+      const totalHours = fRides.reduce((acc, r) => {
+        if (!r.startTime || !r.endTime) return acc;
+        const [sH, sM] = r.startTime.split(':').map(Number);
+        const [eH, eM] = r.endTime.split(':').map(Number);
+        if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return acc;
+        let diff = (eH * 60 + eM) - (sH * 60 + sM);
+        if (diff < 0) diff += 24 * 60;
+        return acc + diff / 60;
+      }, 0);
+      const avgPerHour = totalHours > 0 ? stats.totalEarnings / totalHours : 0;
+      const otherExpenses = stats.totalExpenses - stats.fuelExpenses - stats.foodExpenses - stats.maintenanceExpenses;
+      const totalAllExpenses = stats.totalExpenses + stats.fixedCosts;
 
-    // Summary Table
-    (doc as any).autoTable({
-      startY: 45,
-      head: [['Categoria', 'Valor (R$)']],
-      body: [
-        ['Ganhos Brutos', reportData.stats.totalEarnings.toFixed(2)],
-        ['Despesas Variáveis', reportData.stats.totalExpenses.toFixed(2)],
-        ['Custos Fixos (IPVA/Seguro/Lic./Parcela)', reportData.stats.fixedCosts.toFixed(2)],
-        ['Lucro Líquido', reportData.stats.netProfit.toFixed(2)],
-        ['KM Rodados', reportData.stats.totalKm.toFixed(1)],
-        ['Total de Corridas', reportData.stats.totalRides.toString()],
-      ],
-      theme: 'striped',
-      headStyles: { fillColor: [37, 99, 235] }
-    });
+      const ipvaMonthly = ((profile.ipvaValue || 0) / 12);
+      const licensingMonthly = ((profile.licensingValue || 0) / 12);
+      const insuranceMonthly = (profile.insuranceValue || 0);
+      const installmentMonthly = (profile.vehicleInstallmentValue || 0);
 
-    // Expenses Breakdown
-    (doc as any).autoTable({
-      startY: (doc as any).lastAutoTable.finalY + 10,
-      head: [['Tipo de Despesa', 'Valor (R$)']],
-      body: [
-        ['Combustível', reportData.stats.fuelExpenses.toFixed(2)],
-        ['Alimentação', reportData.stats.foodExpenses.toFixed(2)],
-        ['Manutenção', reportData.stats.maintenanceExpenses.toFixed(2)],
-        ['Outros', (reportData.stats.totalExpenses - reportData.stats.fuelExpenses - reportData.stats.foodExpenses - reportData.stats.maintenanceExpenses).toFixed(2)],
-      ],
-      theme: 'grid'
-    });
+      let y = 0;
 
-    // Daily Rides Table
-    (doc as any).autoTable({
-      startY: (doc as any).lastAutoTable.finalY + 10,
-      head: [['Data', 'KM', 'Corridas', 'Valor (R$)']],
-      body: reportData.rides.map(r => [
-        format(parseISO(r.date), 'dd/MM/yyyy'),
-        r.kmDriven.toFixed(1),
-        r.numRides.toString(),
-        r.totalValue.toFixed(2)
-      ]),
-      theme: 'striped'
-    });
+      // === HEADER BAR ===
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, 0, pageW, 4, 'F');
+      y = 16;
 
-    doc.save(`relatorio_${selectedMonth}.pdf`);
+      // === TITLE ===
+      doc.setFontSize(22);
+      doc.setTextColor(37, 99, 235);
+      doc.text('OrganizaAi', margin, y);
+      y += 7;
+
+      doc.setFontSize(13);
+      doc.setTextColor(60, 60, 60);
+      doc.text(s('Relatorio Mensal'), margin, y);
+      y += 6;
+
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 120);
+      doc.text(s(`Periodo: ${monthLabel}`), margin, y);
+      y += 4;
+      doc.text(s(`Motorista: ${profile.name}  |  Veiculo: ${profile.vehicleModel}  |  Gerado em: ${generatedAt}`), margin, y);
+      y += 8;
+
+      // === SUMMARY BOX ===
+      const boxY = y;
+      const boxH = 20;
+      doc.setFillColor(245, 247, 250);
+      doc.roundedRect(margin, boxY, contentW, boxH, 2, 2, 'F');
+
+      const colW = contentW / 3;
+      const centers = [margin + colW / 2, margin + colW + colW / 2, margin + colW * 2 + colW / 2];
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(s('RECEITAS'), centers[0], boxY + 5, { align: 'center' });
+      doc.text(s('DESPESAS'), centers[1], boxY + 5, { align: 'center' });
+      doc.text(s('LUCRO LIQUIDO'), centers[2], boxY + 5, { align: 'center' });
+
+      doc.setFontSize(14);
+      doc.setTextColor(5, 150, 105);
+      doc.text(`R$ ${stats.totalEarnings.toFixed(2)}`, centers[0], boxY + 12, { align: 'center' });
+
+      doc.setTextColor(220, 38, 38);
+      doc.text(`R$ ${totalAllExpenses.toFixed(2)}`, centers[1], boxY + 12, { align: 'center' });
+
+      if (stats.netProfit >= 0) {
+        doc.setTextColor(37, 99, 235);
+      } else {
+        doc.setTextColor(220, 38, 38);
+      }
+      doc.text(`R$ ${stats.netProfit.toFixed(2)}`, centers[2], boxY + 12, { align: 'center' });
+
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`${stats.totalKm.toFixed(0)} km  |  ${stats.totalRides} ${s('corridas')}  |  ${workedDays}d  |  ${totalHours.toFixed(1)}h  |  R$ ${avgPerHour.toFixed(2)}/h`, pageW / 2, boxY + 17, { align: 'center' });
+
+      // dividers
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.line(margin + colW, boxY + 3, margin + colW, boxY + boxH - 3);
+      doc.line(margin + colW * 2, boxY + 3, margin + colW * 2, boxY + boxH - 3);
+
+      y = boxY + boxH + 8;
+
+      // === SECTION: DESPESAS POR CATEGORIA ===
+      doc.setFontSize(11);
+      doc.setTextColor(37, 99, 235);
+      doc.text(s('Resumo de Despesas'), margin, y);
+      y += 2;
+      doc.setFillColor(37, 99, 235);
+      doc.rect(margin, y, 30, 1.5, 'F');
+      y += 4;
+
+      const catBody = [
+        [s('Combustivel'), stats.fuelExpenses.toFixed(2), totalAllExpenses > 0 ? ((stats.fuelExpenses / totalAllExpenses) * 100).toFixed(1) + '%' : '-'],
+        [s('Alimentacao'), stats.foodExpenses.toFixed(2), totalAllExpenses > 0 ? ((stats.foodExpenses / totalAllExpenses) * 100).toFixed(1) + '%' : '-'],
+        [s('Manutencao'), stats.maintenanceExpenses.toFixed(2), totalAllExpenses > 0 ? ((stats.maintenanceExpenses / totalAllExpenses) * 100).toFixed(1) + '%' : '-'],
+        [s('Outros'), otherExpenses.toFixed(2), totalAllExpenses > 0 ? ((otherExpenses / totalAllExpenses) * 100).toFixed(1) + '%' : '-'],
+        [s('Custos Fixos (IPVA/Seg./Lic./Parc.)'), stats.fixedCosts.toFixed(2), totalAllExpenses > 0 ? ((stats.fixedCosts / totalAllExpenses) * 100).toFixed(1) + '%' : '-'],
+      ];
+
+      (doc as any).autoTable({
+        startY: y,
+        head: [[s('Categoria'), 'Valor (R$)', '%']],
+        body: catBody,
+        foot: [[s('TOTAL'), totalAllExpenses.toFixed(2), '100%']],
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        footStyles: { fillColor: [245, 247, 250], textColor: [40, 40, 40], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: contentW * 0.5 },
+          1: { halign: 'right', cellWidth: contentW * 0.25 },
+          2: { halign: 'right', cellWidth: contentW * 0.25 },
+        },
+        didParseCell: (data: any) => {
+          if (data.section === 'body' && data.column.index === 1) {
+            data.cell.styles.textColor = [220, 38, 38];
+          }
+        },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 10;
+
+      // === SECTION: CORRIDAS ===
+      doc.setFontSize(11);
+      doc.setTextColor(37, 99, 235);
+      doc.text(s('Corridas Detalhadas'), margin, y);
+      y += 2;
+      doc.setFillColor(37, 99, 235);
+      doc.rect(margin, y, 30, 1.5, 'F');
+      y += 4;
+
+      const ridesBody = fRides.map(r => {
+        const timeStr = r.startTime && r.endTime ? `${r.startTime}-${r.endTime}` : '-';
+        const appsStr = (r.appRides || []).map(a => {
+          const name = a.appName.length > 6 ? a.appName.substring(0, 6) + '.' : a.appName;
+          return `${name}(${a.count})`;
+        }).join(' + ');
+        return [
+          format(parseISO(r.date), 'dd/MM'),
+          timeStr,
+          r.kmDriven.toFixed(1),
+          r.numRides.toString(),
+          r.totalValue.toFixed(2),
+          appsStr || '-',
+        ];
+      });
+
+      const totalKmStr = stats.totalKm.toFixed(1);
+      const totalRidesStr = stats.totalRides.toString();
+      const totalEarningsStr = stats.totalEarnings.toFixed(2);
+
+      (doc as any).autoTable({
+        startY: y,
+        head: [['Data', s('Horario'), 'KM', s('Corridas'), 'Valor (R$)', 'Apps']],
+        body: ridesBody,
+        foot: [['TOTAL', '', totalKmStr, totalRidesStr, totalEarningsStr, '']],
+        margin: { left: margin, right: margin },
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        footStyles: { fillColor: [245, 247, 250], textColor: [40, 40, 40], fontStyle: 'bold', fontSize: 8 },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: contentW * 0.1 },
+          1: { cellWidth: contentW * 0.17 },
+          2: { halign: 'right', cellWidth: contentW * 0.1 },
+          3: { halign: 'right', cellWidth: contentW * 0.12 },
+          4: { halign: 'right', cellWidth: contentW * 0.18 },
+          5: { cellWidth: contentW * 0.33 },
+        },
+        didParseCell: (data: any) => {
+          if (data.section === 'body' && data.column.index === 4) {
+            data.cell.styles.textColor = [5, 150, 105];
+          }
+        },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 10;
+
+      // === SECTION: DESPESAS DETALHADAS ===
+      if (fExpenses.length > 0) {
+        doc.setFontSize(11);
+        doc.setTextColor(37, 99, 235);
+        doc.text(s('Despesas Detalhadas'), margin, y);
+        y += 2;
+        doc.setFillColor(37, 99, 235);
+        doc.rect(margin, y, 30, 1.5, 'F');
+        y += 4;
+
+        const expTypeLabels: Record<string, string> = {
+          combustivel: 'Combust.',
+          manutencao: s('Manutencao'),
+          alimentacao: s('Alimentacao'),
+          imposto: 'Imposto',
+          multa: 'Multa',
+          parcela: s('Parcela'),
+          seguro: 'Seguro',
+          outros: 'Outros',
+        };
+
+        const expBody = fExpenses
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map(e => [
+            format(parseISO(e.date), 'dd/MM'),
+            expTypeLabels[e.type] || e.type,
+            s(e.description || '-'),
+            e.type === 'combustivel' && e.liters ? e.liters.toFixed(1) : '',
+            e.value.toFixed(2),
+          ]);
+
+        (doc as any).autoTable({
+          startY: y,
+          head: [['Data', s('Tipo'), s('Descricao'), 'Litros', 'Valor (R$)']],
+          body: expBody,
+          foot: [['', '', '', '', stats.totalExpenses.toFixed(2)]],
+          margin: { left: margin, right: margin },
+          theme: 'striped',
+          headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+          footStyles: { fillColor: [245, 247, 250], textColor: [40, 40, 40], fontStyle: 'bold', fontSize: 8 },
+          bodyStyles: { fontSize: 8 },
+          columnStyles: {
+            0: { cellWidth: contentW * 0.1 },
+            1: { cellWidth: contentW * 0.15 },
+            2: { cellWidth: contentW * 0.4 },
+            3: { halign: 'right', cellWidth: contentW * 0.12 },
+            4: { halign: 'right', cellWidth: contentW * 0.23 },
+          },
+          didParseCell: (data: any) => {
+            if (data.section === 'body' && data.column.index === 4) {
+              data.cell.styles.textColor = [220, 38, 38];
+            }
+          },
+        });
+      }
+
+      // === FOOTER ON EVERY PAGE ===
+      const totalPages = doc.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setFontSize(7);
+        doc.setTextColor(170, 170, 170);
+        doc.text(s(`Gerado por OrganizaAi em ${generatedAt}`), margin, pageH - 8);
+        doc.text(`${p} / ${totalPages}`, pageW - margin, pageH - 8, { align: 'right' });
+
+        // bottom line
+        doc.setDrawColor(37, 99, 235);
+        doc.setLineWidth(0.5);
+        doc.line(margin, pageH - 11, pageW - margin, pageH - 11);
+      }
+
+      doc.save(`relatorio_${selectedMonth}.pdf`);
+    } catch (err) {
+      console.error('PDF export error:', err);
+      setPdfError(stripAccents('Erro ao gerar PDF. Tente exportar como CSV.'));
+    }
   };
 
   const exportCSV = () => {
@@ -195,13 +415,16 @@ export default function ReportsTab({ rides, expenses, profile }: ReportsTabProps
         </p>
 
         <div className="flex flex-wrap gap-4">
-          <button
-            onClick={exportPDF}
-            className="flex items-center gap-2 px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-brand-200 dark:shadow-none"
-          >
-            <FileText size={20} />
-            Exportar PDF
-          </button>
+        <button
+          onClick={exportPDF}
+          className="flex items-center gap-2 px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-brand-200 dark:shadow-none"
+        >
+          <FileText size={20} />
+          Exportar PDF
+        </button>
+        {pdfError && (
+          <p className="w-full text-sm text-rose-600 dark:text-rose-400">{pdfError}</p>
+        )}
 
           <button
             onClick={exportCSV}

@@ -454,11 +454,11 @@ const [selectedFuelType, setSelectedFuelType] = useState<string | null>(null);
 <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1">KM/L</span>
 </p>
 {motoStats.globalConsumption.status === 'valid' ? (
-<span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+<span className="px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[10px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
 Real
 </span>
 ) : (
-<span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
+<span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] sm:text-[10px] font-bold rounded-full whitespace-nowrap w-fit">
 Est.
 </span>
 )}
@@ -703,11 +703,11 @@ Est.
                         <span className="text-xs text-slate-500">Próxima troca aprox: {item.nextChangeDate}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleQuickChange(item)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1",
+<div className="flex items-center gap-2 flex-wrap">
+      <button
+        onClick={() => handleQuickChange(item)}
+        className={cn(
+          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1",
                           item.isCritical 
                             ? "bg-rose-600 text-white hover:bg-rose-700" 
                             : "bg-brand-100 dark:bg-brand-900/30 text-brand-600 hover:bg-brand-200"
@@ -839,7 +839,7 @@ Est.
                               <div key={h.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg group/hist">
                                 <div className="flex flex-col">
                                   <span className="text-[10px] font-bold dark:text-slate-300">{format(parseISO(h.date), 'dd/MM/yy')} - {h.km.toLocaleString()} KM</span>
-                                  {h.description && <span className="text-[9px] text-slate-500">{h.description}</span>}
+                                  {h.description && <span className="text-[10px] text-slate-500">{h.description}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">R$ {h.cost.toFixed(2)}</span>
@@ -921,7 +921,7 @@ Est.
                       <p className="text-[10px] font-bold text-slate-500">Saldo no Tanque</p>
                     </div>
                     <p className="text-lg font-bold text-brand-600">{ftStat.estimatedCurrentBalance.toFixed(1)}<span className="text-[10px] text-slate-400 ml-1">{ftStat.fuelType === 'gnv' ? 'm³' : 'L'}</span></p>
-                    {ftStat.kmSinceLastFuel > 0 && <p className="text-[9px] text-slate-400">Estimado ({ftStat.kmSinceLastFuel} km desde último abast.)</p>}
+                    {ftStat.kmSinceLastFuel > 0 && <p className="text-[10px] text-slate-400">Estimado ({ftStat.kmSinceLastFuel} km desde último abast.)</p>}
                     {profile.totalTankSize && (
                       <div className="mt-1">
                         <div className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -940,7 +940,7 @@ Est.
                     {ftStat.lastFuelExpense.segmentConsumption ? (
                       <>
                         <p className="text-lg font-bold text-orange-600">{ftStat.lastFuelExpense.segmentConsumption.toFixed(1)}<span className="text-[10px] text-slate-400 ml-1">km/l</span></p>
-                        <span className={cn("px-1 py-0.5 text-[9px] font-bold rounded-full inline-block", ftStat.lastFuelExpense.isCalibrated ? "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700" : "bg-slate-200 dark:bg-slate-700 text-slate-500")}>
+                        <span className={cn("px-1 py-0.5 text-[10px] font-bold rounded-full inline-block", ftStat.lastFuelExpense.isCalibrated ? "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700" : "bg-slate-200 dark:bg-slate-700 text-slate-500")}>
                           {ftStat.lastFuelExpense.isCalibrated ? 'Calibrado' : 'Estimado'}
                         </span>
                       </>
@@ -958,7 +958,7 @@ Est.
                     {ftStat.globalConsumption.status === 'valid' && ftStat.globalConsumption.globalAverage ? (
                       <>
                         <p className="text-lg font-bold text-emerald-600">{ftStat.globalConsumption.globalAverage.toFixed(1)}<span className="text-[10px] text-slate-400 ml-1">km/l</span></p>
-                        <p className="text-[9px] text-slate-400">{ftStat.globalConsumption.validSegments} trechos calibrados</p>
+                        <p className="text-[10px] text-slate-400">{ftStat.globalConsumption.validSegments} trechos calibrados</p>
                       </>
                     ) : (
                       <p className="text-[10px] text-slate-400 italic">Sem dados calibrados</p>
@@ -994,7 +994,7 @@ Est.
                   <div key={h.id} className="flex items-center justify-between p-1 bg-white dark:bg-slate-900 rounded">
                     <div className="flex flex-col min-w-0">
                       <span className="text-[10px] font-bold dark:text-white truncate">{h.maintenanceName}</span>
-                      <span className="text-[9px] text-slate-500">{format(parseISO(h.date), 'dd/MM/yy')} — {h.km.toLocaleString()} km</span>
+                      <span className="text-[10px] text-slate-500">{format(parseISO(h.date), 'dd/MM/yy')} — {h.km.toLocaleString()} km</span>
                     </div>
                     <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 shrink-0 ml-2">R$ {h.cost.toFixed(2)}</span>
                   </div>

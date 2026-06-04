@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -74,21 +74,46 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
   const [compPresetB, setCompPresetB] = useState<'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30d' | 'custom'>('lastMonth');
   const [compCustomA, setCompCustomA] = useState({ start: format(subDays(new Date(), 7), 'yyyy-MM-dd'), end: format(new Date(), 'yyyy-MM-dd') });
   const [compCustomB, setCompCustomB] = useState({ start: format(subDays(new Date(), 37), 'yyyy-MM-dd'), end: format(subDays(new Date(), 8), 'yyyy-MM-dd') });
+  const [compNormalize, setCompNormalize] = useState(false);
 
-  function getComparisonPeriod(preset: 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30d' | 'custom', custom: { start: string; end: string }) {
-    const now = new Date();
-    switch (preset) {
-      case 'thisWeek': return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }), label: 'Esta Semana' };
-      case 'lastWeek': { const lw = subDays(startOfWeek(now, { weekStartsOn: 1 }), 1); return { start: startOfWeek(lw, { weekStartsOn: 1 }), end: endOfWeek(lw, { weekStartsOn: 1 }), label: 'Semana Passada' }; }
-      case 'thisMonth': return { start: startOfMonth(now), end: endOfMonth(now), label: 'Este Mês' };
-      case 'lastMonth': { const lm = addMonths(now, -1); return { start: startOfMonth(lm), end: endOfMonth(lm), label: 'Mês Passado' }; }
-      case 'last30d': return { start: startOfDay(subDays(now, 30)), end: endOfDay(now), label: 'Últimos 30 dias' };
-      case 'custom': return { start: startOfDay(parseISO(custom.start)), end: endOfDay(parseISO(custom.end)), label: `${custom.start} → ${custom.end}` };
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    const observer = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const chartGridStroke = isDark ? '#334155' : '#e2e8f0';
+  const chartTickFill = isDark ? '#94a3b8' : '#64748b';
+  const chartTooltipBg = isDark ? '#1e293b' : '#fff';
+
+function getComparisonPeriod(preset: 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30d' | 'custom', custom: { start: string; end: string }) {
+  const now = new Date();
+  switch (preset) {
+    case 'thisWeek': return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }), label: 'Esta Semana' };
+    case 'lastWeek': { const lw = subDays(startOfWeek(now, { weekStartsOn: 1 }), 1); return { start: startOfWeek(lw, { weekStartsOn: 1 }), end: endOfWeek(lw, { weekStartsOn: 1 }), label: 'Semana Passada' }; }
+    case 'thisMonth': return { start: startOfMonth(now), end: endOfMonth(now), label: 'Este Mês' };
+    case 'lastMonth': { const lm = addMonths(now, -1); return { start: startOfMonth(lm), end: endOfMonth(lm), label: 'Mês Passado' }; }
+    case 'last30d': return { start: startOfDay(subDays(now, 30)), end: endOfDay(now), label: 'Últimos 30 dias' };
+    case 'custom': {
+      if (!custom.start || !custom.end) {
+        return { start: startOfDay(subDays(now, 7)), end: endOfDay(now), label: 'Customizado (datas incompletas)' };
+      }
+      const s = parseISO(custom.start);
+      const e = parseISO(custom.end);
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) {
+        return { start: startOfDay(subDays(now, 7)), end: endOfDay(now), label: 'Customizado (datas invalidas)' };
+      }
+      return { start: startOfDay(s), end: endOfDay(e), label: `${custom.start} → ${custom.end}` };
     }
   }
+}
 
-  function computePeriodStatsForComparison(start: Date, end: Date) {
-    const interval = { start, end };
+function computePeriodStatsForComparison(start: Date, end: Date) {
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return { earnings: 0, expenses: 0, profit: 0, km: 0, rides: 0, hours: 0, workedDays: 0, avgPerHour: 0, avgPerKm: 0, fuelExpenses: 0, foodExpenses: 0, maintenanceExpenses: 0, fixedCosts: 0, costPerKm: 0 };
+  }
+  const interval = { start, end };
     const pRides = rides.filter(r => isWithinInterval(parseISO(r.date), interval));
     const pExpenses = expenses.filter(e => isWithinInterval(parseISO(e.date), interval));
     const totalEarnings = pRides.reduce((acc, r) => acc + r.totalValue, 0);
@@ -128,6 +153,9 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
   const compPeriodB = useMemo(() => getComparisonPeriod(compPresetB, compCustomB), [compPresetB, compCustomB]);
   const compStatsA = useMemo(() => computePeriodStatsForComparison(compPeriodA.start, compPeriodA.end), [compPeriodA, rides, expenses, profile]);
   const compStatsB = useMemo(() => computePeriodStatsForComparison(compPeriodB.start, compPeriodB.end), [compPeriodB, rides, expenses, profile]);
+const compDaysA = (!isNaN(compPeriodA.start.getTime()) && !isNaN(compPeriodA.end.getTime())) ? Math.max(differenceInDays(compPeriodA.end, compPeriodA.start) + 1, 1) : 1;
+const compDaysB = (!isNaN(compPeriodB.start.getTime()) && !isNaN(compPeriodB.end.getTime())) ? Math.max(differenceInDays(compPeriodB.end, compPeriodB.start) + 1, 1) : 1;
+  const compDifferentLengths = compDaysA !== compDaysB;
 
   const filteredData = useMemo(() => {
     const now = new Date();
@@ -142,10 +170,12 @@ export default function Dashboard({ rides, expenses, goals, profile }: Dashboard
       start = startOfDay(subDays(now, 30));
     } else if (dateRange === 'month') {
       start = startOfMonth(now);
-    } else {
-      start = startOfDay(parseISO(customStart));
-      end = endOfDay(parseISO(customEnd));
-    }
+  } else {
+    const s = customStart ? parseISO(customStart) : subDays(now, 7);
+    const e = customEnd ? parseISO(customEnd) : now;
+    start = isNaN(s.getTime()) ? startOfDay(subDays(now, 7)) : startOfDay(s);
+    end = isNaN(e.getTime()) ? endOfDay(now) : endOfDay(e);
+  }
 
     const interval = { start, end };
 
@@ -552,100 +582,164 @@ estimatedBalance,
       </div>
     </div>
 
-    {showComparison && (
-      <motion.div
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
-        className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-brand-200 dark:border-brand-900/30 shadow-sm space-y-4"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2"><Scale size={18} className="text-brand-600" /> Comparação de Períodos</h3>
-          <button onClick={() => setShowComparison(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
-        </div>
+{showComparison && (
+  <motion.div
+    initial={{ opacity: 0, height: 0 }}
+    animate={{ opacity: 1, height: 'auto' }}
+    exit={{ opacity: 0, height: 0 }}
+    className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-brand-200 dark:border-brand-900/30 shadow-sm space-y-4"
+  >
+    <div className="flex items-center justify-between">
+      <h3 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2"><Scale size={18} className="text-brand-600" /> Comparação de Períodos</h3>
+      <button onClick={() => setShowComparison(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+    </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(['A', 'B'] as const).map((side) => {
-            const preset = side === 'A' ? compPresetA : compPresetB;
-            const setPreset = side === 'A' ? setCompPresetA : setCompPresetB;
-            const custom = side === 'A' ? compCustomA : compCustomB;
-            const setCustom = side === 'A' ? setCompCustomA : setCompCustomB;
-            const bgColor = side === 'A' ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30' : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/30';
-            const badgeColor = side === 'A' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white';
-            return (
-              <div key={side} className={cn("p-3 rounded-2xl border", bgColor)}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={cn("px-2 py-0.5 rounded-lg text-xs font-bold", badgeColor)}>Período {side}</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {(['thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30d', 'custom'] as const).map(p => (
-                    <button key={p} onClick={() => setPreset(p)} className={cn("px-2 py-1 rounded-lg text-[10px] font-bold transition-all", preset === p ? "bg-brand-600 text-white" : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700")}>
-                      {p === 'thisWeek' ? 'Esta Semana' : p === 'lastWeek' ? 'Sem. Passada' : p === 'thisMonth' ? 'Este Mês' : p === 'lastMonth' ? 'Mês Passado' : p === 'last30d' ? 'Últ. 30d' : 'Customizado'}
-                    </button>
-                  ))}
-                </div>
-                {preset === 'custom' && (
-                  <div className="flex items-center gap-2">
-                    <input type="date" value={custom.start} onChange={e => setCustom({ ...custom, start: e.target.value })} className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                    <span className="text-xs text-slate-400">até</span>
-                    <input type="date" value={custom.end} onChange={e => setCustom({ ...custom, end: e.target.value })} className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                  </div>
-                )}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {(['A', 'B'] as const).map((side) => {
+        const preset = side === 'A' ? compPresetA : compPresetB;
+        const setPreset = side === 'A' ? setCompPresetA : setCompPresetB;
+        const custom = side === 'A' ? compCustomA : compCustomB;
+        const setCustom = side === 'A' ? setCompCustomA : setCompCustomB;
+        const period = side === 'A' ? compPeriodA : compPeriodB;
+        const bgColor = side === 'A' ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30' : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/30';
+        const badgeColor = side === 'A' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white';
+        return (
+          <div key={side} className={cn("p-3 rounded-2xl border", bgColor)}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className={cn("px-2 py-0.5 rounded-lg text-xs font-bold", badgeColor)}>Período {side}</span>
+<span className="text-[10px] text-slate-500 dark:text-slate-400">
+  {!isNaN(period.start.getTime()) && !isNaN(period.end.getTime()) ? `${format(period.start, 'dd/MM/yyyy')} a ${format(period.end, 'dd/MM/yyyy')}` : 'Período inválido'}
+</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {(['thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30d', 'custom'] as const).map(p => (
+                <button key={p} onClick={() => setPreset(p)} className={cn("px-2 py-1 rounded-lg text-xs font-bold transition-all", preset === p ? "bg-brand-600 text-white" : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700")}>
+                  {p === 'thisWeek' ? 'Esta Semana' : p === 'lastWeek' ? 'Sem. Passada' : p === 'thisMonth' ? 'Este Mês' : p === 'lastMonth' ? 'Mês Passado' : p === 'last30d' ? 'Últ. 30d' : 'Customizado'}
+                </button>
+              ))}
+            </div>
+            {preset === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input type="date" value={custom.start} onChange={e => setCustom({ ...custom, start: e.target.value })} className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
+                <span className="text-xs text-slate-400">até</span>
+                <input type="date" value={custom.end} onChange={e => setCustom({ ...custom, end: e.target.value })} className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700">
-                <th className="text-left py-2 px-2 text-slate-500 font-bold uppercase">Métrica</th>
-                <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[10px] font-bold">A</span></th>
-                <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold">B</span></th>
-                <th className="text-right py-2 px-2 text-slate-500 font-bold uppercase">Diferença</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { label: 'Ganhos', key: 'earnings' as const, isCurrency: true },
-                { label: 'Despesas', key: 'expenses' as const, isCurrency: true },
-                { label: 'Líquido', key: 'profit' as const, isCurrency: true },
-                { label: 'KM Rodados', key: 'km' as const, isCurrency: false },
-                { label: 'Dias Trabalhados', key: 'workedDays' as const, isCurrency: false },
-                { label: 'Horas', key: 'hours' as const, isCurrency: false },
-                { label: '/Hora', key: 'avgPerHour' as const, isCurrency: true },
-                { label: '/KM', key: 'avgPerKm' as const, isCurrency: true },
-                { label: 'Corridas', key: 'rides' as const, isCurrency: false },
-                { label: 'Combustível', key: 'fuelExpenses' as const, isCurrency: true },
-                { label: 'Alimentação', key: 'foodExpenses' as const, isCurrency: true },
-                { label: 'Manutenção', key: 'maintenanceExpenses' as const, isCurrency: true },
-                { label: 'Custos Fixos', key: 'fixedCosts' as const, isCurrency: true },
-                { label: 'Custo/KM', key: 'costPerKm' as const, isCurrency: true },
-              ].map(({ label, key, isCurrency }) => {
-                const valA = compStatsA[key];
-                const valB = compStatsB[key];
-                const diff = (valB as number) - (valA as number);
-                const pct = (valA as number) === 0 ? ((valB as number) > 0 ? 100 : null) : (diff / (valA as number)) * 100;
-                const isGood = key === 'expenses' || key === 'fuelExpenses' || key === 'maintenanceExpenses' || key === 'costPerKm' || key === 'fixedCosts' ? diff <= 0 : diff >= 0;
-                const fmt = (v: number) => isCurrency ? `R$ ${v.toFixed(2)}` : v.toLocaleString('pt-BR');
-                return (
-                  <tr key={key} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="py-2 px-2 font-medium text-slate-700 dark:text-slate-300">{label}</td>
-                    <td className="py-2 px-2 text-right font-bold dark:text-white">{fmt(valA as number)}</td>
-                    <td className="py-2 px-2 text-right font-bold dark:text-white">{fmt(valB as number)}</td>
-                    <td className={cn("py-2 px-2 text-right font-bold", diff === 0 ? "text-slate-400" : isGood ? "text-emerald-600" : "text-rose-600")}>
-                      {diff !== 0 && <span className="text-[9px]">{diff > 0 ? '↑' : '↓'}</span>} {isCurrency ? `R$ ${Math.abs(diff).toFixed(2)}` : Math.abs(diff).toLocaleString('pt-BR')}
-                      {pct !== null && <span className="text-[9px] ml-1">({pct >= 0 ? '+' : ''}{pct.toFixed(0)}%)</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
+    {compDifferentLengths && (
+      <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
+        <input type="checkbox" checked={compNormalize} onChange={() => setCompNormalize(!compNormalize)} className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+        Normalizar por dia (A: {compDaysA}d vs B: {compDaysB}d)
+      </label>
     )}
+
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-slate-200 dark:border-slate-700">
+            <th className="text-left py-2 px-2 text-slate-500 font-bold uppercase sticky left-0 bg-white dark:bg-slate-900 z-10">Métrica</th>
+            <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-xs font-bold">A</span></th>
+            <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-xs font-bold">B</span></th>
+            <th className="text-right py-2 px-2 text-slate-500 font-bold uppercase">Vencedor</th>
+          </tr>
+        </thead>
+        <tbody>
+        {[
+          { label: 'Ganhos', key: 'earnings' as const, isCurrency: true, lowerIsBetter: false },
+          { label: 'Despesas', key: 'expenses' as const, isCurrency: true, lowerIsBetter: true },
+          { label: 'Líquido', key: 'profit' as const, isCurrency: true, lowerIsBetter: false },
+          { label: 'KM Rodados', key: 'km' as const, isCurrency: false, lowerIsBetter: false },
+          { label: 'Dias Trabalhados', key: 'workedDays' as const, isCurrency: false, lowerIsBetter: false },
+          { label: 'Horas', key: 'hours' as const, isCurrency: false, lowerIsBetter: false },
+          { label: '/Hora', key: 'avgPerHour' as const, isCurrency: true, lowerIsBetter: false },
+          { label: '/KM', key: 'avgPerKm' as const, isCurrency: true, lowerIsBetter: false },
+          { label: 'Corridas', key: 'rides' as const, isCurrency: false, lowerIsBetter: false },
+          { label: 'Combustível', key: 'fuelExpenses' as const, isCurrency: true, lowerIsBetter: true },
+          { label: 'Alimentação', key: 'foodExpenses' as const, isCurrency: true, lowerIsBetter: true },
+          { label: 'Manutenção', key: 'maintenanceExpenses' as const, isCurrency: true, lowerIsBetter: true },
+          { label: 'Custos Fixos', key: 'fixedCosts' as const, isCurrency: true, lowerIsBetter: true },
+          { label: 'Custo/KM', key: 'costPerKm' as const, isCurrency: true, lowerIsBetter: true },
+        ].map(({ label, key, isCurrency, lowerIsBetter }) => {
+          const rawA = compStatsA[key] as number;
+          const rawB = compStatsB[key] as number;
+          const valA = compNormalize ? rawA / compDaysA : rawA;
+          const valB = compNormalize ? rawB / compDaysB : rawB;
+          const diff = valB - valA;
+          const pct = valA === 0 ? (valB > 0 ? 100 : null) : (diff / valA) * 100;
+          const aWins = lowerIsBetter ? valA <= valB : valA >= valB;
+          const winner = valA === valB ? null : aWins ? 'A' : 'B';
+          const fmt = (v: number) => isCurrency ? `R$ ${v.toFixed(2)}` : v.toLocaleString('pt-BR');
+          return (
+            <tr key={key} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+              <td className="py-2 px-2 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-10">{label}</td>
+              <td className={cn("py-2 px-2 text-right font-bold dark:text-white", winner === 'A' && "bg-blue-50/50 dark:bg-blue-950/20 rounded")}>
+                <div className="flex items-center justify-end gap-1">
+                  {winner === 'A' && <span className="text-[10px] px-1 py-0.5 bg-blue-600 text-white rounded font-bold">A</span>}
+                  {fmt(valA)}
+                </div>
+              </td>
+              <td className={cn("py-2 px-2 text-right font-bold dark:text-white", winner === 'B' && "bg-emerald-50/50 dark:bg-emerald-950/20 rounded")}>
+                <div className="flex items-center justify-end gap-1">
+                  {winner === 'B' && <span className="text-[10px] px-1 py-0.5 bg-emerald-600 text-white rounded font-bold">B</span>}
+                  {fmt(valB)}
+                </div>
+              </td>
+              <td className={cn("py-2 px-2 text-right font-bold", diff === 0 ? "text-slate-400" : winner === 'A' || winner === 'B' ? (winner === 'A' ? "text-blue-600" : "text-emerald-600") : "text-slate-400")}>
+                {diff !== 0 && <span className="text-[10px]">{diff > 0 ? '↑' : '↓'}</span>} {isCurrency ? `R$ ${Math.abs(diff).toFixed(2)}` : Math.abs(diff).toLocaleString('pt-BR')}
+                {pct !== null && <span className="text-[10px] ml-1">({pct >= 0 ? '+' : ''}{pct.toFixed(0)}%)</span>}
+              </td>
+            </tr>
+          );
+        })}
+        </tbody>
+      </table>
+    </div>
+
+    {(() => {
+      const metrics = [
+        { key: 'earnings' as const, lowerIsBetter: false },
+        { key: 'expenses' as const, lowerIsBetter: true },
+        { key: 'profit' as const, lowerIsBetter: false },
+        { key: 'km' as const, lowerIsBetter: false },
+        { key: 'workedDays' as const, lowerIsBetter: false },
+        { key: 'hours' as const, lowerIsBetter: false },
+        { key: 'avgPerHour' as const, lowerIsBetter: false },
+        { key: 'avgPerKm' as const, lowerIsBetter: false },
+        { key: 'rides' as const, lowerIsBetter: false },
+        { key: 'fuelExpenses' as const, lowerIsBetter: true },
+        { key: 'foodExpenses' as const, lowerIsBetter: true },
+        { key: 'maintenanceExpenses' as const, lowerIsBetter: true },
+        { key: 'fixedCosts' as const, lowerIsBetter: true },
+        { key: 'costPerKm' as const, lowerIsBetter: true },
+      ];
+      let aWins = 0, bWins = 0;
+      metrics.forEach(({ key, lowerIsBetter }) => {
+        const vA = compNormalize ? (compStatsA[key] as number) / compDaysA : compStatsA[key] as number;
+        const vB = compNormalize ? (compStatsB[key] as number) / compDaysB : compStatsB[key] as number;
+        if (vA === vB) return;
+        const aWin = lowerIsBetter ? vA < vB : vA > vB;
+        if (aWin) aWins++; else bWins++;
+      });
+      return (
+        <div className="flex items-center justify-center gap-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <span className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-3 py-1.5 rounded-lg">A venceu {aWins} métricas</span>
+          <span className="text-xs text-slate-400">vs</span>
+          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-lg">B venceu {bWins} métricas</span>
+        </div>
+      );
+    })()}
+
+    <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400">
+      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600"></span> A = Período A</span>
+      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600"></span> B = Período B</span>
+      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span> Empate</span>
+    </div>
+  </motion.div>
+)}
 
       {/* Stats Grid */}
       <motion.div
@@ -721,15 +815,15 @@ estimatedBalance,
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white">Resumo do Veículo</h3>
-                <p className="text-[10px] text-slate-400">{profile.vehicleModel || profile.vehicleType}</p>
+                <p className="text-xs text-slate-400">{profile.vehicleModel || profile.vehicleType}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Saldo Tanque</p>
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="space-y-1">
+        <p className="text-xs text-slate-400 font-bold uppercase">Saldo Tanque</p>
                 <p className="text-lg font-bold text-brand-600">{stats.estimatedBalance.toFixed(1)}L</p>
             {stats.estimatedBalanceUnreliable && (
-              <p className="text-[9px] text-amber-500 italic">Saldo sem consumo real</p>
+              <p className="text-[10px] text-amber-500 italic">Saldo sem consumo real</p>
             )}
                 {stats.tankSize && (
                   <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -744,18 +838,18 @@ estimatedBalance,
                 )}
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Autonomia</p>
+                <p className="text-xs text-slate-400 font-bold uppercase">Autonomia</p>
                 <p className="text-lg font-bold text-emerald-600">{stats.autonomy ? `${stats.autonomy.kmAutonomy.toFixed(0)} km` : '—'}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Custo Var./KM</p>
+                <p className="text-xs text-slate-400 font-bold uppercase">Custo Var./KM</p>
                 <p className="text-lg font-bold text-slate-800 dark:text-white">R$ {stats.costPerKm.toFixed(2)}</p>
-                <p className="text-[8px] text-slate-400">comb. + manut.</p>
+                <p className="text-[10px] text-slate-400">comb. + manut.</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Custo Total/KM</p>
+                <p className="text-xs text-slate-400 font-bold uppercase">Custo Total/KM</p>
                 <p className="text-lg font-bold text-slate-800 dark:text-white">R$ {stats.totalCostPerKm.toFixed(2)}</p>
-                <p className="text-[8px] text-slate-400">incluindo fixos</p>
+                <p className="text-[10px] text-slate-400">incluindo fixos</p>
               </div>
             </div>
           </div>
@@ -784,7 +878,7 @@ estimatedBalance,
                 <p className="text-lg font-bold text-slate-800 dark:text-white">R$ {monthlyEstimate.net.toFixed(0)}</p>
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[9px] text-slate-400">
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-400">
               <span>{monthlyEstimate.workDays} dias</span>
               <span>{monthlyEstimate.totalHours.toFixed(1)}h</span>
               <span>R$ {(profile?.hourlyRate || stats.avgPerHour || 0).toFixed(2)}/h</span>
@@ -883,9 +977,9 @@ estimatedBalance,
                       <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
+      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: chartTickFill, fontSize: 12}} dy={10} />
+      <YAxis axisLine={false} tickLine={false} tick={{fill: chartTickFill, fontSize: 12}} />
                   <RechartsTooltip
                     formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
@@ -1208,33 +1302,43 @@ estimatedBalance,
             <h3 className="text-lg font-bold text-slate-800 dark:text-white">Ganhos vs Gastos Mensais</h3>
             <p className="text-xs text-slate-400">{new Date().getFullYear()}</p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => setSelectedMonth(null)}
-              className={cn(
-                "px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap",
-                selectedMonth === null
-                  ? "bg-brand-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
-              )}
-            >
-              Todos
-            </button>
-            {monthlyData.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedMonth(idx)}
-                className={cn(
-                  "px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap",
-                  selectedMonth === idx
-                    ? "bg-brand-600 text-white"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
-                )}
-              >
-                {monthlyData[idx].month}
-              </button>
-            ))}
-          </div>
+<div className="flex flex-wrap gap-1.5 max-sm:hidden">
+        <button
+          onClick={() => setSelectedMonth(null)}
+          className={cn(
+            "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
+            selectedMonth === null
+            ? "bg-brand-600 text-white"
+            : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+          )}
+        >
+          Todos
+        </button>
+        {monthlyData.map((_, idx) => (
+          <button
+            key={idx}
+            onClick={() => setSelectedMonth(idx)}
+            className={cn(
+              "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
+              selectedMonth === idx
+              ? "bg-brand-600 text-white"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+            )}
+          >
+            {monthlyData[idx].month}
+          </button>
+        ))}
+      </div>
+      <select
+        value={selectedMonth ?? ''}
+        onChange={(e) => setSelectedMonth(e.target.value === '' ? null : Number(e.target.value))}
+        className="sm:hidden px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 outline-none"
+      >
+        <option value="">Todos</option>
+        {monthlyData.map((m, idx) => (
+          <option key={idx} value={idx}>{m.month}</option>
+        ))}
+      </select>
         </div>
 
         <div className="h-[300px] w-full">
@@ -1250,17 +1354,17 @@ estimatedBalance,
                   <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.4} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" strokeOpacity={0.5} />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} strokeOpacity={0.5} />
+      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: chartTickFill, fontSize: 12, fontWeight: 600 }} dy={10} />
+      <YAxis axisLine={false} tickLine={false} tick={{ fill: chartTickFill, fontSize: 11 }} />
               <RechartsTooltip
                 formatter={(value: number, name: string) => [
                   `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                   name === 'earnings' ? 'Ganhos' : 'Gastos'
                 ]}
                 labelFormatter={(label) => `Mês: ${label}`}
-                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)', padding: '12px 16px', background: '#1e293b', color: '#fff' }}
-                cursor={{ fill: 'rgba(0,0,0,0.03)' }}
+contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)', padding: '12px 16px', background: chartTooltipBg, color: isDark ? '#fff' : '#1e293b' }}
+      cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}
               />
               <Legend
                 formatter={(value: string) => value === 'earnings' ? 'Ganhos' : 'Gastos'}

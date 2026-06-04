@@ -495,14 +495,14 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                           <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                             R$ {expectedValueThisMonth.toFixed(2)}
                           </p>
-                          <p className="text-[9px] text-slate-400">({expectedDaysThisMonth} dias de trabalho)</p>
+                          <p className="text-[10px] text-slate-400">({expectedDaysThisMonth} dias de trabalho)</p>
                         </div>
                         <div className="space-y-1">
                           <p className="text-[10px] text-slate-400">Realizado</p>
                           <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                             R$ {earnedThisMonth.toFixed(2)}
                           </p>
-                          <p className="text-[9px] text-slate-400">({workedDaysThisMonth} dias trabalhados)</p>
+                          <p className="text-[10px] text-slate-400">({workedDaysThisMonth} dias trabalhados)</p>
                         </div>
                       </div>
                       <div className={cn(
@@ -583,7 +583,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               </div>
             </div>
           </div>
-          <p className="mt-4 text-[9px] text-slate-400 italic leading-tight">
+          <p className="mt-4 text-[10px] text-slate-400 italic leading-tight">
             * Inclui combustível, alimentação e reserva para manutenção.
           </p>
         </div>
@@ -613,7 +613,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               </div>
             </div>
 
-<div className="grid grid-cols-7 gap-2">
+<div className="grid grid-cols-7 gap-1 sm:gap-2">
                 {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
                   <div key={day} className="text-center text-xs font-bold text-slate-400 py-2">{day}</div>
                 ))}
@@ -645,62 +645,46 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
                   cellColor
                 )}
               >
-                <span className="text-[clamp(0.5rem,2vw,0.75rem)] font-bold text-slate-500">{format(stat.day, 'd')}</span>
-                {isManualCompensated ? (
-                  <>
-                    <span className="text-[10px] font-bold text-sky-600 leading-tight">R$0</span>
-                    <CheckCircle2 size={10} className="text-sky-500" />
-                  </>
-                ) : stat.isAbsentDay && !isCompensated ? (
-                  <>
-                    <span className="text-[10px] font-bold text-amber-600 leading-tight">R$0</span>
-                    <AlertTriangle size={10} className="text-amber-500" />
-                  </>
-                ) : stat.isAbsentDay && isCompensated ? (
-                  <>
-                    <span className="text-[10px] font-bold text-blue-600 leading-tight">R$0</span>
-                    <CheckCircle2 size={10} className="text-blue-500" />
-                  </>
-                ) : !stat.isAbsentDay && stat.hasData ? (
-                  <>
-                    <span className={cn(
-                      "text-[10px] font-bold leading-tight",
-                      isManualCompensated ? "text-sky-600" : isCompensated ? "text-blue-600" : stat.isMet ? "text-emerald-600" : "text-rose-600"
-                    )}>
-                      R${Math.round(stat.totalEarned)}
-                    </span>
-                    {isManualCompensated
-                      ? <CheckCircle2 size={10} className="text-sky-500" />
-                      : isCompensated
-                      ? <CheckCircle2 size={10} className="text-blue-500" />
-                      : stat.isMet
-                      ? <CheckCircle2 size={10} className="text-emerald-500" />
-                      : <XCircle size={10} className="text-rose-500" />
-                    }
-                  </>
-                ) : !stat.isAbsentDay && !stat.hasData ? (
-                  <span className="text-[8px] text-slate-300">—</span>
-                ) : null}
-                {manualFrom && (
-                  <span className="text-[7px] font-bold text-sky-600 leading-tight text-center mt-0.5 px-0.5">
-                    M.Comp. {format(parseISO(manualFrom.toDay), 'd/MM')}
-                  </span>
-                )}
-                {manualTo && (
-                  <span className="text-[7px] font-bold text-sky-600 leading-tight text-center mt-0.5 px-0.5">
-                    &rarr;Cobre {format(parseISO(manualTo.fromDay), 'd/MM')}
-                  </span>
-                )}
+<span className="text-[clamp(0.6rem,2.5vw,0.75rem)] font-bold text-slate-500">{format(stat.day, 'd')}</span>
+      {isManualCompensated ? (
+        <><span className="hidden sm:inline text-[10px] font-bold text-sky-600 leading-tight">R$0</span><CheckCircle2 size={10} className="hidden sm:block text-sky-500" /></>
+      ) : stat.isAbsentDay && !isCompensated ? (
+        <><span className="hidden sm:inline text-[10px] font-bold text-amber-600 leading-tight">R$0</span><AlertTriangle size={10} className="hidden sm:block text-amber-500" /></>
+      ) : stat.isAbsentDay && isCompensated ? (
+        <><span className="hidden sm:inline text-[10px] font-bold text-blue-600 leading-tight">R$0</span><CheckCircle2 size={10} className="hidden sm:block text-blue-500" /></>
+      ) : !stat.isAbsentDay && stat.hasData ? (
+        <><span className={cn("hidden sm:inline text-[10px] font-bold leading-tight", isManualCompensated ? "text-sky-600" : isCompensated ? "text-blue-600" : stat.isMet ? "text-emerald-600" : "text-rose-600")}>R${Math.round(stat.totalEarned)}</span>
+        {isManualCompensated
+        ? <CheckCircle2 size={10} className="hidden sm:block text-sky-500" />
+        : isCompensated
+        ? <CheckCircle2 size={10} className="hidden sm:block text-blue-500" />
+        : stat.isMet
+        ? <CheckCircle2 size={10} className="hidden sm:block text-emerald-500" />
+        : <XCircle size={10} className="hidden sm:block text-rose-500" />
+        }</>
+      ) : !stat.isAbsentDay && !stat.hasData ? (
+        <span className="hidden sm:inline text-[10px] text-slate-300">—</span>
+      ) : null}
+{manualFrom && (
+  <span className="hidden sm:block text-[10px] font-bold text-sky-600 leading-tight text-center mt-0.5 px-0.5">
+    M.Comp. {format(parseISO(manualFrom.toDay), 'd/MM')}
+  </span>
+)}
+{manualTo && (
+  <span className="hidden sm:block text-[10px] font-bold text-sky-600 leading-tight text-center mt-0.5 px-0.5">
+    &rarr;Cobre {format(parseISO(manualTo.fromDay), 'd/MM')}
+  </span>
+)}
 {!manualFrom && comp?.compensatedBy && monthStats[comp.compensatedBy.day] && (
-          <span className="text-[8px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
-            Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
-          </span>
-        )}
-        {!manualTo && comp?.compensated && monthStats[comp.compensated.day] && (
-          <span className="text-[8px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
-            &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
-          </span>
-        )}
+  <span className="hidden sm:block text-[10px] font-bold text-blue-500 leading-tight text-center mt-0.5 px-0.5">
+    Comp. {format(monthStats[comp.compensatedBy.day].day, 'd/MM')}
+  </span>
+)}
+{!manualTo && comp?.compensated && monthStats[comp.compensated.day] && (
+  <span className="hidden sm:block text-[10px] font-bold text-emerald-600 leading-tight text-center mt-0.5 px-0.5">
+    &rarr;{format(monthStats[comp.compensated.day].day, 'd/MM')}
+  </span>
+)}
 
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-auto transition-all whitespace-nowrap z-10 shadow-xl">
                   {isManualCompensated ? (
@@ -834,7 +818,7 @@ export default function Goals({ goals, rides, expenses, profile, onAddGoal, onDe
               <p className="text-xs text-sky-700 dark:text-sky-400 mb-3">
                 Déficit: R$ {compModal.deficit.toFixed(2)} — Selecione dias para cobrir
               </p>
-              <div className="mb-3">
+              <div className="mb-3 max-h-[60vh] overflow-y-auto">
 {monthStats.map((s, idx) => {
         const usedAsToManual = monthManualComps.filter(c => isSameDay(parseISO(c.toDay), s.day)).reduce((acc, c) => acc + c.amount, 0);
         const autoComp = compensationMap.get(idx)?.compensated?.amount || 0;
