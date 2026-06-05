@@ -76,6 +76,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [editPlan, setEditPlan] = useState<MonthlyPlan | null>(null);
   const [planViewMode, setPlanViewMode] = useState<'view' | 'edit'>('view');
   const [copiedMonthPlan, setCopiedMonthPlan] = useState<{ month: string; monthLabel: string; days: WorkDay[]; vacations: VacationEntry[]; notes?: string; customHourlyRate?: number; customFuelCost?: number; customMaintCost?: number; customKmPerLiter?: number } | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
   
   const [showMedias, setShowMedias] = useState(false);
@@ -639,14 +640,24 @@ return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       <div className="flex items-center gap-2">
                         {plan && planViewMode === 'view' && (
                           <>
-                            <button onClick={() => { setCopiedMonthPlan({ month: ym.key, monthLabel: ym.label, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])], notes: plan.notes, customHourlyRate: plan.customHourlyRate, customFuelCost: plan.customFuelCost, customMaintCost: plan.customMaintCost, customKmPerLiter: plan.customKmPerLiter }); }} title="Copiar plano" className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-all"><Copy size={16} /></button>
+                            <button onClick={() => { setCopiedMonthPlan({ month: ym.key, monthLabel: ym.label, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])], notes: plan.notes, customHourlyRate: plan.customHourlyRate, customFuelCost: plan.customFuelCost, customMaintCost: plan.customMaintCost, customKmPerLiter: plan.customKmPerLiter }); setCopyFeedback(ym.label); setTimeout(() => setCopyFeedback(null), 25000); }} className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-all"><Copy size={14} /> Copiar plano</button>
+              {copiedMonthPlan && copiedMonthPlan.month !== ym.key && (
+                <button onClick={() => { const [srcYr, srcMo] = copiedMonthPlan.month.split('-').map(Number); const [destYr, destMo] = ym.key.split('-').map(Number); const destDaysInMonth = new Date(destYr, destMo, 0).getDate(); const mappedVacations = copiedMonthPlan.vacations.map(v => { const srcDay = parseInt(v.date.split('-')[2], 10); const destDay = Math.min(srcDay, destDaysInMonth); const destDateStr = `${ym.key}-${String(destDay).padStart(2, '0')}`; return { date: destDateStr, type: v.type }; }); setEditPlan({ id: plan.id, month: ym.key, days: copiedMonthPlan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })), vacations: mappedVacations, notes: copiedMonthPlan.notes, customHourlyRate: copiedMonthPlan.customHourlyRate, customFuelCost: copiedMonthPlan.customFuelCost, customMaintCost: copiedMonthPlan.customMaintCost, customKmPerLiter: copiedMonthPlan.customKmPerLiter }); setPlanViewMode('edit'); }} className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all"><ClipboardPaste size={14} /> Colar de {copiedMonthPlan.monthLabel}</button>
+              )}
                             <button onClick={() => { setEditPlan({ ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] }); setPlanViewMode('edit'); }} title="Editar plano" className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-all"><Pencil size={16} /></button>
                           </>
                         )}
                         <button onClick={() => { setExpandedMonth(null); setEditPlan(null); setPlanViewMode('view'); }} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
                       </div>
-                    </div>
-                    {plan && planViewMode === 'view' ? (
+</div>
+      {copyFeedback && copiedMonthPlan && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 mb-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+          <span className="flex items-center gap-1.5"><ClipboardCheck size={14} /> Plano de {copyFeedback} copiado</span>
+          <button onClick={() => { const futureMonths = yearMonths.filter(ym2 => !ym2.isPast && ym2.key !== copiedMonthPlan.month && !plans.some(p => p.month === ym2.key)); futureMonths.forEach(ym2 => { const [destYr, destMo] = ym2.key.split('-').map(Number); const destDaysInMonth = new Date(destYr, destMo, 0).getDate(); const mappedVacations = copiedMonthPlan.vacations.map(v => { const srcDay = parseInt(v.date.split('-')[2], 10); const destDay = Math.min(srcDay, destDaysInMonth); const destDateStr = `${ym2.key}-${String(destDay).padStart(2, '0')}`; return { date: destDateStr, type: v.type }; }); onAddPlan?.({ id: crypto.randomUUID(), month: ym2.key, days: copiedMonthPlan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })), vacations: mappedVacations, notes: copiedMonthPlan.notes, customHourlyRate: copiedMonthPlan.customHourlyRate, customFuelCost: copiedMonthPlan.customFuelCost, customMaintCost: copiedMonthPlan.customMaintCost, customKmPerLiter: copiedMonthPlan.customKmPerLiter }); }); setCopyFeedback(null); }} className="px-2 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded hover:bg-emerald-700 transition-all">Aplicar a todos os meses futuros sem plano</button>
+          <button onClick={() => setCopyFeedback(null)} className="p-0.5 text-emerald-400 hover:text-emerald-600"><X size={14} /></button>
+        </div>
+      )}
+      {plan && planViewMode === 'view' ? (
                       <PlanView plan={plan} monthKey={ym.key} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} />
                     ) : editPlan ? (
                       <EditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} copiedMonthPlan={copiedMonthPlan} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } setExpandedMonth(null); setEditPlan(null); setPlanViewMode('view'); }} onCancel={() => { setExpandedMonth(null); setEditPlan(null); setPlanViewMode('view'); }} />
@@ -671,7 +682,15 @@ return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {ym.isCurrent && <span className="text-[10px] font-bold text-brand-600 bg-brand-50 dark:bg-brand-950/30 px-1.5 py-0.5 rounded uppercase">Atual</span>}
         {ym.isPast && realData?.hasData && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded uppercase">Real</span>}
       </div>
-      {plan && onDeletePlan && <button onClick={(e) => { e.stopPropagation(); onDeletePlan(plan.id); }} className="p-1 text-slate-300 hover:text-rose-500 transition-all"><Trash2 size={12} /></button>}
+      <div className="flex items-center gap-1.5">
+              {plan && (
+                <button onClick={(e) => { e.stopPropagation(); setCopiedMonthPlan({ month: ym.key, monthLabel: ym.label, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])], notes: plan.notes, customHourlyRate: plan.customHourlyRate, customFuelCost: plan.customFuelCost, customMaintCost: plan.customMaintCost, customKmPerLiter: plan.customKmPerLiter }); setCopyFeedback(ym.label); setTimeout(() => setCopyFeedback(null), 25000); }} className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-all"><Copy size={10} /> Copiar</button>
+              )}
+              {!plan && copiedMonthPlan && (
+                <button onClick={(e) => { e.stopPropagation(); const [srcYr, srcMo] = copiedMonthPlan.month.split('-').map(Number); const [destYr, destMo] = ym.key.split('-').map(Number); const destDaysInMonth = new Date(destYr, destMo, 0).getDate(); const mappedVacations = copiedMonthPlan.vacations.map(v => { const srcDay = parseInt(v.date.split('-')[2], 10); const destDay = Math.min(srcDay, destDaysInMonth); const destDateStr = `${ym.key}-${String(destDay).padStart(2, '0')}`; return { date: destDateStr, type: v.type }; }); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: copiedMonthPlan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })), vacations: mappedVacations, notes: copiedMonthPlan.notes, customHourlyRate: copiedMonthPlan.customHourlyRate, customFuelCost: copiedMonthPlan.customFuelCost, customMaintCost: copiedMonthPlan.customMaintCost, customKmPerLiter: copiedMonthPlan.customKmPerLiter }); setPlanViewMode('edit'); setExpandedMonth(ym.key); }} className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded hover:bg-emerald-100 transition-all"><ClipboardPaste size={10} /> Colar de {copiedMonthPlan.monthLabel}</button>
+              )}
+              {plan && onDeletePlan && <button onClick={(e) => { e.stopPropagation(); onDeletePlan(plan.id); }} className="p-1 text-slate-300 hover:text-rose-500 transition-all"><Trash2 size={12} /></button>}
+            </div>
     </div>
 {plan || realData?.hasData ? (<>
 <p className="text-[10px] text-slate-500 mb-2">{stats.daysInMonth}d no mês &middot; {stats.workDays}d trabalho &middot; {stats.totalHours.toFixed(0)}h</p>
@@ -1410,9 +1429,9 @@ const [showMedias, setShowMedias] = useState(true);
       <div className="flex items-center justify-between gap-1.5 pt-1">
         <div className="flex items-center gap-1">
           <button onClick={copyFromProfile} title="Copiar escala do Perfil" className="flex items-center gap-1 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs rounded-lg hover:bg-slate-200 transition-all"><Copy size={12} /> Copiar do Perfil</button>
-          {copiedMonthPlan && (
-            <button onClick={() => { setLocalPlan({ ...localPlan, days: copiedMonthPlan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })) }); }} title="Colar mês copiado" className="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 transition-all"><ClipboardPaste size={14} /></button>
-          )}
+{copiedMonthPlan && (
+          <button onClick={() => { const [srcYr, srcMo] = copiedMonthPlan.month.split('-').map(Number); const [destYr, destMo] = monthKey.split('-').map(Number); const destDaysInMonth = new Date(destYr, destMo, 0).getDate(); const mappedVacations = copiedMonthPlan.vacations.map(v => { const srcDay = parseInt(v.date.split('-')[2], 10); const destDay = Math.min(srcDay, destDaysInMonth); const destDateStr = `${monthKey}-${String(destDay).padStart(2, '0')}`; return { date: destDateStr, type: v.type }; }); setLocalPlan({ ...localPlan, days: copiedMonthPlan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })), vacations: mappedVacations, notes: copiedMonthPlan.notes, customHourlyRate: copiedMonthPlan.customHourlyRate, customFuelCost: copiedMonthPlan.customFuelCost, customMaintCost: copiedMonthPlan.customMaintCost, customKmPerLiter: copiedMonthPlan.customKmPerLiter }); }} className="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-100 transition-all"><ClipboardPaste size={14} /> Colar de {copiedMonthPlan.monthLabel}</button>
+        )}
         </div>
         <div className="flex gap-1.5">
           <button onClick={onCancel} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-lg hover:bg-slate-200 transition-all">Cancelar</button>
