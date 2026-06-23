@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, isAfter, getDay, startOfWeek, addDays } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry } from '../types';
 import { cn } from '../lib/utils';
@@ -144,6 +144,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
   const [showMedias, setShowMedias] = useState(false);
   const dragSourceRef = React.useRef<{ key: string; label: string } | null>(null);
+  const [tooltipMonth, setTooltipMonth] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (profile?.workSchedule) {
@@ -738,10 +739,18 @@ const simulationStats = useMemo(() => {
                 return mr?.hasData ? mr.earnings : (mp?.actualEarnings ?? monthStatsMap.get(m.key)?.earnings ?? 0);
               }), 1);
               const barHeight = maxEarnings > 0 ? Math.max(2, (displayEarnings / maxEarnings) * 24) : 2;
+              const monthProgress = (() => {
+                if (!ym.isCurrent && !ym.isPast) return -1;
+                const now = new Date();
+                const daysInMonth = new Date(ym.year, ym.month + 1, 0).getDate();
+                const currentDay = now.getDate();
+                return ym.isCurrent ? Math.min(100, (currentDay / daysInMonth) * 100) : 100;
+              })();
 
               return (
-                <button
+                <motion.button
                   key={ym.key}
+                  layout
                   draggable={hasPlan}
                   onDragStart={(e) => {
                     if (plan) {
@@ -758,12 +767,17 @@ const simulationStats = useMemo(() => {
                     }
                     dragSourceRef.current = null;
                   }}
+                  onMouseEnter={() => setTooltipMonth(ym.key)}
+                  onMouseLeave={() => setTooltipMonth(null)}
                   onClick={() => {
                     if (isExpanded) { collapseMonth(); }
                     else { setExpandedMonth(ym.key); if (plan) { setExpandedState('view'); setEditPlan(null); } else { setExpandedState('create'); setEditPlan(null); } }
                   }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                   className={cn(
-                    "flex flex-col items-center px-3 py-2.5 rounded-xl border-2 min-w-[80px] transition-all shrink-0",
+                    "flex flex-col items-center px-3 py-2.5 rounded-xl border-2 min-w-[80px] shrink-0 cursor-pointer",
                     isExpanded
                       ? "border-brand-500 bg-brand-50 dark:bg-brand-950/20 shadow-lg shadow-brand-100 dark:shadow-none"
                       : hasPlan
@@ -801,11 +815,71 @@ const simulationStats = useMemo(() => {
                       );
                     })}
                   </div>
-                </button>
+                  {monthProgress >= 0 && (
+                    <div className="w-full mt-1 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all", monthProgress >= 100 ? "bg-slate-400" : "bg-brand-500")}
+                        style={{ width: `${monthProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </motion.button>
               );
             })}
           </div>
         </div>
+
+        {/* Tooltip rico */}
+        <AnimatePresence>
+          {tooltipMonth && (() => {
+            const ym = yearMonths.find(m => m.key === tooltipMonth);
+            if (!ym) return null;
+            const plan = plans.find(p => p.month === ym.key);
+            const stats = monthStatsMap.get(ym.key);
+            const realData = realDataMap.get(ym.key) || null;
+            const displayEarnings = realData?.hasData ? realData.earnings : (plan?.actualEarnings ?? stats?.earnings ?? 0);
+            const displayFuel = realData?.hasData ? realData.fuelCost : (plan?.actualFuelCost ?? stats?.fuelCost ?? 0);
+            const displayMaint = realData?.hasData ? realData.maintCost : (plan?.actualMaintCost ?? stats?.maintCost ?? 0);
+            const displayFixed = stats?.fixedCosts ?? 0;
+            const displayOther = realData?.hasData ? realData.otherCost : (plan?.actualOtherCost ?? 0);
+            const displayProfit = displayEarnings - displayFuel - displayMaint - displayFixed - displayOther;
+            const feriasCount = plan?.vacations?.filter(v => v.type === 'ferias').length || 0;
+            const folgaCount = plan?.vacations?.filter(v => v.type === 'folga').length || 0;
+
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.15 }}
+                className="mb-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs"
+              >
+                <div>
+                  <p className="text-slate-400 font-bold uppercase mb-1">{ym.fullLabel}</p>
+                  <p className="text-slate-500">{stats?.daysInMonth ?? 0}d no mês &middot; {stats?.workDays ?? 0}d trab &middot; {(stats?.totalHours ?? 0).toFixed(0)}h</p>
+                </div>
+                <div>
+                  <p className="text-emerald-600 font-bold uppercase mb-1">Ganhos</p>
+                  <p className="text-sm font-bold dark:text-white">R$ {displayEarnings.toFixed(0)}</p>
+                </div>
+                <div>
+                  <p className="text-rose-600 font-bold uppercase mb-1">Gastos</p>
+                  <p className="text-sm font-bold dark:text-white">R$ {(displayFuel + displayMaint + displayFixed + displayOther).toFixed(0)}</p>
+                </div>
+                <div>
+                  <p className={cn("font-bold uppercase mb-1", displayProfit >= 0 ? "text-blue-600" : "text-rose-600")}>Lucro</p>
+                  <p className={cn("text-sm font-bold", displayProfit >= 0 ? "text-blue-700 dark:text-blue-400" : "text-rose-600")}>R$ {displayProfit.toFixed(0)}</p>
+                </div>
+                {(feriasCount > 0 || folgaCount > 0) && (
+                  <div className="sm:col-span-4 flex gap-3">
+                    {feriasCount > 0 && <span className="text-orange-600"><strong>{feriasCount}d</strong> de férias</span>}
+                    {folgaCount > 0 && <span className="text-amber-600"><strong>{folgaCount}d</strong> de folga</span>}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>
 
         {/* Expanded month view */}
         <AnimatePresence mode="wait">
@@ -1009,6 +1083,8 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 px-1 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/30"><CheckCircle2 size={10} /> Trabalho</span>
             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={10} /> Folga</span>
             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={10} /> Férias</span>
+            <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-500 opacity-40" /> Menos horas</span>
+            <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-700" /> Mais horas</span>
           </div>
           <div className="grid grid-cols-7 gap-1">
             {WEEKDAY_NAMES.map((dn, i) => (
@@ -1022,9 +1098,22 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
               const dayName = WEEKDAY_NAMES[dayOfWeek];
               const schedDay = (plan.days || []).find(sd => sd.day === dayName);
               const isWork = schedDay?.active && !vType;
+              const dayHours = isWork ? (schedDay?.periods || []).reduce((acc, p) => {
+                if (!p.start || !p.end) return acc;
+                const [sH, sM] = p.start.split(':').map(Number);
+                const [eH, eM] = p.end.split(':').map(Number);
+                if (isNaN(sH)) return acc;
+                let diff = (eH * 60 + eM) - (sH * 60 + sM);
+                if (diff < 0) diff += 24 * 60;
+                return acc + diff / 60;
+              }, 0) : 0;
+              const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
               return (
-                <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" : "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>
-                  <span className="text-xs font-bold">{day}{vType === 'folga' ? ' F' : vType === 'ferias' ? ' Fe' : ''}</span>
+                <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors text-[11px]", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "border-emerald-200 dark:border-emerald-800" : "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}
+                  style={isWork ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
+                >
+                  <span className="font-bold">{day}</span>
+                  {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
                 </div>
               );
             })}
@@ -1045,14 +1134,38 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
         </div>
 
         {isPast && realData?.hasData && (
-          <div className="border-t border-slate-200 dark:border-slate-700 pt-2 space-y-1.5">
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-2 space-y-2">
             <p className="text-sm font-bold text-slate-500 uppercase">Dados Reais vs Planejado</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
-              <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700"><span className="text-slate-400 block">Ganhos</span><p className="font-bold dark:text-white">R$ {realData.earnings.toFixed(0)}</p><p className="text-xs text-slate-400">Plano: R$ {monthProjection.earnings.toFixed(0)}</p></div>
-              <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700"><span className="text-slate-400 block">Comb.</span><p className="font-bold dark:text-white">R$ {realData.fuelCost.toFixed(0)}</p><p className="text-xs text-slate-400">Plano: R$ {monthProjection.fuelCost.toFixed(0)}</p></div>
-              <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700"><span className="text-slate-400 block">Manut.</span><p className="font-bold dark:text-white">R$ {realData.maintCost.toFixed(0)}</p><p className="text-xs text-slate-400">Plano: R$ {monthProjection.maintCost.toFixed(0)}</p></div>
-              <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700"><span className="text-slate-400 block">Lucro</span><p className={cn("font-bold", realData.netProfit >= 0 ? "text-brand-600" : "text-rose-600")}>R$ {realData.netProfit.toFixed(0)}</p><p className="text-xs text-slate-400">Plano: R$ {monthProjection.netProfit.toFixed(0)}</p></div>
-            </div>
+            {[
+              { label: 'Ganhos', real: realData.earnings, plan: monthProjection.earnings, color: 'emerald' },
+              { label: 'Combustível', real: realData.fuelCost, plan: monthProjection.fuelCost, color: 'orange' },
+              { label: 'Manutenção', real: realData.maintCost, plan: monthProjection.maintCost, color: 'purple' },
+              { label: 'Lucro', real: realData.netProfit, plan: monthProjection.netProfit, color: 'blue' },
+            ].map(item => {
+              const maxVal = Math.max(Math.abs(item.real), Math.abs(item.plan), 1);
+              return (
+                <div key={item.label} className="space-y-0.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">{item.label}</span>
+                    <span className={cn("font-bold", item.real >= item.plan ? "text-emerald-600" : "text-rose-600")}>
+                      {((item.real - item.plan) >= 0 ? '+' : '')}{(item.real - item.plan).toFixed(0)}
+                    </span>
+                  </div>
+                  <div className="relative h-5 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="h-full bg-slate-200 dark:bg-slate-700 rounded-lg" style={{ width: `${(Math.abs(item.plan) / maxVal) * 100}%`, marginLeft: item.plan < 0 ? 'auto' : 0 }} />
+                    </div>
+                    <div className="absolute inset-0 flex items-center">
+                      <div className={cn("h-full rounded-lg opacity-80", item.real >= item.plan ? "bg-emerald-500" : "bg-rose-500")} style={{ width: `${(Math.abs(item.real) / maxVal) * 100}%` }} />
+                    </div>
+                    <div className="absolute inset-x-0 top-0 flex items-center justify-between px-2 text-xs font-bold text-slate-900 dark:text-white leading-5">
+                      <span>R$ {item.real.toFixed(0)}</span>
+                      <span className="text-slate-400">Plano: R$ {item.plan.toFixed(0)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -1114,9 +1227,38 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
             <p className={cn("text-sm font-bold", monthProjection.netProfit >= 0 ? "text-blue-700 dark:text-blue-400" : "text-rose-700 dark:text-rose-400")}>R$ {monthProjection.netProfit.toFixed(0)}</p>
           </div>
         </div>
-      </div>
+        </div>
 
-      {plan.notes && (
+        {monthProjection.fuelCost > 0 || monthProjection.maintCost > 0 || monthProjection.fixedCosts > 0 ? (
+          <div className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="w-20 h-20 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={[
+                    { name: 'Combustível', value: Math.round(monthProjection.fuelCost) },
+                    { name: 'Manutenção', value: Math.round(monthProjection.maintCost) },
+                    { name: 'Custos Fixos', value: Math.round(monthProjection.fixedCosts) },
+                  ].filter(d => d.value > 0)} cx="50%" cy="50%" innerRadius={22} outerRadius={36} paddingAngle={2} dataKey="value">
+                    {[
+                      { name: 'Combustível', color: '#f97316' },
+                      { name: 'Manutenção', color: '#a855f7' },
+                      { name: 'Custos Fixos', color: '#64748b' },
+                    ].filter((_, i) => [monthProjection.fuelCost, monthProjection.maintCost, monthProjection.fixedCosts][i] > 0).map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 space-y-1">
+              {monthProjection.fuelCost > 0 && <div className="flex items-center justify-between text-xs"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500" /><span className="text-slate-500">Combustível</span></div><span className="font-bold dark:text-white">R$ {monthProjection.fuelCost.toFixed(0)}</span></div>}
+              {monthProjection.maintCost > 0 && <div className="flex items-center justify-between text-xs"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500" /><span className="text-slate-500">Manutenção</span></div><span className="font-bold dark:text-white">R$ {monthProjection.maintCost.toFixed(0)}</span></div>}
+              {monthProjection.fixedCosts > 0 && <div className="flex items-center justify-between text-xs"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-500" /><span className="text-slate-500">Custos Fixos</span></div><span className="font-bold dark:text-white">R$ {monthProjection.fixedCosts.toFixed(0)}</span></div>}
+            </div>
+          </div>
+        ) : null}
+
+        {plan.notes && (
         <div>
           <label className="text-xs font-bold text-slate-500 uppercase block mb-0.5">Observações</label>
           <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap">{plan.notes}</p>
@@ -1382,6 +1524,8 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                   <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 px-1 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/30"><CheckCircle2 size={10} /> Trabalho</span>
                   <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={10} /> Folga</span>
                   <span className="inline-flex items-center gap-0.5 text-xs font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded border border-orange-200 dark:border-orange-900/30"><Palmtree size={10} /> Férias</span>
+                  <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-500 opacity-40" /> Menos horas</span>
+                  <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-700" /> Mais horas</span>
                 </div>
                 <div className="grid grid-cols-7 gap-1 select-none touch-none">
                   {WEEKDAY_NAMES.map((dn, i) => (
@@ -1395,6 +1539,16 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                     const dayName = WEEKDAY_NAMES[dayOfWeek];
                     const schedDay = (localPlan.days || []).find(sd => sd.day === dayName);
                     const isWork = schedDay?.active && !vType;
+                    const dayHours = isWork ? (schedDay?.periods || []).reduce((acc, p) => {
+                      if (!p.start || !p.end) return acc;
+                      const [sH, sM] = p.start.split(':').map(Number);
+                      const [eH, eM] = p.end.split(':').map(Number);
+                      if (isNaN(sH)) return acc;
+                      let diff = (eH * 60 + eM) - (sH * 60 + sM);
+                      if (diff < 0) diff += 24 * 60;
+                      return acc + diff / 60;
+                    }, 0) : 0;
+                    const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
                     return (
                       <button
                         key={day}
@@ -1405,11 +1559,13 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                           "aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors min-h-[36px]",
                           vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
                           vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
-                          isWork ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" :
+                          isWork ? "border-emerald-200 dark:border-emerald-800" :
                           "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
                         )}
+                        style={isWork && !vType ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
                       >
-                        <span className="text-xs font-bold">{day}{vType === 'folga' ? ' F' : vType === 'ferias' ? ' Fe' : ''}</span>
+                        <span className="text-xs font-bold">{day}</span>
+                        {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
                       </button>
                     );
                   })}
