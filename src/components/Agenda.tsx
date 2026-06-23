@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3 } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3, Target } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, isAfter, getDay, startOfWeek, addDays } from 'date-fns';
-import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry } from '../types';
+import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, getDay, startOfWeek } from 'date-fns';
+import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry, Goal, ManualCompensation } from '../types';
 import { cn } from '../lib/utils';
 import { calculateHistoricalAverage } from '../lib/fuelCalculation';
+import Goals from './Goals';
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'] as const;
 const FULL_MONTH_LABELS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'] as const;
@@ -124,11 +125,18 @@ interface AgendaProps {
   onUpdatePlan?: (plan: MonthlyPlan) => void;
   onDeletePlan?: (id: string) => void;
   onBulkDeletePlans?: (ids: string[]) => void;
+  goals?: Goal[];
+  onAddGoal?: (goal: Goal) => void;
+  onDeleteGoal?: (id: string) => void;
+  onUpdateGoal?: (goal: Goal) => void;
+  manualCompensations?: ManualCompensation[];
+  onAddManualCompensation?: (comp: ManualCompensation) => void;
+  onRemoveManualCompensation?: (id: string) => void;
 }
 
 type ExpandedState = 'collapsed' | 'view' | 'edit' | 'create';
 
-export default function Agenda({ rides, expenses, profile, onUpdateProfile, sidebarCollapsed, plans: rawPlans, onAddPlan, onUpdatePlan, onDeletePlan, onBulkDeletePlans }: AgendaProps) {
+export default function Agenda({ rides, expenses, profile, onUpdateProfile, sidebarCollapsed, plans: rawPlans, onAddPlan, onUpdatePlan, onDeletePlan, onBulkDeletePlans, goals, onAddGoal, onDeleteGoal, onUpdateGoal, manualCompensations, onAddManualCompensation, onRemoveManualCompensation }: AgendaProps) {
   const plans = Array.isArray(rawPlans) ? rawPlans : [];
   const [simulation, setSimulation] = useState({
     avgPerHour: profile?.hourlyRate || 0,
@@ -143,6 +151,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
   const [showMedias, setShowMedias] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
   const dragSourceRef = React.useRef<{ key: string; label: string } | null>(null);
   const [tooltipMonth, setTooltipMonth] = React.useState<string | null>(null);
 
@@ -1004,6 +1013,33 @@ const simulationStats = useMemo(() => {
           )}
         </div>
       </div>
+
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <button onClick={() => setGoalsOpen(!goalsOpen)} className="w-full flex items-center justify-between">
+          <h3 className="text-base font-bold dark:text-white flex items-center gap-2"><Target size={18} className="text-brand-600" /> Metas e Objetivos</h3>
+          {goalsOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+        </button>
+        <AnimatePresence>
+          {goalsOpen && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+              <div className="pt-4">
+                <Goals
+                  goals={goals || []}
+                  rides={rides}
+                  expenses={expenses}
+                  profile={profile}
+                  onAddGoal={(goal) => onAddGoal?.(goal)}
+                  onDeleteGoal={(id) => onDeleteGoal?.(id)}
+                  onUpdateGoal={(goal) => onUpdateGoal?.(goal)}
+                  manualCompensations={manualCompensations}
+                  onAddManualCompensation={(comp) => onAddManualCompensation?.(comp)}
+                  onRemoveManualCompensation={(id) => onRemoveManualCompensation?.(id)}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
@@ -1086,45 +1122,58 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-500 opacity-40" /> Menos horas</span>
             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-700" /> Mais horas</span>
           </div>
-          <div className="grid grid-cols-7 gap-1">
-            {WEEKDAY_NAMES.map((dn, i) => (
-              <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
-            ))}
-            {calendarDays.map((day, i) => {
-              if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
-              const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
-              const vType = getVacationType(vacMap, dateStr);
-              const dayOfWeek = new Date(yr, mo - 1, day).getDay();
-              const dayName = WEEKDAY_NAMES[dayOfWeek];
-              const schedDay = (plan.days || []).find(sd => sd.day === dayName);
-              const isWork = schedDay?.active && !vType;
-              const dayHours = isWork ? (schedDay?.periods || []).reduce((acc, p) => {
-                if (!p.start || !p.end) return acc;
-                const [sH, sM] = p.start.split(':').map(Number);
-                const [eH, eM] = p.end.split(':').map(Number);
-                if (isNaN(sH)) return acc;
-                let diff = (eH * 60 + eM) - (sH * 60 + sM);
-                if (diff < 0) diff += 24 * 60;
-                return acc + diff / 60;
-              }, 0) : 0;
-              const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
-              return (
-                <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors text-[11px]", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "border-emerald-200 dark:border-emerald-800" : "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}
-                  style={isWork ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
-                >
-                  <span className="font-bold">{day}</span>
-                  {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
-                </div>
-              );
-            })}
+          <div className="flex gap-3 items-start">
+            <div className="flex-1 min-w-0">
+              <div className="grid grid-cols-7 gap-1">
+                {WEEKDAY_NAMES.map((dn, i) => (
+                  <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
+                ))}
+                {calendarDays.map((day, i) => {
+                  if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
+                  const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
+                  const vType = getVacationType(vacMap, dateStr);
+                  const dayOfWeek = new Date(yr, mo - 1, day).getDay();
+                  const dayName = WEEKDAY_NAMES[dayOfWeek];
+                  const schedDay = (plan.days || []).find(sd => sd.day === dayName);
+                  const isWork = schedDay?.active && !vType;
+                  const dayHours = isWork ? (schedDay?.periods || []).reduce((acc, p) => {
+                    if (!p.start || !p.end) return acc;
+                    const [sH, sM] = p.start.split(':').map(Number);
+                    const [eH, eM] = p.end.split(':').map(Number);
+                    if (isNaN(sH)) return acc;
+                    let diff = (eH * 60 + eM) - (sH * 60 + sM);
+                    if (diff < 0) diff += 24 * 60;
+                    return acc + diff / 60;
+                  }, 0) : 0;
+                  const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
+                  return (
+                    <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors text-[11px]", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "border-emerald-200 dark:border-emerald-800" : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400")}
+                      style={isWork ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
+                    >
+                      <span className="font-bold">{day}</span>
+                      {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-2 pt-8 w-10 shrink-0">
+              <div className="text-center">
+                <div className="text-lg font-bold dark:text-white">{monthProjection.workDays}</div>
+                <div className="text-[9px] text-slate-400 font-medium leading-tight">dias</div>
+                <div className="text-[9px] text-slate-400 font-medium leading-tight">trab.</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-amber-600">{monthProjection.folgaCount}</div>
+                <div className="text-[9px] text-slate-400 font-medium leading-tight">folgas</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-orange-600">{monthProjection.feriasCount}</div>
+                <div className="text-[9px] text-slate-400 font-medium leading-tight">férias</div>
+              </div>
+            </div>
           </div>
         </div>
-        {monthProjection.feriasCount > 0 || monthProjection.folgaCount > 0 ? (
-          <div className="flex gap-2">
-            {monthProjection.feriasCount > 0 && <span className="text-xs font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded">{monthProjection.feriasCount}d férias</span>}
-            {monthProjection.folgaCount > 0 && <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded">{monthProjection.folgaCount}d folga</span>}
-          </div>
-        ) : null}
       </div>
 
       <div>
@@ -1284,8 +1333,6 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
   const [copiedPlanPeriods, setCopiedPlanPeriods] = useState<WorkPeriod[] | null>(null);
   const [showMedias, setShowMedias] = useState(false);
   const [openSections, setOpenSections] = useState({ schedule: true, calendar: true, financial: true, notes: false });
-  const [vacationStart, setVacationStart] = useState('');
-  const [vacationEnd, setVacationEnd] = useState('');
   const [dragState, setDragState] = useState<{ active: boolean; type: 'folga' | 'ferias'; dates: Set<string> } | null>(null);
 
   const defaultHourlyRate = profile?.hourlyRate || averages.perHour || 0;
@@ -1354,22 +1401,6 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
     }
     setLocalPlan(prev => ({ ...prev, vacations: newVacations }));
   }, [yr, mo, daysInMonth, localPlan.vacations]);
-
-  const setVacationPeriod = useCallback((startDate: string, endDate: string) => {
-    if (!startDate || !endDate) return;
-    const start = parseISO(startDate);
-    const end = parseISO(endDate);
-    if (isAfter(start, end)) return;
-    const newVacations: VacationEntry[] = [];
-    let current = start;
-    while (!isAfter(current, end)) {
-      const dateStr = format(current, 'yyyy-MM-dd');
-      const existing = (localPlan.vacations || []).find(v => v.date === dateStr);
-      if (!existing) newVacations.push({ date: dateStr, type: 'ferias' });
-      current = addDays(current, 1);
-    }
-    setLocalPlan(prev => ({ ...prev, vacations: [...(prev.vacations || []), ...newVacations] }));
-  }, [localPlan.vacations]);
 
   const clearAllVacations = useCallback(() => {
     setLocalPlan(prev => ({ ...prev, vacations: [] }));
@@ -1514,12 +1545,7 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                   <button onClick={setMonthAsFerias} className="flex items-center gap-1 px-2 py-1.5 min-h-[36px] text-xs font-bold text-orange-700 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-900/30 hover:bg-orange-100 transition-colors"><Palmtree size={12} /> Mês todo férias</button>
                   <button onClick={clearAllVacations} className="flex items-center gap-1 px-2 py-1.5 min-h-[36px] text-xs font-bold text-slate-600 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition-colors"><X size={12} /> Limpar</button>
                 </div>
-                <div className="flex gap-1.5 mb-2 items-center flex-wrap">
-                  <input type="date" value={vacationStart} onChange={e => setVacationStart(e.target.value)} min={`${yr}-${String(mo).padStart(2, '0')}-01`} max={`${yr}-${String(mo).padStart(2, '0')}-${daysInMonth}`} className="text-xs px-2 py-1.5 min-h-[36px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                  <span className="text-xs text-slate-400">até</span>
-                  <input type="date" value={vacationEnd} onChange={e => setVacationEnd(e.target.value)} min={`${yr}-${String(mo).padStart(2, '0')}-01`} max={`${yr}-${String(mo).padStart(2, '0')}-${daysInMonth}`} className="text-xs px-2 py-1.5 min-h-[36px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white outline-none focus:ring-1 focus:ring-brand-500" />
-                  <button onClick={() => { setVacationPeriod(vacationStart, vacationEnd); setVacationStart(''); setVacationEnd(''); }} disabled={!vacationStart || !vacationEnd} className="px-2 py-1.5 min-h-[36px] text-xs font-bold bg-brand-600 text-white rounded-lg disabled:opacity-40 hover:bg-brand-700 transition-colors">Aplicar</button>
-                </div>
+
                 <div className="flex gap-1.5 mb-1 flex-wrap">
                   <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 px-1 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/30"><CheckCircle2 size={10} /> Trabalho</span>
                   <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200 dark:border-amber-900/30"><Sun size={10} /> Folga</span>
@@ -1527,48 +1553,67 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                   <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-500 opacity-40" /> Menos horas</span>
                   <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700"><span className="w-2 h-2 rounded-sm bg-emerald-700" /> Mais horas</span>
                 </div>
-                <div className="grid grid-cols-7 gap-1 select-none touch-none">
-                  {WEEKDAY_NAMES.map((dn, i) => (
-                    <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
-                  ))}
-                  {calendarDays.map((day, i) => {
-                    if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
-                    const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
-                    const vType = getVacationType(vacMap, dateStr);
-                    const dayOfWeek = new Date(yr, mo - 1, day).getDay();
-                    const dayName = WEEKDAY_NAMES[dayOfWeek];
-                    const schedDay = (localPlan.days || []).find(sd => sd.day === dayName);
-                    const isWork = schedDay?.active && !vType;
-                    const dayHours = isWork ? (schedDay?.periods || []).reduce((acc, p) => {
-                      if (!p.start || !p.end) return acc;
-                      const [sH, sM] = p.start.split(':').map(Number);
-                      const [eH, eM] = p.end.split(':').map(Number);
-                      if (isNaN(sH)) return acc;
-                      let diff = (eH * 60 + eM) - (sH * 60 + sM);
-                      if (diff < 0) diff += 24 * 60;
-                      return acc + diff / 60;
-                    }, 0) : 0;
-                    const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
-                    return (
-                      <button
-                        key={day}
-                        onPointerDown={(e) => handleCalendarPointerDown(dateStr, e)}
-                        onPointerMove={() => handleCalendarPointerMove(dateStr)}
-                        onPointerUp={handleCalendarPointerUp}
-                        className={cn(
-                          "aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors min-h-[36px]",
-                          vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
-                          vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
-                          isWork ? "border-emerald-200 dark:border-emerald-800" :
-                          "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
-                        )}
-                        style={isWork && !vType ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
-                      >
-                        <span className="text-xs font-bold">{day}</span>
-                        {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
-                      </button>
-                    );
-                  })}
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1 min-w-0">
+                    <div className="grid grid-cols-7 gap-1 select-none touch-none">
+                      {WEEKDAY_NAMES.map((dn, i) => (
+                        <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
+                      ))}
+                      {calendarDays.map((day, i) => {
+                        if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
+                        const dateStr = format(new Date(yr, mo - 1, day), 'yyyy-MM-dd');
+                        const vType = getVacationType(vacMap, dateStr);
+                        const dayOfWeek = new Date(yr, mo - 1, day).getDay();
+                        const dayName = WEEKDAY_NAMES[dayOfWeek];
+                        const schedDay = (localPlan.days || []).find(sd => sd.day === dayName);
+                        const isWork = schedDay?.active && !vType;
+                        const dayHours = isWork ? (schedDay?.periods || []).reduce((acc, p) => {
+                          if (!p.start || !p.end) return acc;
+                          const [sH, sM] = p.start.split(':').map(Number);
+                          const [eH, eM] = p.end.split(':').map(Number);
+                          if (isNaN(sH)) return acc;
+                          let diff = (eH * 60 + eM) - (sH * 60 + sM);
+                          if (diff < 0) diff += 24 * 60;
+                          return acc + diff / 60;
+                        }, 0) : 0;
+                        const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
+                        return (
+                          <button
+                            key={day}
+                            onPointerDown={(e) => handleCalendarPointerDown(dateStr, e)}
+                            onPointerMove={() => handleCalendarPointerMove(dateStr)}
+                            onPointerUp={handleCalendarPointerUp}
+                            className={cn(
+                              "aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors min-h-[36px]",
+                              vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
+                              vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
+                              isWork ? "border-emerald-200 dark:border-emerald-800" :
+                              "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                            )}
+                            style={isWork && !vType ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
+                          >
+                            <span className="text-xs font-bold">{day}</span>
+                            {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-2 pt-8 w-10 shrink-0">
+                    <div className="text-center">
+                      <div className="text-lg font-bold dark:text-white">{monthProjection.workDays}</div>
+                      <div className="text-[9px] text-slate-400 font-medium leading-tight">dias</div>
+                      <div className="text-[9px] text-slate-400 font-medium leading-tight">trab.</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-amber-600">{monthProjection.folgaCount}</div>
+                      <div className="text-[9px] text-slate-400 font-medium leading-tight">folgas</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-orange-600">{monthProjection.feriasCount}</div>
+                      <div className="text-[9px] text-slate-400 font-medium leading-tight">férias</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -1628,7 +1673,7 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase block mb-0.5">Combustível (R$/mês)</label>
-                    <input type="number" step="any" min="0" value={localPlan.customFuelCost ?? ''} onChange={e => { const v = e.target.value === '' ? undefined : parseFloat(e.target.value); setLocalPlan({ ...localPlan, customFuelCost: isNaN(v!) ? undefined : v }); }} placeholder={(monthProjection.workDays * userAverages.fuelPerDay).toFixed(0)} className="w-full px-2 py-1.5 min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-sm font-bold focus:ring-1 focus:ring-brand-500" />
+                    <input type="text" inputMode="decimal" value={localPlan.customFuelCost ?? ''} onChange={e => { const raw = e.target.value.replace(',', '.'); const v = raw === '' ? undefined : parseFloat(raw); setLocalPlan({ ...localPlan, customFuelCost: isNaN(v!) ? undefined : v }); }} placeholder={(monthProjection.workDays * userAverages.fuelPerDay).toFixed(0)} className="w-full px-2 py-1.5 min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white text-sm font-bold focus:ring-1 focus:ring-brand-500" />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase block mb-0.5">Manutenção (R$/mês)</label>

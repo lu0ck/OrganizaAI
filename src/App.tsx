@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bike, Car, Download, AlertCircle, X as CloseIcon,
-  LayoutDashboard, PlusCircle, Receipt, Target, Calendar, FileText, User
+  LayoutDashboard, PlusCircle, Receipt, Calendar, FileText, User
 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSidebar } from './hooks/useSidebar';
@@ -16,7 +16,6 @@ import { cn } from './lib/utils';
 import Dashboard from './components/Dashboard';
 import EntryForm from './components/EntryForm';
 import ExpensesForm from './components/ExpensesForm';
-import Goals from './components/Goals';
 import MotorcycleTab from './components/VehicleTab';
 import Agenda from './components/Agenda';
 import ProfileSetup from './components/ProfileSetup';
@@ -32,7 +31,6 @@ const mobileNavItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'rides', label: '', icon: PlusCircle },
   { id: 'expenses', label: '', icon: Receipt },
-  { id: 'goals', label: '', icon: Target },
   { id: 'motorcycle', label: '', icon: Bike },
   { id: 'agenda', label: '', icon: Calendar },
   { id: 'reports', label: '', icon: FileText },
@@ -55,7 +53,7 @@ const initialState: AppState = {
     { id: 'nav_dashboard', key: 'D', description: 'Ir para Dashboard', enabled: true },
     { id: 'nav_rides', key: 'N', description: 'Nova corrida', enabled: true },
     { id: 'nav_expenses', key: 'E', description: 'Ir para Despesas', enabled: true },
-    { id: 'nav_goals', key: 'G', description: 'Ir para Metas', enabled: true },
+    { id: 'nav_goals', key: 'G', description: 'Ir para Metas (Agenda)', enabled: true },
     { id: 'nav_motorcycle', key: 'M', description: 'Ir para Manutenção', enabled: true },
     { id: 'nav_agenda', key: 'A', description: 'Ir para Agenda', enabled: true },
     { id: 'nav_reports', key: 'R', description: 'Ir para Relatórios', enabled: true },
@@ -320,7 +318,7 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
       dashboard: () => setActiveTab('dashboard'),
       rides: () => setActiveTab('rides'),
       expenses: () => setActiveTab('expenses'),
-      goals: () => setActiveTab('goals'),
+      goals: () => setActiveTab('agenda'),
       motorcycle: () => setActiveTab('motorcycle'),
       agenda: () => setActiveTab('agenda'),
       reports: () => setActiveTab('reports'),
@@ -511,20 +509,6 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
           avgPerKm={avgPerKm}
         />
       )}
-      {activeTab === 'goals' && (
-        <Goals
-          goals={safeState.goals}
-          rides={safeState.rides}
-          expenses={safeState.expenses}
-          profile={safeState.profile}
-          onAddGoal={(goal) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? [goal, ...prev.goals] : [goal] }))}
-          onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? prev.goals.filter(g => g.id !== id) : [] }))}
-          onUpdateGoal={(goal) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? prev.goals.map(g => g.id === goal.id ? goal : g) : [goal] }))}
-          manualCompensations={safeState.manualCompensations}
-          onAddManualCompensation={(comp) => setState(prev => ({ ...prev, manualCompensations: Array.isArray(prev.manualCompensations) ? [comp, ...prev.manualCompensations] : [comp] }))}
-          onRemoveManualCompensation={(id) => setState(prev => ({ ...prev, manualCompensations: Array.isArray(prev.manualCompensations) ? prev.manualCompensations.filter(c => c.id !== id) : [] }))}
-        />
-      )}
       {activeTab === 'motorcycle' && (
         <MotorcycleTab
           rides={safeState.rides}
@@ -547,7 +531,14 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
           onAddPlan={(plan) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? [...prev.plans, plan] : [plan] }))}
           onUpdatePlan={(plan) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.map(p => p.id === plan.id ? plan : p) : [plan] }))}
           onDeletePlan={(id) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.filter(p => p.id !== id) : [] }))}
-onBulkDeletePlans={(ids) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.filter(p => !ids.includes(p.id)) : [] }))}
+          onBulkDeletePlans={(ids) => setState(prev => ({ ...prev, plans: Array.isArray(prev.plans) ? prev.plans.filter(p => !ids.includes(p.id)) : [] }))}
+          goals={safeState.goals}
+          onAddGoal={(goal) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? [goal, ...prev.goals] : [goal] }))}
+          onDeleteGoal={(id) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? prev.goals.filter(g => g.id !== id) : [] }))}
+          onUpdateGoal={(goal) => setState(prev => ({ ...prev, goals: Array.isArray(prev.goals) ? prev.goals.map(g => g.id === goal.id ? goal : g) : [goal] }))}
+          manualCompensations={safeState.manualCompensations}
+          onAddManualCompensation={(comp) => setState(prev => ({ ...prev, manualCompensations: Array.isArray(prev.manualCompensations) ? [comp, ...prev.manualCompensations] : [comp] }))}
+          onRemoveManualCompensation={(id) => setState(prev => ({ ...prev, manualCompensations: Array.isArray(prev.manualCompensations) ? prev.manualCompensations.filter(c => c.id !== id) : [] }))}
         />
       )}
       {activeTab === 'reports' && (
