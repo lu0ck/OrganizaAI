@@ -135,6 +135,16 @@ export interface MonthlyPlan {
   actualOtherCost?: number;
 }
 
+export interface ShortcutBinding {
+  id: string;
+  key: string;
+  ctrl?: boolean;
+  alt?: boolean;
+  shift?: boolean;
+  description: string;
+  enabled: boolean;
+}
+
 export interface AppState {
   profile: UserProfile | null;
   rides: RideEntry[];
@@ -146,4 +156,5 @@ export interface AppState {
   customApps: string[];
   theme: 'light' | 'dark';
   colorTheme: ColorTheme;
+  shortcuts: ShortcutBinding[];
 }

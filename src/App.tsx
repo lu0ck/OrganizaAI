@@ -7,8 +7,9 @@ import {
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSidebar } from './hooks/useSidebar';
 import { useToast } from './hooks/useToast';
+import { useKeyboardShortcuts, ShortcutConfig } from './hooks/useKeyboardShortcuts';
 import { recalculateFuelExpensesChain, calculateGlobalConsumption } from './lib/fuelCalculation';
-import { AppState, ColorTheme, Expense, RideEntry } from './types';
+import { AppState, ColorTheme, Expense, RideEntry, ShortcutBinding } from './types';
 import { format, subDays } from 'date-fns';
 import { cn } from './lib/utils';
 
@@ -25,6 +26,7 @@ import Footer from './components/Footer';
 import Sidebar from './components/Sidebar';
 import ToastContainer from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
+import ShortcutsHelp from './components/ShortcutsHelp';
 
 const mobileNavItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -48,7 +50,21 @@ const initialState: AppState = {
   plans: [],
   customApps: [],
   theme: 'dark',
-  colorTheme: 'red'
+  colorTheme: 'red',
+  shortcuts: [
+    { id: 'nav_dashboard', key: 'D', description: 'Ir para Dashboard', enabled: true },
+    { id: 'nav_rides', key: 'N', description: 'Nova corrida', enabled: true },
+    { id: 'nav_expenses', key: 'E', description: 'Ir para Despesas', enabled: true },
+    { id: 'nav_goals', key: 'G', description: 'Ir para Metas', enabled: true },
+    { id: 'nav_motorcycle', key: 'M', description: 'Ir para Manutenção', enabled: true },
+    { id: 'nav_agenda', key: 'A', description: 'Ir para Agenda', enabled: true },
+    { id: 'nav_reports', key: 'R', description: 'Ir para Relatórios', enabled: true },
+    { id: 'nav_profile', key: 'P', description: 'Ir para Perfil', enabled: true },
+    { id: 'help', key: '?', description: 'Mostrar ajuda de atalhos', enabled: true },
+    { id: 'escape', key: 'Escape', description: 'Fechar / Cancelar', enabled: true },
+    { id: 'save', key: 'S', ctrl: true, description: 'Salvar formulário atual', enabled: true },
+    { id: 'search', key: 'k', ctrl: true, description: 'Busca global', enabled: true },
+  ]
 };
 
 export default function App() {
@@ -65,6 +81,7 @@ export default function App() {
   }), [state]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const { width, collapsed, isResizing, toggle, startResizing, stopResizing, handleResize } = useSidebar();
   const { toasts, showToast, removeToast } = useToast();
 
@@ -298,6 +315,41 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
   return totalKm > 0 ? totalEarnings / totalKm : 0;
   }, [safeState.rides]);
 
+  const shortcutConfigs = useMemo<ShortcutConfig[]>(() => {
+    const navMap: Record<string, () => void> = {
+      dashboard: () => setActiveTab('dashboard'),
+      rides: () => setActiveTab('rides'),
+      expenses: () => setActiveTab('expenses'),
+      goals: () => setActiveTab('goals'),
+      motorcycle: () => setActiveTab('motorcycle'),
+      agenda: () => setActiveTab('agenda'),
+      reports: () => setActiveTab('reports'),
+      profile: () => setActiveTab('profile'),
+    };
+    return (state.shortcuts || []).map(s => {
+      const id = s.id;
+      let handler: () => void = () => {};
+      if (id.startsWith('nav_')) {
+        const tab = id.replace('nav_', '');
+        handler = navMap[tab] || (() => {});
+      } else if (id === 'help') {
+        handler = () => setShowShortcutsHelp(prev => !prev);
+      } else if (id === 'escape') {
+        handler = () => {
+          if (showShortcutsHelp) { setShowShortcutsHelp(false); return; }
+          (document.activeElement as HTMLElement)?.blur();
+        };
+      } else if (id === 'search') {
+        handler = () => {};
+      } else if (id === 'save') {
+        handler = () => {};
+      }
+      return { key: s.key, ctrl: s.ctrl, alt: s.alt, shift: s.shift, handler, enabled: s.enabled };
+    });
+  }, [state.shortcuts, showShortcutsHelp]);
+
+  useKeyboardShortcuts(shortcutConfigs);
+
   useEffect(() => {
     const root = document.documentElement;
     if (state.theme === 'dark') {
@@ -522,6 +574,7 @@ onBulkDeletePlans={(ids) => setState(prev => ({ ...prev, plans: Array.isArray(pr
           customApps: Array.isArray(newState.customApps) ? newState.customApps : prev.customApps,
           theme: newState.theme === 'light' || newState.theme === 'dark' ? newState.theme : prev.theme,
           colorTheme: newState.colorTheme || prev.colorTheme,
+          shortcuts: Array.isArray(newState.shortcuts) ? newState.shortcuts : prev.shortcuts,
         }))}
                 />
               )}
@@ -571,6 +624,20 @@ onBulkDeletePlans={(ids) => setState(prev => ({ ...prev, plans: Array.isArray(pr
           </motion.div>
         )}
       </AnimatePresence>
+
+    <ShortcutsHelp
+      open={showShortcutsHelp}
+      onClose={() => setShowShortcutsHelp(false)}
+      shortcuts={state.shortcuts}
+      onUpdateShortcut={(id, binding) => {
+        setState(prev => ({
+          ...prev,
+          shortcuts: (prev.shortcuts || []).map(s =>
+            s.id === id ? { ...s, ...binding } : s
+          )
+        }));
+      }}
+    />
     </div>
     </ErrorBoundary>
   );
