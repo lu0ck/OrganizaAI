@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, isAfter, getDay, startOfWeek, addDays } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry } from '../types';
 import { cn } from '../lib/utils';
@@ -142,6 +143,7 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
   const [showMedias, setShowMedias] = useState(false);
+  const dragSourceRef = React.useRef<{ key: string; label: string } | null>(null);
 
   React.useEffect(() => {
     if (profile?.workSchedule) {
@@ -450,6 +452,28 @@ const simulationStats = useMemo(() => {
     }, { totalWorkDays: 0, totalHours: 0, earnings: 0, km: 0, fuelCost: 0, maintCost: 0, fixedCosts: 0 });
   }, [yearMonths, realDataMap, monthStatsMap, plans, rides]);
 
+  const accumulatedChartData = useMemo(() => {
+    let accEarnings = 0;
+    let accExpenses = 0;
+    return yearMonths.map(ym => {
+      const realData = realDataMap.get(ym.key);
+      const stats = monthStatsMap.get(ym.key);
+      const plan = plans.find(p => p.month === ym.key);
+      let monthEarnings = 0;
+      let monthExpenses = 0;
+      if (realData?.hasData) {
+        monthEarnings = realData.earnings;
+        monthExpenses = realData.fuelCost + realData.maintCost + (stats?.fixedCosts || 0);
+      } else if (plan && stats) {
+        monthEarnings = stats.earnings;
+        monthExpenses = stats.fuelCost + stats.maintCost + stats.fixedCosts;
+      }
+      accEarnings += monthEarnings;
+      accExpenses += monthExpenses;
+      return { label: ym.label, earnings: Math.round(accEarnings), expenses: Math.round(accExpenses), profit: Math.round(accEarnings - accExpenses) };
+    });
+  }, [yearMonths, realDataMap, monthStatsMap, plans]);
+
   const handleCopyPlan = useCallback((ym: { key: string; label: string }, plan: MonthlyPlan) => {
     setCopiedMonthPlan({
       month: ym.key, monthLabel: ym.label,
@@ -692,10 +716,103 @@ const simulationStats = useMemo(() => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {filteredMonths.map(ym => {
+        {/* Timeline horizontal */}
+        <div className="overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+          <div className="flex gap-2 min-w-max">
+            {filteredMonths.map(ym => {
+              const plan = plans.find(p => p.month === ym.key);
+              const stats = monthStatsMap.get(ym.key);
+              const realData = realDataMap.get(ym.key) || null;
+              const displayEarnings = realData?.hasData ? realData.earnings : (plan?.actualEarnings ?? stats?.earnings ?? 0);
+              const displayFuel = realData?.hasData ? realData.fuelCost : (plan?.actualFuelCost ?? stats?.fuelCost ?? 0);
+              const displayMaint = realData?.hasData ? realData.maintCost : (plan?.actualMaintCost ?? stats?.maintCost ?? 0);
+              const displayFixed = stats?.fixedCosts ?? 0;
+              const displayOther = realData?.hasData ? realData.otherCost : (plan?.actualOtherCost ?? 0);
+              const displayProfit = displayEarnings - displayFuel - displayMaint - displayFixed - displayOther;
+              const isExpanded = expandedMonth === ym.key;
+              const hasPlan = !!plan;
+              const hasRealData = realData?.hasData ?? false;
+              const maxEarnings = Math.max(...filteredMonths.map(m => {
+                const mp = plans.find(p => p.month === m.key);
+                const mr = realDataMap.get(m.key);
+                return mr?.hasData ? mr.earnings : (mp?.actualEarnings ?? monthStatsMap.get(m.key)?.earnings ?? 0);
+              }), 1);
+              const barHeight = maxEarnings > 0 ? Math.max(2, (displayEarnings / maxEarnings) * 24) : 2;
+
+              return (
+                <button
+                  key={ym.key}
+                  draggable={hasPlan}
+                  onDragStart={(e) => {
+                    if (plan) {
+                      dragSourceRef.current = { key: ym.key, label: ym.label };
+                      handleCopyPlan(ym, plan);
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }
+                  }}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragSourceRef.current && dragSourceRef.current.key !== ym.key) {
+                      handlePastePlan(ym.key, ym.label, plan?.id);
+                    }
+                    dragSourceRef.current = null;
+                  }}
+                  onClick={() => {
+                    if (isExpanded) { collapseMonth(); }
+                    else { setExpandedMonth(ym.key); if (plan) { setExpandedState('view'); setEditPlan(null); } else { setExpandedState('create'); setEditPlan(null); } }
+                  }}
+                  className={cn(
+                    "flex flex-col items-center px-3 py-2.5 rounded-xl border-2 min-w-[80px] transition-all shrink-0",
+                    isExpanded
+                      ? "border-brand-500 bg-brand-50 dark:bg-brand-950/20 shadow-lg shadow-brand-100 dark:shadow-none"
+                      : hasPlan
+                        ? "border-brand-200 dark:border-brand-900/30 bg-brand-50/30 dark:bg-brand-950/10 hover:border-brand-300"
+                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+                  )}
+                >
+                  <span className="text-xs font-bold dark:text-white">{ym.label}</span>
+                  <span className={cn("text-xs font-bold mt-0.5", displayProfit >= 0 ? "text-blue-600 dark:text-blue-400" : "text-rose-500")}>
+                    R$ {displayProfit.toFixed(0)}
+                  </span>
+                  <div className="flex items-center gap-1 mt-1">
+                    {hasRealData && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Dados reais" />}
+                    {hasPlan && <span className="w-1.5 h-1.5 rounded-full bg-brand-500" title="Plano criado" />}
+                    {ym.isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Mês atual" />}
+                    {!hasPlan && !hasRealData && !ym.isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />}
+                  </div>
+                  <div className="w-full mt-1.5 flex items-end justify-center gap-[2px]" style={{ height: 24 }}>
+                    {filteredMonths.map((m) => {
+                      const isCurrent = m.key === ym.key;
+                      return (
+                        <div
+                          key={m.key}
+                          className={cn(
+                            "w-[3px] rounded-t transition-all",
+                            isCurrent ? "bg-brand-500" : "bg-slate-200 dark:bg-slate-700"
+                          )}
+                          style={{ height: `${Math.max(2, (() => {
+                            const mp = plans.find(p => p.month === m.key);
+                            const mr = realDataMap.get(m.key);
+                            const e = mr?.hasData ? mr.earnings : (mp?.actualEarnings ?? monthStatsMap.get(m.key)?.earnings ?? 0);
+                            return maxEarnings > 0 ? (e / maxEarnings) * 22 : 2;
+                          })())}px` }}
+                        />
+                      );
+                    })}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Expanded month view */}
+        <AnimatePresence mode="wait">
+          {expandedMonth && (() => {
+            const ym = yearMonths.find(m => m.key === expandedMonth);
+            if (!ym) return null;
             const plan = plans.find(p => p.month === ym.key);
-            const isExpanded = expandedMonth === ym.key;
             const stats = monthStatsMap.get(ym.key);
             const realData = realDataMap.get(ym.key) || null;
             const feriasCount = plan?.vacations?.filter(v => v.type === 'ferias').length || 0;
@@ -708,102 +825,64 @@ const simulationStats = useMemo(() => {
             const displayProfit = displayEarnings - displayFuel - displayMaint - displayFixed - displayOther;
 
             return (
-              <div key={ym.key} className={cn("rounded-xl border transition-colors overflow-hidden", isExpanded ? "col-span-2 sm:col-span-3 md:col-span-4" : "", plan ? "border-brand-200 dark:border-brand-900/30 bg-brand-50/30 dark:bg-brand-950/10" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900")}>
-                <AnimatePresence mode="wait">
-                  {isExpanded ? (
-                    <motion.div key="expanded" className="p-5" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold dark:text-white">{ym.fullLabel} {ym.year}</h4>
-                        <div className="flex items-center gap-2">
-                          {plan && expandedState === 'view' && (
-                            <>
-                              <button onClick={() => handleCopyPlan(ym, plan)} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Copy size={14} /> Copiar plano</button>
-                              {copiedMonthPlan && copiedMonthPlan.month !== ym.key && (
-                                <button onClick={() => handlePastePlan(ym.key, ym.label, plan.id)} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"><ClipboardPaste size={14} /> Colar de {copiedMonthPlan.monthLabel}</button>
-                              )}
-                              <button onClick={() => { setEditPlan({ ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] }); setExpandedState('edit'); }} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Pencil size={14} /> Editar</button>
-                            </>
-                          )}
-                          <button onClick={collapseMonth} className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><X size={16} /></button>
-                        </div>
-                      </div>
-                      <AnimatePresence>
-                        {copyFeedback && copiedMonthPlan && (
-                          <motion.div className="flex flex-wrap items-center gap-2 px-3 py-2 mb-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-lg border border-emerald-100 dark:border-emerald-900/30" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }}>
-                            <span className="flex items-center gap-1.5"><ClipboardCheck size={14} /> Plano de {copyFeedback} copiado</span>
-                            <button onClick={handleApplyToAllFuture} className="px-2 py-1 min-h-[32px] bg-emerald-600 text-white text-xs font-bold rounded hover:bg-emerald-700 transition-colors">Aplicar a todos os meses futuros sem plano</button>
-                            <button onClick={() => setCopyFeedback(null)} className="p-1 text-emerald-400 hover:text-emerald-600"><X size={14} /></button>
-                          </motion.div>
+              <motion.div
+                key={ym.key}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
+                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold dark:text-white">{ym.fullLabel} {ym.year}</h4>
+                    {feriasCount > 0 && <span className="text-xs font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded">{feriasCount}d férias</span>}
+                    {folgaCount > 0 && <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded">{folgaCount}d folga</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {plan && expandedState === 'view' && (
+                      <>
+                        <button onClick={() => handleCopyPlan(ym, plan)} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Copy size={14} /> Copiar</button>
+                        {copiedMonthPlan && copiedMonthPlan.month !== ym.key && (
+                          <button onClick={() => handlePastePlan(ym.key, ym.label, plan.id)} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"><ClipboardPaste size={14} /> Colar de {copiedMonthPlan.monthLabel}</button>
                         )}
-                      </AnimatePresence>
-                      {plan && expandedState === 'view' ? (
-                        <MemoizedPlanView plan={plan} monthKey={ym.key} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} fixedCostArgs={fixedCostArgs} />
-                      ) : editPlan ? (
-                        <MemoizedEditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} copiedMonthPlan={copiedMonthPlan} fixedCostArgs={fixedCostArgs} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } collapseMonth(); }} onCancel={collapseMonth} />
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-slate-500 text-sm mb-4">Nenhum plano criado para {ym.label}.</p>
-                          <div className="flex flex-wrap justify-center gap-2">
-                            <button onClick={() => { const days = profile?.workSchedule ? applyDefaultHours(profile.workSchedule) : getDefaultSchedule(); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days, vacations: [] }); setExpandedState('edit'); }} className="px-4 py-2.5 min-h-[44px] bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-colors">Criar plano do Perfil</button>
-                            <button onClick={() => { setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: getEmptySchedule(), vacations: [] }); setExpandedState('edit'); }} className="px-4 py-2.5 min-h-[44px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">Começar do zero</button>
-                            {copiedMonthPlan && (
-                              <button onClick={() => handlePastePlan(ym.key, ym.label)} className="px-4 py-2.5 min-h-[44px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-sm font-bold rounded-xl hover:bg-emerald-100 transition-colors flex items-center gap-1.5"><ClipboardPaste size={16} /> Colar de {copiedMonthPlan.monthLabel}</button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  ) : (
-                    <motion.div key="collapsed" className="p-4 cursor-pointer hover:shadow-md transition-colors" onClick={() => { setExpandedMonth(ym.key); if (plan) { setExpandedState('view'); setEditPlan(null); } else { setExpandedState('create'); setEditPlan(null); } }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold dark:text-white">{ym.label}</span>
-                          {ym.isCurrent && <span className="text-xs font-bold text-brand-600 bg-brand-50 dark:bg-brand-950/30 px-1.5 py-0.5 rounded">Atual</span>}
-                          {ym.isPast && realData?.hasData && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded">Real</span>}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {plan && (
-                            <button onClick={(e) => { e.stopPropagation(); handleCopyPlan(ym, plan); }} className="flex items-center gap-0.5 px-1.5 py-1 min-h-[28px] text-xs font-bold text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-colors"><Copy size={11} /></button>
-                          )}
-                          {!plan && copiedMonthPlan && (
-                            <button onClick={(e) => { e.stopPropagation(); handlePastePlan(ym.key, ym.label); }} className="flex items-center gap-0.5 px-1.5 py-1 min-h-[28px] text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded hover:bg-emerald-100 transition-colors"><ClipboardPaste size={11} /></button>
-                          )}
-                          {plan && (
-                            <button onClick={(e) => { e.stopPropagation(); setEditPlan({ ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] }); setExpandedState('edit'); setExpandedMonth(ym.key); }} className="flex items-center gap-0.5 px-1.5 py-1 min-h-[28px] text-xs font-bold text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-colors"><Pencil size={11} /></button>
-                          )}
-                          {plan && onDeletePlan && <button onClick={(e) => { e.stopPropagation(); onDeletePlan(plan.id); }} className="p-1 min-w-[28px] min-h-[28px] flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={12} /></button>}
-                        </div>
-                      </div>
-                      {plan || realData?.hasData ? (<> 
-                        <p className="text-xs text-slate-500 mb-2">{stats?.daysInMonth ?? 0}d no mês &middot; {stats?.workDays ?? 0}d trabalho &middot; {(stats?.totalHours ?? 0).toFixed(0)}h</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="text-center p-1.5 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-lg">
-                            <p className="text-xs text-emerald-600 font-bold uppercase">Ganhos</p>
-                            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">R$ {displayEarnings.toFixed(0)}</p>
-                          </div>
-                          <div className="text-center p-1.5 bg-rose-50/50 dark:bg-rose-950/10 rounded-lg">
-                            <p className="text-xs text-rose-600 font-bold uppercase">Gastos</p>
-                            <p className="text-sm font-bold text-rose-700 dark:text-rose-400">R$ {(displayFuel + displayMaint + displayFixed + displayOther).toFixed(0)}</p>
-                          </div>
-                          <div className="text-center p-1.5 bg-blue-50/50 dark:bg-blue-950/10 rounded-lg">
-                            <p className="text-xs text-blue-600 font-bold uppercase">Lucro</p>
-                            <p className={cn("text-sm font-bold", displayProfit >= 0 ? "text-blue-700 dark:text-blue-400" : "text-rose-600")}>R$ {displayProfit.toFixed(0)}</p>
-                          </div>
-                        </div>
-                        {(feriasCount > 0 || folgaCount > 0) && (
-                          <div className="flex gap-2 mt-2">
-                            {feriasCount > 0 && <span className="text-xs font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded">{feriasCount}d férias</span>}
-                            {folgaCount > 0 && <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded">{folgaCount}d folga</span>}
-                          </div>
-                        )}
-                      </>) : (<p className="text-xs text-slate-400 mt-1">Não planejado</p>)}
+                        <button onClick={() => { setEditPlan({ ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] }); setExpandedState('edit'); }} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Pencil size={14} /> Editar</button>
+                      </>
+                    )}
+                    <button onClick={collapseMonth} className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><X size={16} /></button>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {copyFeedback && copiedMonthPlan && (
+                    <motion.div className="flex flex-wrap items-center gap-2 px-3 py-2 mb-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-lg border border-emerald-100 dark:border-emerald-900/30" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }}>
+                      <span className="flex items-center gap-1.5"><ClipboardCheck size={14} /> Plano de {copyFeedback} copiado</span>
+                      <button onClick={handleApplyToAllFuture} className="px-2 py-1 min-h-[32px] bg-emerald-600 text-white text-xs font-bold rounded hover:bg-emerald-700 transition-colors">Aplicar a todos os meses futuros sem plano</button>
+                      <button onClick={() => setCopyFeedback(null)} className="p-1 text-emerald-400 hover:text-emerald-600"><X size={14} /></button>
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
+
+                {plan && expandedState === 'view' ? (
+                  <MemoizedPlanView plan={plan} monthKey={ym.key} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} fixedCostArgs={fixedCostArgs} />
+                ) : editPlan ? (
+                  <MemoizedEditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} copiedMonthPlan={copiedMonthPlan} fixedCostArgs={fixedCostArgs} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } collapseMonth(); }} onCancel={collapseMonth} />
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-slate-500 text-sm mb-4">Nenhum plano criado para {ym.label}.</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <button onClick={() => { const days = profile?.workSchedule ? applyDefaultHours(profile.workSchedule) : getDefaultSchedule(); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days, vacations: [] }); setExpandedState('edit'); }} className="px-4 py-2.5 min-h-[44px] bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-colors">Criar plano do Perfil</button>
+                      <button onClick={() => { setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: getEmptySchedule(), vacations: [] }); setExpandedState('edit'); }} className="px-4 py-2.5 min-h-[44px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">Começar do zero</button>
+                      {copiedMonthPlan && (
+                        <button onClick={() => handlePastePlan(ym.key, ym.label)} className="px-4 py-2.5 min-h-[44px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-sm font-bold rounded-xl hover:bg-emerald-100 transition-colors flex items-center gap-1.5"><ClipboardPaste size={16} /> Colar de {copiedMonthPlan.monthLabel}</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
             );
-          })}
-        </div>
+          })()}
+        </AnimatePresence>
 
         <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4">
@@ -819,6 +898,28 @@ const simulationStats = useMemo(() => {
 
           {yearEndProjection && (yearEndProjection.earnings > 0 || yearEndProjection.fuelCost > 0 || yearEndProjection.fixedCosts > 0 || plans.length > 0) && (
             <>
+              <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 size={16} className="text-brand-600" />
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Projeção Acumulada</span>
+                </div>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={accumulatedChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                      <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} />
+                      <RechartsTooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                        formatter={(value: number, name: string) => [`R$ ${value.toLocaleString('pt-BR')}`, name === 'earnings' ? 'Ganhos' : name === 'expenses' ? 'Gastos' : 'Lucro']}
+                      />
+                      <Area type="monotone" dataKey="earnings" stroke="#22c55e" fill="#22c55e" fillOpacity={0.1} strokeWidth={2} name="earnings" />
+                      <Area type="monotone" dataKey="expenses" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.1} strokeWidth={2} name="expenses" />
+                      <Area type="monotone" dataKey="profit" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} strokeWidth={2} name="profit" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
               {renderProjectionCards(yearEndProjection, profile)}
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
                 <span>{yearEndProjection.totalWorkDays} dias trabalhados</span>
