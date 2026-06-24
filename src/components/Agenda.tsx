@@ -152,6 +152,8 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [planFilter, setPlanFilter] = useState<'all' | 'q1' | 'q2' | 'q3' | 'q4'>('all');
   const [showMedias, setShowMedias] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
+  const [simulationOpen, setSimulationOpen] = useState(true);
+  const [planejamentoOpen, setPlanejamentoOpen] = useState(true);
   const dragSourceRef = React.useRef<{ key: string; label: string } | null>(null);
   const [tooltipMonth, setTooltipMonth] = React.useState<string | null>(null);
 
@@ -609,14 +611,20 @@ const simulationStats = useMemo(() => {
       </div>
 
       <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setSimulationOpen(!simulationOpen)} className="w-full flex items-center justify-between mb-4">
           <h3 className="text-base font-bold dark:text-white flex items-center gap-2">
             <Calculator size={18} className="text-brand-600" /> Simulador de Ganhos e Gastos
           </h3>
-          <button onClick={() => setShowMedias(!showMedias)} className="text-xs font-bold text-brand-600 bg-brand-50 dark:bg-brand-950/30 px-2 py-1.5 rounded-lg hover:bg-brand-100 transition-colors flex items-center gap-1 min-h-[36px]">
-            {showMedias ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Médias Reais
-          </button>
-        </div>
+          <div className="flex items-center gap-2">
+            <button onClick={(e) => { e.stopPropagation(); setShowMedias(!showMedias); }} className="text-xs font-bold text-brand-600 bg-brand-50 dark:bg-brand-950/30 px-2 py-1.5 rounded-lg hover:bg-brand-100 transition-colors flex items-center gap-1 min-h-[36px]">
+              {showMedias ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Médias Reais
+            </button>
+            {simulationOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+          </div>
+        </button>
+        <AnimatePresence>
+          {simulationOpen && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
 
         <AnimatePresence>
           {showMedias && (
@@ -712,19 +720,55 @@ const simulationStats = useMemo(() => {
             })}
           </div>
         </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <button onClick={() => setGoalsOpen(!goalsOpen)} className="w-full flex items-center justify-between">
+          <h3 className="text-base font-bold dark:text-white flex items-center gap-2"><Target size={18} className="text-brand-600" /> Metas e Objetivos</h3>
+          {goalsOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+        </button>
+        <AnimatePresence>
+          {goalsOpen && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+              <div className="pt-4">
+                <Goals
+                  goals={goals || []}
+                  rides={rides}
+                  expenses={expenses}
+                  profile={profile}
+                  onAddGoal={(goal) => onAddGoal?.(goal)}
+                  onDeleteGoal={(id) => onDeleteGoal?.(id)}
+                  onUpdateGoal={(goal) => onUpdateGoal?.(goal)}
+                  manualCompensations={manualCompensations}
+                  onAddManualCompensation={(comp) => onAddManualCompensation?.(comp)}
+                  onRemoveManualCompensation={(id) => onRemoveManualCompensation?.(id)}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div><h3 className="text-lg font-bold dark:text-white">Planejamento Anual</h3><p className="text-xs text-slate-400">Planeje seus meses, férias e projete seus resultados</p></div>
-          <div className="flex gap-1.5">
-            {(['all', 'q1', 'q2', 'q3', 'q4'] as const).map(f => (
-              <button key={f} onClick={() => setPlanFilter(f)} className={cn("px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-bold transition-colors", planFilter === f ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200")}>
-                {f === 'all' ? 'Ano' : f === 'q1' ? '1º Tri' : f === 'q2' ? '2º Tri' : f === 'q3' ? '3º Tri' : '4º Tri'}
-              </button>
-            ))}
+        <button onClick={() => setPlanejamentoOpen(!planejamentoOpen)} className="w-full flex items-center justify-between mb-6">
+          <div className="text-left"><h3 className="text-lg font-bold dark:text-white">Planejamento Anual</h3><p className="text-xs text-slate-400">Planeje seus meses, férias e projete seus resultados</p></div>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+              {(['all', 'q1', 'q2', 'q3', 'q4'] as const).map(f => (
+                <button key={f} onClick={() => setPlanFilter(f)} className={cn("px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-bold transition-colors", planFilter === f ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200")}>
+                  {f === 'all' ? 'Ano' : f === 'q1' ? '1º Tri' : f === 'q2' ? '2º Tri' : f === 'q3' ? '3º Tri' : '4º Tri'}
+                </button>
+              ))}
+            </div>
+            {planejamentoOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
           </div>
-        </div>
+        </button>
+        <AnimatePresence>
+          {planejamentoOpen && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
 
         {/* Timeline horizontal */}
         <div className="overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
@@ -1012,34 +1056,11 @@ const simulationStats = useMemo(() => {
             </>
           )}
         </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <button onClick={() => setGoalsOpen(!goalsOpen)} className="w-full flex items-center justify-between">
-          <h3 className="text-base font-bold dark:text-white flex items-center gap-2"><Target size={18} className="text-brand-600" /> Metas e Objetivos</h3>
-          {goalsOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
-        </button>
-        <AnimatePresence>
-          {goalsOpen && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-              <div className="pt-4">
-                <Goals
-                  goals={goals || []}
-                  rides={rides}
-                  expenses={expenses}
-                  profile={profile}
-                  onAddGoal={(goal) => onAddGoal?.(goal)}
-                  onDeleteGoal={(id) => onDeleteGoal?.(id)}
-                  onUpdateGoal={(goal) => onUpdateGoal?.(goal)}
-                  manualCompensations={manualCompensations}
-                  onAddManualCompensation={(comp) => onAddManualCompensation?.(comp)}
-                  onRemoveManualCompensation={(id) => onRemoveManualCompensation?.(id)}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
     </div>
   );
 }
@@ -1276,7 +1297,7 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
             <p className={cn("text-sm font-bold", monthProjection.netProfit >= 0 ? "text-blue-700 dark:text-blue-400" : "text-rose-700 dark:text-rose-400")}>R$ {monthProjection.netProfit.toFixed(0)}</p>
           </div>
         </div>
-        </div>
+      </div>
 
         {monthProjection.fuelCost > 0 || monthProjection.maintCost > 0 || monthProjection.fixedCosts > 0 ? (
           <div className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
