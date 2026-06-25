@@ -1113,7 +1113,7 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
             }, 0) : 0;
             return (
               <div key={day.day} className="space-y-0.5">
-                <div className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border text-center", day.active ? "bg-brand-50 dark:bg-brand-950/30 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" : "bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</div>
+                <div className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border text-center", day.active ? "bg-brand-50 dark:bg-brand-950/30 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/30" : "bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700")}>{day.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</div>
                 {day.active && (day.periods || []).some(p => p.start !== '00:00' || p.end !== '00:00') && (
                   <div className="space-y-0">
                     {(day.periods || []).map((period, pIdx) => (
@@ -1147,7 +1147,7 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
             <div className="flex-1 min-w-0">
               <div className="grid grid-cols-7 gap-1">
                 {WEEKDAY_NAMES.map((dn, i) => (
-                  <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
+                  <div key={i} className="text-center text-xs font-bold text-slate-500 py-2">{dn}</div>
                 ))}
                 {calendarDays.map((day, i) => {
                   if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
@@ -1168,11 +1168,11 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
                   }, 0) : 0;
                   const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
                   return (
-                    <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors text-[11px]", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "border-emerald-200 dark:border-emerald-800" : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400")}
+                    <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors text-[11px]", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "border-emerald-200 dark:border-emerald-800" : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300")}
                       style={isWork ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
                     >
                       <span className="font-bold">{day}</span>
-                      {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
+                      {isWork && <span className="text-[9px] text-slate-500">{dayHours.toFixed(1)}h</span>}
                     </div>
                   );
                 })}
@@ -1181,16 +1181,16 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
             <div className="flex flex-col items-center gap-2 pt-8 w-10 shrink-0">
               <div className="text-center">
                 <div className="text-lg font-bold dark:text-white">{monthProjection.workDays}</div>
-                <div className="text-[9px] text-slate-400 font-medium leading-tight">dias</div>
-                <div className="text-[9px] text-slate-400 font-medium leading-tight">trab.</div>
+                <div className="text-[9px] text-slate-500 font-medium leading-tight">dias</div>
+                <div className="text-[9px] text-slate-500 font-medium leading-tight">trab.</div>
               </div>
               <div className="text-center">
                 <div className="text-lg font-bold text-amber-600">{monthProjection.folgaCount}</div>
-                <div className="text-[9px] text-slate-400 font-medium leading-tight">folgas</div>
+                <div className="text-[9px] text-slate-500 font-medium leading-tight">folgas</div>
               </div>
               <div className="text-center">
                 <div className="text-lg font-bold text-orange-600">{monthProjection.feriasCount}</div>
-                <div className="text-[9px] text-slate-400 font-medium leading-tight">férias</div>
+                <div className="text-[9px] text-slate-500 font-medium leading-tight">férias</div>
               </div>
             </div>
           </div>
@@ -1529,7 +1529,7 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                   }, 0) : 0;
                   return (
                     <div key={day.day} className="space-y-0.5">
-                      <button onClick={() => toggleDay(i)} className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border transition-colors min-h-[36px]", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700")}>{day.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</button>
+                      <button onClick={() => toggleDay(i)} className={cn("w-full py-1.5 px-0.5 rounded text-xs font-bold border transition-colors min-h-[36px]", day.active ? "bg-brand-600 text-white border-brand-700" : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700")}>{day.day}{dayHours > 0 ? ` ${dayHours.toFixed(1)}h` : ''}</button>
                       {day.active && (
                         <div className="space-y-0" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-center gap-1 mb-0.5">
@@ -1578,7 +1578,7 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                   <div className="flex-1 min-w-0">
                     <div className="grid grid-cols-7 gap-1 select-none touch-none">
                       {WEEKDAY_NAMES.map((dn, i) => (
-                        <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{dn}</div>
+                        <div key={i} className="text-center text-xs font-bold text-slate-500 py-2">{dn}</div>
                       ))}
                       {calendarDays.map((day, i) => {
                         if (day === null) return <div key={`empty-${i}`} className="aspect-square" />;
@@ -1609,12 +1609,12 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                               vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
                               vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
                               isWork ? "border-emerald-200 dark:border-emerald-800" :
-                              "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                              "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300"
                             )}
                             style={isWork && !vType ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
                           >
                             <span className="text-xs font-bold">{day}</span>
-                            {isWork && <span className="text-[9px] opacity-70">{dayHours.toFixed(1)}h</span>}
+                            {isWork && <span className="text-[9px] text-slate-500">{dayHours.toFixed(1)}h</span>}
                           </button>
                         );
                       })}
@@ -1623,16 +1623,16 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                   <div className="flex flex-col items-center gap-2 pt-8 w-10 shrink-0">
                     <div className="text-center">
                       <div className="text-lg font-bold dark:text-white">{monthProjection.workDays}</div>
-                      <div className="text-[9px] text-slate-400 font-medium leading-tight">dias</div>
-                      <div className="text-[9px] text-slate-400 font-medium leading-tight">trab.</div>
+                      <div className="text-[9px] text-slate-500 font-medium leading-tight">dias</div>
+                      <div className="text-[9px] text-slate-500 font-medium leading-tight">trab.</div>
                     </div>
                     <div className="text-center">
                       <div className="text-lg font-bold text-amber-600">{monthProjection.folgaCount}</div>
-                      <div className="text-[9px] text-slate-400 font-medium leading-tight">folgas</div>
+                <div className="text-[9px] text-slate-500 font-medium leading-tight">folgas</div>
                     </div>
                     <div className="text-center">
                       <div className="text-lg font-bold text-orange-600">{monthProjection.feriasCount}</div>
-                      <div className="text-[9px] text-slate-400 font-medium leading-tight">férias</div>
+                      <div className="text-[9px] text-slate-500 font-medium leading-tight">férias</div>
                     </div>
                   </div>
                 </div>
