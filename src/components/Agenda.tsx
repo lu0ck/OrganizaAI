@@ -1168,7 +1168,7 @@ const PlanView = React.memo(function PlanView({ plan, monthKey, profile, userAve
                   }, 0) : 0;
                   const intensity = isWork ? Math.min(1, dayHours / 12) : 0;
                   return (
-                    <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors text-[11px]", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "border-emerald-200 dark:border-emerald-800" : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300")}
+                    <div key={day} className={cn("aspect-square rounded-xl flex flex-col items-center justify-center border transition-colors text-[11px]", vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" : vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" : isWork ? "border-emerald-200 dark:border-emerald-800" : "border-slate-100 dark:border-slate-800")}
                       style={isWork ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
                     >
                       <span className="font-bold">{day}</span>
@@ -1609,7 +1609,7 @@ const EditPlanForm = React.memo(function EditPlanForm({ plan, monthKey, monthLab
                               vType === 'ferias' ? "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800" :
                               vType === 'folga' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" :
                               isWork ? "border-emerald-200 dark:border-emerald-800" :
-                              "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300"
+                              "border-slate-100 dark:border-slate-800"
                             )}
                             style={isWork && !vType ? { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.35})`, color: intensity > 0.5 ? '#065f46' : undefined } : {}}
                           >
