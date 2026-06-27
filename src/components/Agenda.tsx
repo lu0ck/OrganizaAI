@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3, Target } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3, Target, Search, AlertTriangle, Forward } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, getDay, startOfWeek } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry, Goal, ManualCompensation } from '../types';
@@ -156,6 +156,12 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [planejamentoOpen, setPlanejamentoOpen] = useState(true);
   const dragSourceRef = React.useRef<{ key: string; label: string } | null>(null);
   const [tooltipMonth, setTooltipMonth] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+
+  const requestConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
+    setConfirmState({ title, message, onConfirm });
+  }, []);
 
   React.useEffect(() => {
     if (profile?.workSchedule) {
@@ -374,6 +380,16 @@ const simulationStats = useMemo(() => {
     if (planFilter === 'q3') return yearMonths.slice(6, 9);
     return yearMonths.slice(9, 12);
   }, [planFilter, yearMonths]);
+
+  const displayedMonths = useMemo(() => {
+    if (!searchQuery.trim()) return filteredMonths;
+    const q = searchQuery.toLowerCase().trim();
+    return filteredMonths.filter(m =>
+      m.label.toLowerCase().includes(q) ||
+      m.fullLabel.toLowerCase().includes(q) ||
+      String(m.year).includes(q)
+    );
+  }, [filteredMonths, searchQuery]);
 
   const fixedCostArgs = useMemo(() => ({
     ipvaValue: profile?.ipvaValue || 0,
@@ -770,10 +786,27 @@ const simulationStats = useMemo(() => {
           {planejamentoOpen && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
 
+        {/* Busca global */}
+        <div className="relative mb-3">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Buscar mês..."
+            className="w-full pl-9 pr-8 py-2 min-h-[36px] text-sm bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:ring-1 focus:ring-brand-500 dark:text-white placeholder:text-slate-400"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         {/* Timeline horizontal */}
         <div className="overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
           <div className="flex gap-2 min-w-max">
-            {filteredMonths.map(ym => {
+            {displayedMonths.map(ym => {
               const plan = plans.find(p => p.month === ym.key);
               const stats = monthStatsMap.get(ym.key);
               const realData = realDataMap.get(ym.key) || null;
@@ -786,7 +819,7 @@ const simulationStats = useMemo(() => {
               const isExpanded = expandedMonth === ym.key;
               const hasPlan = !!plan;
               const hasRealData = realData?.hasData ?? false;
-              const maxEarnings = Math.max(...filteredMonths.map(m => {
+              const maxEarnings = Math.max(...displayedMonths.map(m => {
                 const mp = plans.find(p => p.month === m.key);
                 const mr = realDataMap.get(m.key);
                 return mr?.hasData ? mr.earnings : (mp?.actualEarnings ?? monthStatsMap.get(m.key)?.earnings ?? 0);
@@ -846,10 +879,11 @@ const simulationStats = useMemo(() => {
                     {hasRealData && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Dados reais" />}
                     {hasPlan && <span className="w-1.5 h-1.5 rounded-full bg-brand-500" title="Plano criado" />}
                     {ym.isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Mês atual" />}
-                    {!hasPlan && !hasRealData && !ym.isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />}
+                    {ym.isPast && !hasRealData && <span className="w-1.5 h-1.5 rounded-full bg-orange-400" title="Dados reais pendentes" />}
+                    {!hasPlan && !hasRealData && !ym.isCurrent && !ym.isPast && <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />}
                   </div>
                   <div className="w-full mt-1.5 flex items-end justify-center gap-[2px]" style={{ height: 24 }}>
-                    {filteredMonths.map((m) => {
+                    {displayedMonths.map((m) => {
                       const isCurrent = m.key === ym.key;
                       return (
                         <div
@@ -970,10 +1004,35 @@ const simulationStats = useMemo(() => {
                     {plan && expandedState === 'view' && (
                       <>
                         <button onClick={() => handleCopyPlan(ym, plan)} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Copy size={14} /> Copiar</button>
+                        <button onClick={() => {
+                          const nextMo = ym.month + 1;
+                          const nextYear = nextMo > 11 ? ym.year + 1 : ym.year;
+                          const nextMoIdx = nextMo % 12;
+                          const nextKey = `${nextYear}-${String(nextMoIdx + 1).padStart(2, '0')}`;
+                          const nextFullLabel = FULL_MONTH_LABELS[nextMoIdx];
+                          const existingPlan = plans.find(p => p.month === nextKey);
+                          const doDuplicate = () => {
+                            const mappedVacations = mapVacationsToMonth(ym.key, nextKey, plan.vacations || []);
+                            const newPlan: MonthlyPlan = {
+                              id: existingPlan?.id || crypto.randomUUID(),
+                              month: nextKey,
+                              days: plan.days.map(d => ({ ...d, periods: d.periods.map(p => ({ ...p })) })),
+                              vacations: mappedVacations,
+                              notes: plan.notes || '',
+                              customHourlyRate: plan.customHourlyRate,
+                              customFuelCost: plan.customFuelCost,
+                              customMaintCost: plan.customMaintCost,
+                              customKmPerLiter: plan.customKmPerLiter,
+                            };
+                            if (existingPlan) { onUpdatePlan?.(newPlan); } else { onAddPlan?.(newPlan); }
+                          };
+                          if (existingPlan) { requestConfirm('Substituir plano', `${nextFullLabel} já tem um plano. Deseja substituir pelos dados de ${ym.fullLabel}?`, doDuplicate); } else { doDuplicate(); }
+                        }} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Forward size={14} /> Duplicar p/ {FULL_MONTH_LABELS[(ym.month + 1) % 12]}</button>
                         {copiedMonthPlan && copiedMonthPlan.month !== ym.key && (
                           <button onClick={() => handlePastePlan(ym.key, ym.label, plan.id)} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"><ClipboardPaste size={14} /> Colar de {copiedMonthPlan.monthLabel}</button>
                         )}
                         <button onClick={() => { setEditPlan({ ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] }); setExpandedState('edit'); }} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Pencil size={14} /> Editar</button>
+                        <button onClick={() => requestConfirm('Excluir plano', `Tem certeza que deseja excluir o plano de ${ym.fullLabel}?`, () => onDeletePlan?.(plan.id))} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"><Trash2 size={14} /> Excluir</button>
                       </>
                     )}
                     <button onClick={collapseMonth} className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><X size={16} /></button>
@@ -1018,8 +1077,8 @@ const simulationStats = useMemo(() => {
               <p className="text-xs text-slate-400">Dados reais + meses planejados — meses sem plano são R$ 0</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => { const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`; const ids = plans.filter(p => p.month > currentMonthKey).map(p => p.id); if (ids.length > 0) onBulkDeletePlans?.(ids); }} className="flex items-center gap-1 px-3 py-1.5 min-h-[36px] bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-xs font-bold rounded-lg hover:bg-orange-100 transition-colors"><Trash2 size={12} /> Resetar Futuros</button>
-              <button onClick={() => { if (confirm('Apagar TODOS os planejamentos?')) { const ids = plans.map(p => p.id); if (ids.length > 0) onBulkDeletePlans?.(ids); } }} className="flex items-center gap-1 px-3 py-1.5 min-h-[36px] bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-lg hover:bg-rose-100 transition-colors"><Trash2 size={12} /> Resetar Tudo</button>
+              <button onClick={() => { const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`; const ids = plans.filter(p => p.month > currentMonthKey).map(p => p.id); if (ids.length === 0) return; requestConfirm('Resetar futuros', `${ids.length} plano(s) futuro(s) serão apagados. Tem certeza?`, () => onBulkDeletePlans?.(ids)); }} className="flex items-center gap-1 px-3 py-1.5 min-h-[36px] bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-xs font-bold rounded-lg hover:bg-orange-100 transition-colors"><Trash2 size={12} /> Resetar Futuros</button>
+              <button onClick={() => { requestConfirm('Resetar tudo', 'Todos os planejamentos do ano serão apagados. Tem certeza?', () => { const ids = plans.map(p => p.id); if (ids.length > 0) onBulkDeletePlans?.(ids); }); }} className="flex items-center gap-1 px-3 py-1.5 min-h-[36px] bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-lg hover:bg-rose-100 transition-colors"><Trash2 size={12} /> Resetar Tudo</button>
             </div>
           </div>
 
@@ -1061,6 +1120,28 @@ const simulationStats = useMemo(() => {
     </AnimatePresence>
       </div>
 
+      {/* Modal de confirmacao destrutiva */}
+      {confirmState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setConfirmState(null)}>
+          <motion.div
+            initial={{ scale: 0.92, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className="bg-white dark:bg-slate-900 rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl border border-slate-200 dark:border-slate-700"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center"><AlertTriangle size={16} className="text-rose-600" /></div>
+              <h3 className="text-base font-bold dark:text-white">{confirmState.title}</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{confirmState.message}</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmState(null)} className="px-4 py-2 min-h-[36px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }} className="px-4 py-2 min-h-[36px] bg-rose-600 text-white text-sm font-bold rounded-lg hover:bg-rose-700 transition-colors flex items-center gap-1"><Trash2 size={14} /> Apagar</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
