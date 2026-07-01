@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3, Target, Search, AlertTriangle, Forward } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3, Target, Search, AlertTriangle, Forward, Columns3 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, isWithinInterval, isBefore, getDay, startOfWeek } from 'date-fns';
 import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, VacationEntry, Goal, ManualCompensation } from '../types';
@@ -158,10 +158,24 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [tooltipMonth, setTooltipMonth] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; monthKey: string; monthLabel: string; fullLabel: string; year: number; month: number; hasPlan: boolean; plan: MonthlyPlan | null } | null>(null);
+  const [compareMonth, setCompareMonth] = useState<string | null>(null);
+  const [showComparePicker, setShowComparePicker] = useState(false);
 
   const requestConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
     setConfirmState({ title, message, onConfirm });
   }, []);
+
+  React.useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [contextMenu]);
 
   React.useEffect(() => {
     if (profile?.workSchedule) {
@@ -607,6 +621,8 @@ const simulationStats = useMemo(() => {
     setExpandedMonth(null);
     setEditPlan(null);
     setExpandedState('collapsed');
+    setCompareMonth(null);
+    setShowComparePicker(false);
   }, []);
 
   return (
@@ -855,6 +871,10 @@ const simulationStats = useMemo(() => {
                   }}
                   onMouseEnter={() => setTooltipMonth(ym.key)}
                   onMouseLeave={() => setTooltipMonth(null)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({ x: e.clientX, y: e.clientY, monthKey: ym.key, monthLabel: ym.label, fullLabel: ym.fullLabel, year: ym.year, month: ym.month, hasPlan, plan: plan || null });
+                  }}
                   onClick={() => {
                     if (isExpanded) { collapseMonth(); }
                     else { setExpandedMonth(ym.key); if (plan) { setExpandedState('view'); setEditPlan(null); } else { setExpandedState('create'); setEditPlan(null); } }
@@ -1032,6 +1052,7 @@ const simulationStats = useMemo(() => {
                           <button onClick={() => handlePastePlan(ym.key, ym.label, plan.id)} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"><ClipboardPaste size={14} /> Colar de {copiedMonthPlan.monthLabel}</button>
                         )}
                         <button onClick={() => { setEditPlan({ ...plan, days: (plan.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(plan.vacations || [])] }); setExpandedState('edit'); }} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-slate-500 dark:text-slate-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600 transition-colors"><Pencil size={14} /> Editar</button>
+                        <button onClick={() => setShowComparePicker(!showComparePicker)} className={cn("flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold rounded-lg transition-colors", compareMonth ? "bg-brand-100 dark:bg-brand-900/30 text-brand-600" : "text-slate-500 dark:text-slate-400 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-600")}><Columns3 size={14} /> {compareMonth ? 'Comparando' : 'Comparar'}</button>
                         <button onClick={() => requestConfirm('Excluir plano', `Tem certeza que deseja excluir o plano de ${ym.fullLabel}?`, () => onDeletePlan?.(plan.id))} className="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] text-xs font-bold text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"><Trash2 size={14} /> Excluir</button>
                       </>
                     )}
@@ -1050,7 +1071,37 @@ const simulationStats = useMemo(() => {
                 </AnimatePresence>
 
                 {plan && expandedState === 'view' ? (
-                  <MemoizedPlanView plan={plan} monthKey={ym.key} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} fixedCostArgs={fixedCostArgs} />
+                  <div className={cn(compareMonth ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "")}>
+                    <div>
+                      {showComparePicker && (
+                        <div className="mb-3 flex flex-wrap gap-1.5">
+                          {plans.filter(p => p.month !== ym.key).map(p => {
+                            const cmpYm = yearMonths.find(m => m.key === p.month);
+                            if (!cmpYm) return null;
+                            return (
+                              <button key={p.month} onClick={() => { setCompareMonth(p.month); setShowComparePicker(false); }} className={cn("px-2.5 py-1.5 min-h-[32px] text-xs font-bold rounded-lg transition-colors", compareMonth === p.month ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700")}>{cmpYm.label}</button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <MemoizedPlanView plan={plan} monthKey={ym.key} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} fixedCostArgs={fixedCostArgs} />
+                    </div>
+                    {compareMonth && (() => {
+                      const cmpPlan = plans.find(p => p.month === compareMonth);
+                      const cmpYm = yearMonths.find(m => m.key === compareMonth);
+                      if (!cmpPlan || !cmpYm) return <div className="text-sm text-slate-400 p-4">Plano não encontrado.</div>;
+                      const cmpRealData = realDataMap.get(compareMonth) || null;
+                      return (
+                        <div className="relative">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-bold dark:text-white">{cmpYm.fullLabel} {cmpYm.year}</h4>
+                            <button onClick={() => { setCompareMonth(null); setShowComparePicker(false); }} className="p-1.5 min-h-[32px] min-w-[32px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><X size={14} /></button>
+                          </div>
+                          <MemoizedPlanView plan={cmpPlan} monthKey={compareMonth} profile={profile} userAverages={userAverages} averages={averages} isPast={cmpYm.isPast} realData={cmpRealData} expenses={expenses} fixedCostArgs={fixedCostArgs} />
+                        </div>
+                      );
+                    })()}
+                  </div>
                 ) : editPlan ? (
                   <MemoizedEditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} copiedMonthPlan={copiedMonthPlan} fixedCostArgs={fixedCostArgs} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } collapseMonth(); }} onCancel={collapseMonth} />
                 ) : (
@@ -1119,6 +1170,37 @@ const simulationStats = useMemo(() => {
       )}
     </AnimatePresence>
       </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <div
+          className="fixed inset-0 z-50"
+          onContextMenu={e => { e.preventDefault(); setContextMenu(null); }}
+        >
+          <div
+            className="absolute bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[180px] overflow-hidden"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            {contextMenu.hasPlan ? (
+              <>
+                <button onClick={() => { handleCopyPlan({ key: contextMenu.monthKey, label: contextMenu.monthLabel, fullLabel: contextMenu.fullLabel }, contextMenu.plan); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 min-h-[36px] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"><Copy size={14} /> Copiar</button>
+                <button onClick={() => { setExpandedMonth(contextMenu.monthKey); setExpandedState('view'); setEditPlan(null); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 min-h-[36px] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"><Eye size={14} /> Visualizar</button>
+                <button onClick={() => { setExpandedMonth(contextMenu.monthKey); setEditPlan({ ...contextMenu.plan!, days: (contextMenu.plan!.days || []).map(d => ({ ...d, periods: (d.periods || []).map(p => ({ ...p })) })), vacations: [...(contextMenu.plan!.vacations || [])] }); setExpandedState('edit'); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 min-h-[36px] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"><Pencil size={14} /> Editar</button>
+                <button onClick={() => { setExpandedMonth(contextMenu.monthKey); setExpandedState('view'); setEditPlan(null); setShowComparePicker(true); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 min-h-[36px] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"><Columns3 size={14} /> Comparar</button>
+                <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                <button onClick={() => { requestConfirm('Excluir plano', `Tem certeza que deseja excluir o plano de ${contextMenu.fullLabel}?`, () => onDeletePlan?.(contextMenu.plan!.id)); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 min-h-[36px] text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors text-left"><Trash2 size={14} /> Excluir</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => { setExpandedMonth(contextMenu.monthKey); setExpandedState('create'); setEditPlan(null); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 min-h-[36px] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"><Plus size={14} /> Criar plano</button>
+                {copiedMonthPlan && (
+                  <button onClick={() => { handlePastePlan(contextMenu.monthKey, contextMenu.monthLabel, undefined); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 min-h-[36px] text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors text-left"><ClipboardPaste size={14} /> Colar de {copiedMonthPlan.monthLabel}</button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmacao destrutiva */}
       {confirmState && (
