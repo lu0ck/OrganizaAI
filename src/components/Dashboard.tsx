@@ -637,107 +637,196 @@ estimatedBalance,
       </label>
     )}
 
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-700">
-            <th className="text-left py-2 px-2 text-slate-500 font-bold uppercase sticky left-0 bg-white dark:bg-slate-900 z-10">Métrica</th>
-            <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-xs font-bold">A</span></th>
-            <th className="text-right py-2 px-2"><span className="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-xs font-bold">B</span></th>
-            <th className="text-right py-2 px-2 text-slate-500 font-bold uppercase">Vencedor</th>
-          </tr>
-        </thead>
-        <tbody>
-        {[
-          { label: 'Ganhos', key: 'earnings' as const, isCurrency: true, lowerIsBetter: false },
-          { label: 'Despesas', key: 'expenses' as const, isCurrency: true, lowerIsBetter: true },
-          { label: 'Líquido', key: 'profit' as const, isCurrency: true, lowerIsBetter: false },
-          { label: 'KM Rodados', key: 'km' as const, isCurrency: false, lowerIsBetter: false },
-          { label: 'Dias Trabalhados', key: 'workedDays' as const, isCurrency: false, lowerIsBetter: false },
-          { label: 'Horas', key: 'hours' as const, isCurrency: false, lowerIsBetter: false },
-          { label: '/Hora', key: 'avgPerHour' as const, isCurrency: true, lowerIsBetter: false },
-          { label: '/KM', key: 'avgPerKm' as const, isCurrency: true, lowerIsBetter: false },
-          { label: 'Corridas', key: 'rides' as const, isCurrency: false, lowerIsBetter: false },
-          { label: 'Combustível', key: 'fuelExpenses' as const, isCurrency: true, lowerIsBetter: true },
-          { label: 'Alimentação', key: 'foodExpenses' as const, isCurrency: true, lowerIsBetter: true },
-          { label: 'Manutenção', key: 'maintenanceExpenses' as const, isCurrency: true, lowerIsBetter: true },
-          { label: 'Custos Fixos', key: 'fixedCosts' as const, isCurrency: true, lowerIsBetter: true },
-          { label: 'Custo/KM', key: 'costPerKm' as const, isCurrency: true, lowerIsBetter: true },
-        ].map(({ label, key, isCurrency, lowerIsBetter }) => {
-          const rawA = compStatsA[key] as number;
-          const rawB = compStatsB[key] as number;
-          const valA = compNormalize ? rawA / compDaysA : rawA;
-          const valB = compNormalize ? rawB / compDaysB : rawB;
-          const diff = valB - valA;
-          const pct = valA === 0 ? (valB > 0 ? 100 : null) : (diff / valA) * 100;
-          const aWins = lowerIsBetter ? valA <= valB : valA >= valB;
-          const winner = valA === valB ? null : aWins ? 'A' : 'B';
-          const fmt = (v: number) => isCurrency ? `R$ ${v.toFixed(2)}` : v.toLocaleString('pt-BR');
+    {(() => {
+      const val = (s: typeof compStatsA, k: keyof typeof compStatsA) => compNormalize ? (s[k] as number) / (k === 'workedDays' ? 1 : k === 'fixedCosts' || k === 'costPerKm' ? (compDaysA) : compDaysA) : s[k] as number;
+      const nA = (k: keyof typeof compStatsA) => val(compStatsA, k);
+      const nB = (k: keyof typeof compStatsA) => val(compStatsB, k);
+      const daysA = compDaysA;
+      const daysB = compDaysB;
+      const normalizeVal = (v: number, isPerDay: boolean) => isPerDay ? v : v;
+      return (<>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {([
+          { side: 'A', stats: compStatsA, period: compPeriodA, days: daysA, accent: 'blue', bg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/30', badge: 'bg-blue-600 text-white', textAccent: 'text-blue-700 dark:text-blue-300' },
+          { side: 'B', stats: compStatsB, period: compPeriodB, days: daysB, accent: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/30', badge: 'bg-emerald-600 text-white', textAccent: 'text-emerald-700 dark:text-emerald-300' },
+        ] as const).map(({ side, stats, period, days, bg, badge, textAccent }) => {
+          const sEarnings = nA('earnings');
+          const sExpenses = nA('expenses');
+          const sProfit = nA('profit');
+          const sKm = nA('km');
+          const sHours = nA('hours');
+          const sRides = nA('rides');
+          const sWorkedDays = stats.workedDays;
           return (
-            <tr key={key} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-              <td className="py-2 px-2 font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-900 z-10">{label}</td>
-              <td className={cn("py-2 px-2 text-right font-bold dark:text-white", winner === 'A' && "bg-blue-50/50 dark:bg-blue-950/20 rounded")}>
-                <div className="flex items-center justify-end gap-1">
-                  {winner === 'A' && <span className="text-[10px] px-1 py-0.5 bg-blue-600 text-white rounded font-bold">A</span>}
-                  {fmt(valA)}
+            <div key={side} className={cn("rounded-2xl border p-4", bg)}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className={cn("px-2 py-0.5 rounded-lg text-xs font-bold", badge)}>Período {side}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">{!isNaN(period.start.getTime()) && !isNaN(period.end.getTime()) ? `${format(period.start, 'dd/MM')} a ${format(period.end, 'dd/MM')}` : ''}</span>
                 </div>
-              </td>
-              <td className={cn("py-2 px-2 text-right font-bold dark:text-white", winner === 'B' && "bg-emerald-50/50 dark:bg-emerald-950/20 rounded")}>
-                <div className="flex items-center justify-end gap-1">
-                  {winner === 'B' && <span className="text-[10px] px-1 py-0.5 bg-emerald-600 text-white rounded font-bold">B</span>}
-                  {fmt(valB)}
-                </div>
-              </td>
-              <td className={cn("py-2 px-2 text-right font-bold", diff === 0 ? "text-slate-400" : winner === 'A' || winner === 'B' ? (winner === 'A' ? "text-blue-600" : "text-emerald-600") : "text-slate-400")}>
-                {diff !== 0 && <span className="text-[10px]">{diff > 0 ? '↑' : '↓'}</span>} {isCurrency ? `R$ ${Math.abs(diff).toFixed(2)}` : Math.abs(diff).toLocaleString('pt-BR')}
-                {pct !== null && <span className="text-[10px] ml-1">({pct >= 0 ? '+' : ''}{pct.toFixed(0)}%)</span>}
-              </td>
-            </tr>
+                <span className="text-[10px] text-slate-400">{days}d</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                <div><p className="text-[9px] text-slate-500 uppercase font-bold">Ganhos</p><p className={cn("text-sm font-bold", textAccent)}>R$ {sEarnings.toFixed(0)}</p></div>
+                <div><p className="text-[9px] text-slate-500 uppercase font-bold">Despesas</p><p className="text-sm font-bold text-rose-600">R$ {sExpenses.toFixed(0)}</p></div>
+                <div><p className="text-[9px] text-slate-500 uppercase font-bold">Líquido</p><p className={cn("text-sm font-bold", sProfit >= 0 ? "text-emerald-600" : "text-rose-600")}>R$ {sProfit.toFixed(0)}</p></div>
+              </div>
+              <div className="flex gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+                <span className="text-[10px] text-slate-500">{sKm.toFixed(0)} km</span>
+                <span className="text-[10px] text-slate-500">{sHours.toFixed(0)}h</span>
+                <span className="text-[10px] text-slate-500">{sRides.toFixed(0)} corridas</span>
+                <span className="text-[10px] text-slate-500">{sWorkedDays}d trab</span>
+              </div>
+            </div>
           );
         })}
-        </tbody>
-      </table>
-    </div>
+      </div>
 
-    {(() => {
-      const metrics = [
-        { key: 'earnings' as const, lowerIsBetter: false },
-        { key: 'expenses' as const, lowerIsBetter: true },
-        { key: 'profit' as const, lowerIsBetter: false },
-        { key: 'km' as const, lowerIsBetter: false },
-        { key: 'workedDays' as const, lowerIsBetter: false },
-        { key: 'hours' as const, lowerIsBetter: false },
-        { key: 'avgPerHour' as const, lowerIsBetter: false },
-        { key: 'avgPerKm' as const, lowerIsBetter: false },
-        { key: 'rides' as const, lowerIsBetter: false },
-        { key: 'fuelExpenses' as const, lowerIsBetter: true },
-        { key: 'foodExpenses' as const, lowerIsBetter: true },
-        { key: 'maintenanceExpenses' as const, lowerIsBetter: true },
-        { key: 'fixedCosts' as const, lowerIsBetter: true },
-        { key: 'costPerKm' as const, lowerIsBetter: true },
-      ];
-      let aWins = 0, bWins = 0;
-      metrics.forEach(({ key, lowerIsBetter }) => {
-        const vA = compNormalize ? (compStatsA[key] as number) / compDaysA : compStatsA[key] as number;
-        const vB = compNormalize ? (compStatsB[key] as number) / compDaysB : compStatsB[key] as number;
-        if (vA === vB) return;
-        const aWin = lowerIsBetter ? vA < vB : vA > vB;
-        if (aWin) aWins++; else bWins++;
-      });
-      return (
-        <div className="flex items-center justify-center gap-4 pt-2 border-t border-slate-200 dark:border-slate-700">
-          <span className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-3 py-1.5 rounded-lg">A venceu {aWins} métricas</span>
-          <span className="text-xs text-slate-400">vs</span>
-          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-lg">B venceu {bWins} métricas</span>
-        </div>
-      );
+      {/* Financeiro Chart */}
+      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Financeiro</p>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={[
+            { name: 'Ganhos', A: nA('earnings'), B: nB('earnings') },
+            { name: 'Despesas', A: nA('expenses'), B: nB('expenses') },
+            { name: 'Líquido', A: nA('profit'), B: nB('profit') },
+          ]}>
+            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: chartTickFill }} />
+            <YAxis tick={{ fontSize: 11, fill: chartTickFill }} tickFormatter={(v: number) => `R$${(v/1000).toFixed(0)}k`} />
+            <RechartsTooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px', backgroundColor: chartTooltipBg }} formatter={(value: number) => [`R$ ${value.toFixed(2)}`, '']} />
+            <Legend wrapperStyle={{ fontSize: '11px' }} />
+            <Bar dataKey="A" fill="#2563eb" radius={[4, 4, 0, 0]} maxBarSize={36} />
+            <Bar dataKey="B" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={36} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Atividade Chart */}
+      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Atividade</p>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={[
+            { name: 'KM', A: nA('km'), B: nB('km') },
+            { name: 'Horas', A: nA('hours'), B: nB('hours') },
+            { name: 'Corridas', A: nA('rides'), B: nB('rides') },
+            { name: 'Dias Trab', A: compStatsA.workedDays, B: compStatsB.workedDays },
+          ]}>
+            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: chartTickFill }} />
+            <YAxis tick={{ fontSize: 11, fill: chartTickFill }} />
+            <RechartsTooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px', backgroundColor: chartTooltipBg }} />
+            <Legend wrapperStyle={{ fontSize: '11px' }} />
+            <Bar dataKey="A" fill="#2563eb" radius={[4, 4, 0, 0]} maxBarSize={36} />
+            <Bar dataKey="B" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={36} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Mini barras horizontais - Eficiência & Custos */}
+      {(() => {
+        const items = [
+          { label: '/Hora', key: 'avgPerHour', fmt: (v: number) => `R$ ${v.toFixed(2)}`, lowerBetter: false },
+          { label: '/KM', key: 'avgPerKm', fmt: (v: number) => `R$ ${v.toFixed(2)}`, lowerBetter: false },
+          { label: 'Combustível', key: 'fuelExpenses', fmt: (v: number) => `R$ ${v.toFixed(0)}`, lowerBetter: true },
+          { label: 'Alimentação', key: 'foodExpenses', fmt: (v: number) => `R$ ${v.toFixed(0)}`, lowerBetter: true },
+          { label: 'Manutenção', key: 'maintenanceExpenses', fmt: (v: number) => `R$ ${v.toFixed(0)}`, lowerBetter: true },
+          { label: 'Custos Fixos', key: 'fixedCosts', fmt: (v: number) => `R$ ${v.toFixed(0)}`, lowerBetter: true },
+          { label: 'Custo/KM', key: 'costPerKm', fmt: (v: number) => `R$ ${v.toFixed(2)}`, lowerBetter: true },
+        ];
+        const maxVal = Math.max(...items.map(i => Math.max(nA(i.key), nB(i.key))), 1);
+        return (
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Eficiência & Custos</p>
+            <div className="space-y-2">
+              {items.map(({ label, key, fmt, lowerBetter }) => {
+                const vA = nA(key);
+                const vB = nB(key);
+                const pctA = (vA / maxVal) * 100;
+                const pctB = (vB / maxVal) * 100;
+                const aWins = lowerBetter ? vA <= vB : vA >= vB;
+                return (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={cn("font-bold", aWins ? "text-blue-600" : "text-slate-500")}>{fmt(vA)}</span>
+                        <span className="text-slate-400">vs</span>
+                        <span className={cn("font-bold", !aWins && vA !== vB ? "text-emerald-600" : "text-slate-500")}>{fmt(vB)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-0.5 h-2">
+                      <div className="flex-1 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${Math.min(pctA, 100)}%` }} />
+                      </div>
+                      <div className="flex-1 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(pctB, 100)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Win Count */}
+      {(() => {
+        const metrics = [
+          { key: 'earnings' as const, lowerIsBetter: false },
+          { key: 'expenses' as const, lowerIsBetter: true },
+          { key: 'profit' as const, lowerIsBetter: false },
+          { key: 'km' as const, lowerIsBetter: false },
+          { key: 'workedDays' as const, lowerIsBetter: false },
+          { key: 'hours' as const, lowerIsBetter: false },
+          { key: 'avgPerHour' as const, lowerIsBetter: false },
+          { key: 'avgPerKm' as const, lowerIsBetter: false },
+          { key: 'rides' as const, lowerIsBetter: false },
+          { key: 'fuelExpenses' as const, lowerIsBetter: true },
+          { key: 'foodExpenses' as const, lowerIsBetter: true },
+          { key: 'maintenanceExpenses' as const, lowerIsBetter: true },
+          { key: 'fixedCosts' as const, lowerIsBetter: true },
+          { key: 'costPerKm' as const, lowerIsBetter: true },
+        ];
+        let aWins = 0, bWins = 0;
+        metrics.forEach(({ key, lowerIsBetter }) => {
+          const vA = compNormalize ? (compStatsA[key] as number) / compDaysA : compStatsA[key] as number;
+          const vB = compNormalize ? (compStatsB[key] as number) / compDaysB : compStatsB[key] as number;
+          if (vA === vB) return;
+          const aWin = lowerIsBetter ? vA < vB : vA > vB;
+          if (aWin) aWins++; else bWins++;
+        });
+        const total = aWins + bWins;
+        const aPct = total > 0 ? (aWins / total) * 100 : 50;
+        const bPct = total > 0 ? (bWins / total) * 100 : 50;
+        return (
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-blue-600">{aWins > bWins ? `${aWins} vitórias` : ''}</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Placar</span>
+              <span className="text-xs font-bold text-emerald-600">{bWins > aWins ? `${bWins} vitórias` : ''}</span>
+            </div>
+            <div className="flex h-3 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700">
+              <div className="h-full bg-blue-500 transition-all" style={{ width: `${aPct}%` }} />
+              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${bPct}%` }} />
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[10px] font-bold text-blue-600">A {aWins}</span>
+              <span className="text-[10px] text-slate-400">{total} métricas</span>
+              <span className="text-[10px] font-bold text-emerald-600">B {bWins}</span>
+            </div>
+          </div>
+        );
+      })()}
+
+      <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600"></span> A = Período A</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600"></span> B = Período B</span>
+      </div>
+    </>);
     })()}
-
-    <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400">
-      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600"></span> A = Período A</span>
-      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600"></span> B = Período B</span>
-      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span> Empate</span>
-    </div>
   </motion.div>
 )}
 
