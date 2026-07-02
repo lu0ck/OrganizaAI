@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle, TrendingUp, CreditCard, Info } from 'lucide-react';
-import { UserProfile, AppState } from '../types';
+import { User, Car, Bike, Save, DollarSign, Shield, FileText, CheckCircle2, Download, Upload, AlertTriangle, TrendingUp, CreditCard, Info, Sun, Moon, Palette } from 'lucide-react';
+import { UserProfile, AppState, ColorTheme } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -9,9 +9,13 @@ interface ProfileTabProps {
   onUpdate: (profile: UserProfile) => void;
   fullState: AppState;
   onImportState: (state: AppState) => void;
+  theme: 'light' | 'dark';
+  colorTheme: ColorTheme;
+  setColorTheme: (color: ColorTheme) => void;
+  onToggleTheme: () => void;
 }
 
-export default function ProfileTab({ profile, onUpdate, fullState, onImportState }: ProfileTabProps) {
+export default function ProfileTab({ profile, onUpdate, fullState, onImportState, theme, colorTheme, setColorTheme, onToggleTheme }: ProfileTabProps) {
   const [formData, setFormData] = useState({ ...profile });
   const [isSaved, setIsSaved] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -59,6 +63,16 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
     };
     reader.readAsText(file);
   };
+
+  const themes: { id: ColorTheme; color: string }[] = [
+    { id: 'red', color: 'bg-red-500' },
+    { id: 'yellow', color: 'bg-yellow-500' },
+    { id: 'orange', color: 'bg-orange-500' },
+    { id: 'green', color: 'bg-green-500' },
+    { id: 'blue', color: 'bg-blue-500' },
+    { id: 'purple', color: 'bg-purple-500' },
+    { id: 'black', color: 'bg-slate-900' },
+  ];
 
   return (
     <motion.div 
@@ -309,6 +323,52 @@ export default function ProfileTab({ profile, onUpdate, fullState, onImportState
           </motion.button>
         </div>
       </form>
+
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+        <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">
+          <Palette size={20} className="text-brand-600" /> Aparência
+        </h3>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Tema</p>
+            <p className="text-xs text-slate-400">Alternar entre claro e escuro</p>
+          </div>
+          <button
+            onClick={onToggleTheme}
+            className="relative w-14 h-7 rounded-full bg-slate-200 dark:bg-slate-700 transition-colors"
+          >
+            <motion.div
+              layout
+              className={cn(
+                "absolute top-0.5 w-6 h-6 rounded-full flex items-center justify-center transition-colors",
+                theme === 'dark' ? "bg-brand-600 right-0.5" : "bg-amber-500 left-0.5"
+              )}
+            >
+              {theme === 'dark' ? <Moon size={12} className="text-white" /> : <Sun size={12} className="text-white" />}
+            </motion.div>
+          </button>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Cor do tema</p>
+          <div className="flex flex-wrap gap-3">
+            {themes.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setColorTheme(t.id)}
+                className={cn(
+                  "w-9 h-9 rounded-full border-2 transition-all",
+                  t.color,
+                  colorTheme === t.id
+                    ? "border-slate-900 dark:border-white scale-110 ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-900/20 dark:ring-white/20"
+                    : "border-transparent hover:scale-105"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
         <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">

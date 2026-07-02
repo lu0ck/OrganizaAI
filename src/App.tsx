@@ -553,7 +553,11 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
           profile={safeState.profile}
           onUpdate={(profile) => setState(prev => ({ ...prev, profile }))}
           fullState={state}
-                  onImportState={(newState) => setState(prev => ({
+          theme={state.theme}
+          colorTheme={state.colorTheme}
+          setColorTheme={setColorTheme}
+          onToggleTheme={toggleTheme}
+          onImportState={(newState) => setState(prev => ({
           ...prev,
           profile: newState.profile && typeof newState.profile === 'object' ? newState.profile : prev.profile,
           rides: Array.isArray(newState.rides) ? newState.rides : prev.rides,
