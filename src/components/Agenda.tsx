@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Clock, TrendingUp, Calculator, Save, X, Plus, Info, MapPin, Sparkles, Trash2, DollarSign, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Sun, Palmtree, Eye, Pencil, ClipboardPaste, Wallet, BarChart3, Target, Search, AlertTriangle, Forward, Columns3 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -7,6 +7,7 @@ import { RideEntry, Expense, UserProfile, WorkDay, WorkPeriod, MonthlyPlan, Vaca
 import { cn } from '../lib/utils';
 import { calculateHistoricalAverage } from '../lib/fuelCalculation';
 import Goals from './Goals';
+import { BottomSheet } from './BottomSheet';
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'] as const;
 const FULL_MONTH_LABELS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'] as const;
@@ -155,6 +156,8 @@ export default function Agenda({ rides, expenses, profile, onUpdateProfile, side
   const [simulationOpen, setSimulationOpen] = useState(true);
   const [planejamentoOpen, setPlanejamentoOpen] = useState(true);
   const dragSourceRef = React.useRef<{ key: string; label: string } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const isLongPressRef = useRef(false);
   const [tooltipMonth, setTooltipMonth] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
@@ -873,9 +876,35 @@ const simulationStats = useMemo(() => {
                   onMouseLeave={() => setTooltipMonth(null)}
                   onContextMenu={(e) => {
                     e.preventDefault();
-                    setContextMenu({ x: e.clientX, y: e.clientY, monthKey: ym.key, monthLabel: ym.label, fullLabel: ym.fullLabel, year: ym.year, month: ym.month, hasPlan, plan: plan || null });
+                    const x = Math.min(e.clientX, window.innerWidth - 200);
+                    const y = Math.min(e.clientY, window.innerHeight - 300);
+                    setContextMenu({ x, y, monthKey: ym.key, monthLabel: ym.label, fullLabel: ym.fullLabel, year: ym.year, month: ym.month, hasPlan, plan: plan || null });
+                  }}
+                  onPointerDown={(e) => {
+                    clearTimeout(longPressTimerRef.current);
+                    isLongPressRef.current = false;
+                    longPressTimerRef.current = setTimeout(() => {
+                      isLongPressRef.current = true;
+                      const x = Math.min(e.clientX, window.innerWidth - 200);
+                      const y = Math.min(e.clientY, window.innerHeight - 300);
+                      setContextMenu({ x, y, monthKey: ym.key, monthLabel: ym.label, fullLabel: ym.fullLabel, year: ym.year, month: ym.month, hasPlan, plan: plan || null });
+                    }, 500);
+                  }}
+                  onPointerUp={() => {
+                    clearTimeout(longPressTimerRef.current);
+                  }}
+                  onPointerMove={() => {
+                    clearTimeout(longPressTimerRef.current);
+                  }}
+                  onPointerCancel={() => {
+                    clearTimeout(longPressTimerRef.current);
+                    isLongPressRef.current = false;
                   }}
                   onClick={() => {
+                    if (isLongPressRef.current) {
+                      isLongPressRef.current = false;
+                      return;
+                    }
                     if (isExpanded) { collapseMonth(); }
                     else { setExpandedMonth(ym.key); if (plan) { setExpandedState('view'); setEditPlan(null); } else { setExpandedState('create'); setEditPlan(null); } }
                   }}
@@ -988,6 +1017,7 @@ const simulationStats = useMemo(() => {
           })()}
         </AnimatePresence>
 
+        <div className="hidden md:block">
         {/* Expanded month view */}
         <AnimatePresence mode="wait">
           {expandedMonth && (() => {
@@ -1120,6 +1150,7 @@ const simulationStats = useMemo(() => {
             );
           })()}
         </AnimatePresence>
+        </div>
 
         <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4">
@@ -1169,6 +1200,61 @@ const simulationStats = useMemo(() => {
         </motion.div>
       )}
     </AnimatePresence>
+      </div>
+
+      {/* Bottom sheet mobile */}
+      <div className="md:hidden">
+        <BottomSheet open={!!expandedMonth} onClose={collapseMonth}>
+          {expandedMonth && (() => {
+            const ym = yearMonths.find(m => m.key === expandedMonth);
+            if (!ym) return null;
+            const plan = plans.find(p => p.month === ym.key);
+            const stats = monthStatsMap.get(ym.key);
+            const realData = realDataMap.get(ym.key) || null;
+            const feriasCount = plan?.vacations?.filter(v => v.type === 'ferias').length || 0;
+            const folgaCount = plan?.vacations?.filter(v => v.type === 'folga').length || 0;
+            const displayEarnings = realData?.hasData ? realData.earnings : (plan?.actualEarnings ?? stats?.earnings ?? 0);
+            const displayFuel = realData?.hasData ? realData.fuelCost : (plan?.actualFuelCost ?? stats?.fuelCost ?? 0);
+            const displayMaint = realData?.hasData ? realData.maintCost : (plan?.actualMaintCost ?? stats?.maintCost ?? 0);
+            const displayFixed = stats?.fixedCosts ?? 0;
+            const displayOther = realData?.hasData ? realData.otherCost : (plan?.actualOtherCost ?? 0);
+            const displayProfit = displayEarnings - displayFuel - displayMaint - displayFixed - displayOther;
+
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold dark:text-white">{ym.fullLabel} {ym.year}</h4>
+                    {feriasCount > 0 && <span className="text-xs font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded">{feriasCount}d férias</span>}
+                    {folgaCount > 0 && <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded">{folgaCount}d folga</span>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={collapseMonth} className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><X size={16} /></button>
+                  </div>
+                </div>
+
+                {plan && expandedState === 'view' ? (
+                  <div>
+                    <MemoizedPlanView plan={plan} monthKey={ym.key} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} fixedCostArgs={fixedCostArgs} />
+                  </div>
+                ) : editPlan ? (
+                  <MemoizedEditPlanForm plan={editPlan} monthKey={ym.key} monthLabel={ym.label} profile={profile} userAverages={userAverages} averages={averages} isPast={ym.isPast} realData={realData} expenses={expenses} copiedMonthPlan={copiedMonthPlan} fixedCostArgs={fixedCostArgs} onSave={(updated) => { try { if (plan) { onUpdatePlan?.(updated); } else { onAddPlan?.(updated); } } catch (err) { console.error('[Agenda] onSave plan error:', err); } collapseMonth(); }} onCancel={collapseMonth} />
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-slate-500 text-sm mb-4">Nenhum plano criado para {ym.label}.</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <button onClick={() => { const days = profile?.workSchedule ? applyDefaultHours(profile.workSchedule) : getDefaultSchedule(); setEditPlan({ id: crypto.randomUUID(), month: ym.key, days, vacations: [] }); setExpandedState('edit'); }} className="px-4 py-2.5 min-h-[44px] bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-colors">Criar plano do Perfil</button>
+                      <button onClick={() => { setEditPlan({ id: crypto.randomUUID(), month: ym.key, days: getEmptySchedule(), vacations: [] }); setExpandedState('edit'); }} className="px-4 py-2.5 min-h-[44px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">Começar do zero</button>
+                      {copiedMonthPlan && (
+                        <button onClick={() => handlePastePlan(ym.key, ym.label)} className="px-4 py-2.5 min-h-[44px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-sm font-bold rounded-xl hover:bg-emerald-100 transition-colors flex items-center gap-1.5"><ClipboardPaste size={16} /> Colar de {copiedMonthPlan.monthLabel}</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </BottomSheet>
       </div>
 
       {/* Context menu */}
