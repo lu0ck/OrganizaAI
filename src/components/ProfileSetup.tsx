@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { User, Car, Bike, ArrowRight } from 'lucide-react';
-import { UserProfile } from '../types';
+import { User, Car, Bike, ArrowRight, Sun, Moon, Palette } from 'lucide-react';
+import { UserProfile, ColorTheme } from '../types';
+import { cn } from '../lib/utils';
 
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProfileSetupProps {
   onComplete: (profile: UserProfile) => void;
+  theme: 'light' | 'dark';
+  colorTheme: ColorTheme;
+  setColorTheme: (color: ColorTheme) => void;
+  onToggleTheme: () => void;
 }
 
-export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
+export default function ProfileSetup({ onComplete, theme, colorTheme, setColorTheme, onToggleTheme }: ProfileSetupProps) {
   const [name, setName] = useState('');
   const [vehicleType, setVehicleType] = useState<'carro' | 'moto'>('carro');
   const [vehicleModel, setVehicleModel] = useState('');
@@ -47,6 +52,16 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
     }
   };
 
+  const themes: { id: ColorTheme; color: string }[] = [
+    { id: 'red', color: 'bg-red-500' },
+    { id: 'yellow', color: 'bg-yellow-500' },
+    { id: 'orange', color: 'bg-orange-500' },
+    { id: 'green', color: 'bg-green-500' },
+    { id: 'blue', color: 'bg-blue-500' },
+    { id: 'purple', color: 'bg-purple-500' },
+    { id: 'black', color: 'bg-slate-900' },
+  ];
+
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
@@ -56,6 +71,53 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Bem-vindo ao OrganizaAi</h2>
         <p className="text-slate-500 dark:text-slate-400">Vamos configurar seu perfil de motorista</p>
+      </div>
+
+      {/* Aparencia - mobile only */}
+      <div className="md:hidden mb-6 p-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-4">
+        <h3 className="text-sm font-bold dark:text-white flex items-center gap-2">
+          <Palette size={16} className="text-brand-600" /> Aparência
+        </h3>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Tema</p>
+            <p className="text-xs text-slate-400">Claro / Escuro</p>
+          </div>
+          <button
+            onClick={onToggleTheme}
+            className="relative w-14 h-7 rounded-full bg-slate-200 dark:bg-slate-700 transition-colors"
+          >
+            <motion.div
+              layout
+              className={cn(
+                "absolute top-0.5 w-6 h-6 rounded-full flex items-center justify-center transition-colors",
+                theme === 'dark' ? "bg-brand-600 right-0.5" : "bg-amber-500 left-0.5"
+              )}
+            >
+              {theme === 'dark' ? <Moon size={12} className="text-white" /> : <Sun size={12} className="text-white" />}
+            </motion.div>
+          </button>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Cor do tema</p>
+          <div className="flex flex-wrap gap-3">
+            {themes.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setColorTheme(t.id)}
+                className={cn(
+                  "w-9 h-9 rounded-full border-2 transition-all",
+                  t.color,
+                  colorTheme === t.id
+                    ? "border-slate-900 dark:border-white scale-110 ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-900/20 dark:ring-white/20"
+                    : "border-transparent hover:scale-105"
+                )}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

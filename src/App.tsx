@@ -405,7 +405,13 @@ const totalEarnings = safeState.rides.reduce((acc, r) => acc + r.totalValue, 0);
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-500/10 rounded-full blur-[120px] animate-pulse delay-700" />
         </div>
         <div className="relative z-10 w-full flex justify-center">
-          <ProfileSetup onComplete={(profile) => setState(prev => ({ ...prev, profile }))} />
+          <ProfileSetup
+            theme={state.theme}
+            colorTheme={state.colorTheme}
+            setColorTheme={setColorTheme}
+            onToggleTheme={toggleTheme}
+            onComplete={(profile) => setState(prev => ({ ...prev, profile }))}
+          />
         </div>
       </div>
       </ErrorBoundary>
